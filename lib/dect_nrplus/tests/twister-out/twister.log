@@ -1,0 +1,50 @@
+2026-01-28 14:13:24,337 - twister - INFO - Using Ninja..
+2026-01-28 14:13:24,481 - twister - INFO - Zephyr version: v4.0.99-ncs1-2
+2026-01-28 14:13:24,485 - twister - DEBUG - Running cmake script /home/bob/ncs/v3-zlink-U/zephyr/cmake/verify-toolchain.cmake
+2026-01-28 14:13:24,485 - twister - DEBUG - Calling cmake: /home/bob/ncs/toolchains/43683a87ea/usr/local/bin/cmake -DFORMAT=json -P /home/bob/ncs/v3-zlink-U/zephyr/cmake/verify-toolchain.cmake
+2026-01-28 14:13:25,285 - twister - DEBUG - Finished running /home/bob/ncs/v3-zlink-U/zephyr/cmake/verify-toolchain.cmake
+2026-01-28 14:13:25,285 - twister - INFO - Using 'zephyr' toolchain.
+2026-01-28 14:13:26,931 - twister - DEBUG - Reading testsuite configuration files under /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/mac_ft_beacon...
+2026-01-28 14:13:26,932 - twister - DEBUG - Found possible testsuite in /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/mac_ft_beacon
+2026-01-28 14:13:26,936 - twister - DEBUG - No duplicates found.
+2026-01-28 14:13:26,937 - twister - DEBUG - platform filter: ['native_sim/native/64']
+2026-01-28 14:13:26,937 - twister - DEBUG -   vendor filter: []
+2026-01-28 14:13:26,937 - twister - DEBUG -     arch_filter: None
+2026-01-28 14:13:26,937 - twister - DEBUG -      tag_filter: None
+2026-01-28 14:13:26,937 - twister - DEBUG -     exclude_tag: None
+2026-01-28 14:13:26,937 - twister - DEBUG - Checking platform filter: ['native_sim/native/64']
+2026-01-28 14:13:26,937 - twister - INFO - Building initial testsuite list...
+2026-01-28 14:13:26,939 - twister - INFO - Writing JSON report /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/twister-out/testplan.json
+2026-01-28 14:13:26,969 - twister - INFO - JOBS: 8
+2026-01-28 14:13:26,969 - twister - INFO - Adding tasks to the queue...
+2026-01-28 14:13:26,969 - twister - DEBUG - adding native_sim/native/64/host/mac_ft_beacon.basic
+2026-01-28 14:13:26,972 - twister - INFO - Added initial list of jobs to queue
+2026-01-28 14:13:26,990 - twister - DEBUG - Launched 8 jobs
+2026-01-28 14:13:26,992 - twister - DEBUG - Running cmake on /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/mac_ft_beacon for native_sim/native/64
+2026-01-28 14:13:26,993 - twister - DEBUG - Calling cmake: /home/bob/ncs/toolchains/43683a87ea/usr/local/bin/cmake -B/home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/twister-out/native_sim_native_64/host/mac_ft_beacon.basic -DTC_RUNID=c3a691fa99ff0ff50a902c8eaa9051d2 -DTC_NAME=mac_ft_beacon.basic -DCONFIG_COMPILER_WARNINGS_AS_ERRORS=y -DEXTRA_GEN_EDT_ARGS=--edtlib-Werror -GNinja -DPython3_EXECUTABLE=/home/bob/ncs/toolchains/43683a87ea/usr/local/bin/python3.12 -DZEPHYR_TOOLCHAIN_VARIANT=host -S/home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/mac_ft_beacon -DBOARD=native_sim/native/64
+2026-01-28 14:13:34,372 - twister - DEBUG - Finished running cmake /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/mac_ft_beacon for native_sim/native/64 in 7.38 seconds
+2026-01-28 14:13:34,375 - twister - DEBUG - build test: native_sim/native/64/host/mac_ft_beacon.basic
+2026-01-28 14:13:34,375 - twister - DEBUG - Building /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/mac_ft_beacon for native_sim/native/64
+2026-01-28 14:13:34,376 - twister - DEBUG - Running /home/bob/ncs/toolchains/43683a87ea/usr/local/bin/cmake --build /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/twister-out/native_sim_native_64/host/mac_ft_beacon.basic
+2026-01-28 14:13:37,226 - twister - ERROR - native_sim/native/64      mac_ft_beacon.basic                                [31mERROR[39m: Build failure
+2026-01-28 14:13:37,226 - twister - ERROR - see: [33m/home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/twister-out/native_sim_native_64/host/mac_ft_beacon.basic/build.log[39m
+2026-01-28 14:13:37,234 - twister - INFO - 1 test scenarios (1 configurations) selected, 0 configurations filtered (0 by static filter, 0 at runtime).
+2026-01-28 14:13:37,235 - twister - INFO - [32m0 of 1[39m executed test configurations passed (0.00%), 0 built (not run), 0 failed, [31m1[39m errored, with no warnings in 12.90 seconds.
+2026-01-28 14:13:37,235 - twister - INFO - 0 of 1 executed test cases passed (0.00%), 1 blocked on 1 out of total 929 platforms (0.11%).
+2026-01-28 14:13:37,235 - twister - INFO - [32m0[39m test configurations executed on platforms, [36m1[39m test configurations were only built.
+2026-01-28 14:13:37,235 - twister - INFO - Saving reports...
+2026-01-28 14:13:37,235 - twister - INFO - Writing JSON report /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/twister-out/twister.json
+2026-01-28 14:13:37,237 - twister - INFO - Writing xunit report /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/twister-out/twister.xml...
+2026-01-28 14:13:37,239 - twister - INFO - Writing xunit report /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/twister-out/twister_report.xml...
+2026-01-28 14:13:37,240 - twister - INFO - -+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+2026-01-28 14:13:37,240 - twister - INFO - The following issues were found (showing the top 10 items):
+2026-01-28 14:13:37,240 - twister - INFO - 1) mac_ft_beacon.basic on native_sim/native/64 error (Build failure)
+2026-01-28 14:13:37,240 - twister - INFO - 
+2026-01-28 14:13:37,241 - twister - INFO - To rerun the tests, call twister using the following commandline:
+2026-01-28 14:13:37,241 - twister - INFO - west twister -p <PLATFORM> -s <TEST ID>, for example:
+2026-01-28 14:13:37,241 - twister - INFO - 
+2026-01-28 14:13:37,241 - twister - INFO - west twister -p native_sim/native/64 -s mac_ft_beacon.basic
+2026-01-28 14:13:37,241 - twister - INFO - or with west:
+2026-01-28 14:13:37,241 - twister - INFO - west build -p -b native_sim/native/64 mac_ft_beacon -T mac_ft_beacon.basic
+2026-01-28 14:13:37,241 - twister - INFO - -+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+2026-01-28 14:13:37,241 - twister - INFO - Run completed

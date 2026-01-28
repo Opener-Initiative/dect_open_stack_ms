@@ -1,0 +1,7 @@
+# /* samples/dect_nrplus_ping/sample.yaml */
+
+sample:
+  name: DECT NR+ Ping Sample
+  description: Demonstrates end-to-end IPv6 connectivity over the DECT NR+ stack using the network shell.
+  platforms:
+    - native_sim

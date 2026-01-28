@@ -1,0 +1,43 @@
+{
+    "environment":{
+        "os":"posix",
+        "zephyr_version":"v4.0.99-ncs1-2",
+        "toolchain":"zephyr",
+        "commit_date":"2025-05-21T13:48:39+02:00",
+        "run_date":"2026-01-28T14:13:25+00:00",
+        "options":{
+            "help":null,
+            "zephyr_base":null,
+            "quiet":0,
+            "command":"twister",
+            "testsuite_root":[
+                "mac_ft_beacon"
+            ],
+            "clobber_output":true,
+            "platform":[
+                "native_sim/native/64"
+            ]
+        }
+    },
+    "testsuites":[
+        {
+            "name":"mac_ft_beacon.basic",
+            "arch":"posix",
+            "platform":"native_sim/native/64",
+            "path":"../nrf/lib/dect_nrplus/tests/mac_ft_beacon",
+            "run_id":"c3a691fa99ff0ff50a902c8eaa9051d2",
+            "runnable":true,
+            "retries":0,
+            "toolchain":"host",
+            "status":"None",
+            "reason":"Unknown Instance status.",
+            "build_time":"0.00",
+            "testcases":[
+                {
+                    "identifier":"mac_ft_beacon.basic.dect_ft_beacon.ft_scans_and_enters_beaconing",
+                    "status":"None"
+                }
+            ]
+        }
+    ]
+}

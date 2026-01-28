@@ -1,0 +1,127 @@
+CONFIG_NEWLIB_LIBC=y
+CONFIG_CBPRINTF_FULL_INTEGRAL=y
+
+
+# General Kernel
+CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=2048
+# Shell stack has most impact for DECT shell application, not CONFIG_MAIN_STACK_SIZE
+CONFIG_SHELL_STACK_SIZE=9216
+# Main stack size need to be increased due to CONFIG_NRF_MODEM_LIB_TRACE
+CONFIG_MAIN_STACK_SIZE=4096
+
+# Define Shell Config
+CONFIG_DECT_MAC_SHELL_ENABLE=y
+CONFIG_SHELL=y
+CONFIG_DEBUG=y
+# config DECT_MAC_SHELL_ENABLE
+#     bool "Enable DECT MAC Debug Shell Commands"
+#     default y if SHELL && DEBUG # More restrictive default
+#     depends on SHELL
+
+
+
+
+# Standard networking dependencies
+CONFIG_NETWORKING=y
+CONFIG_NET_IPV6=y
+CONFIG_NET_UDP=y         # For UDP tests
+CONFIG_NET_TCP=y         # For TCP tests
+CONFIG_NET_LOG=y         # Enable network logging
+CONFIG_NET_CONFIG_SETTINGS=y 
+
+# Enable the DECT NR+ Stack
+CONFIG_DECT_NRPLUS_STACK=y
+CONFIG_NRF_MODEM_LINK_BINARY_DECT_PHY=y
+
+# Enable the DECT NR+ L2 driver
+CONFIG_NET_L2_DECT_NRPLUS=y
+
+# The layers below it are likely also needed
+CONFIG_DECT_MAC_LAYER=y
+CONFIG_DECT_DLC_LAYER=y
+CONFIG_DECT_CVG_LAYER=y
+
+# Enable 6LoWPAN and configure it to run over our L2 driver
+CONFIG_NET_6LO=y
+CONFIG_NET_6LO_CONTEXT=y
+CONFIG_NET_L2_6LO_DECT_NRPLUS=y
+
+CONFIG_NET_CONFIG_NEED_IPV6=y
+CONFIG_NET_CONFIG_MY_IPV6_ADDR="2001:db8::2"
+CONFIG_NET_CONFIG_MY_IPV6_PREFIX="2001:db8::"
+CONFIG_NET_CONFIG_PEER_IPV6_ADDR="2001:db8::1"
+CONFIG_NET_SHELL=y
+
+# Crypto
+CONFIG_CRYPTO=y
+CONFIG_ENTROPY_GENERATOR=y
+# CONFIG_TEST_RANDOM_GENERATOR=y  # For testing only
+
+
+# Mbed TLS and PSA Crypto API Configuration
+# ----------------------------------------
+CONFIG_MBEDTLS=y
+# Use nRF Security's pre-built Mbed TLS library (resolves MBEDTLS_BUILTIN conflict)
+CONFIG_MBEDTLS_LIBRARY_NRF_SECURITY=y
+# Enable the PSA Cryptography API layer within Mbed TLS
+CONFIG_MBEDTLS_PSA_CRYPTO_C=y
+
+# Hardware Acceleration (for Nordic nRF91xx series)
+# -------------------------------------------------
+CONFIG_NRF_SECURITY=y
+CONFIG_NORDIC_SECURITY_BACKEND=y
+# Enable the PSA driver for the ARM CryptoCell-3xx hardware accelerator
+# CONFIG_PSA_CRYPTO_DRIVER_CC3XX=y
+
+
+# Enable specific PSA algorithms and key types used by your code
+CONFIG_PSA_WANT_KEY_TYPE_AES=y     
+# For secure random numbers if needed by KDF or other parts
+CONFIG_PSA_WANT_GENERATE_RANDOM=y   
+
+# Mbed TLS memory (heap) configuration
+CONFIG_MBEDTLS_ENABLE_HEAP=y
+# Adjust based on your application's needs
+CONFIG_MBEDTLS_HEAP_SIZE=8192 
+
+
+# Enable the Hardware ID library for device identification
+CONFIG_HW_ID_LIBRARY=y
+CONFIG_HW_ID_LIBRARY_SOURCE_NET_MAC=y
+CONFIG_MODEM_INFO=y
+
+# Enable Shell and Logging
+CONFIG_SHELL=y
+CONFIG_LOG=y
+CONFIG_PRINTK=y
+CONFIG_CONSOLE=y
+
+# Enable Zephyr Memory Storage (ZMS) and its dependencies
+# Enable the Settings subsystem
+CONFIG_SETTINGS=y
+# Enable Zephyr Memory Storage (ZMS) as the backend for Settings
+CONFIG_SETTINGS_ZMS=y
+CONFIG_FLASH=y
+# CONFIG_FLASH_MAP=y
+
+# Configure the ZMS block size. This must be a power of 2 and
+# should be chosen based on the flash page erase size of your device.
+# For nRF9160, the erase size is 4096 bytes.
+CONFIG_DECT_MAC_NVS_ZMS_BLOCK_SIZE=4096
+
+# Set the device role (CHOOSE ONE)
+# Flash one device as PT and the other as FT
+CONFIG_DECT_MAC_ROLE_IS_PT=y
+# CONFIG_DECT_MAC_ROLE_IS_FT=y
+
+# Enable MAC security (recommended)
+CONFIG_DECT_MAC_SECURITY_ENABLE=y
+# CONFIG_DECT_MAC_MASTER_PSK_HEX="000102030405060708090A0B0C0D0E0F"
+
+# Disable the MAC's internal debug shell to avoid conflicts with our app shell
+CONFIG_DECT_MAC_SHELL_ENABLE=n
+
+# Set log levels for debugging
+# CONFIG_DECT_APP_MAIN_LOG_LEVEL_INF=y
+# CONFIG_DECT_MAC_CORE_LOG_LEVEL_INF=y
+# CONFIG_DECT_CVG_LOG_LEVEL_INF=y

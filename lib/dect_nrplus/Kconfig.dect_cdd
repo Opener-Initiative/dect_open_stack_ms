@@ -1,0 +1,26 @@
+# /* lib/dect_nrplus/Kconfig.dect_cdd */
+# // Overview: Creates the missing Kconfig file for the CDD service. This defines the DECT_CDD_LAYER symbol, resolving the build warning.
+# Copyright (c) 2024 Manulytica Ltd
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+
+menuconfig DECT_CDD_LAYER
+	bool "DECT NR+ CDD Service Support"
+	default y if DECT_CVG_LAYER
+	depends on DECT_CVG_LAYER || ZTEST
+	help
+	  Enable the DECT NR+ Configuration Data Distribution (CDD) service.
+	  This layer is responsible for distributing network configuration,
+	  such as IPv6 prefixes, as per ETSI TS 103 636-5, Annex C.
+	  It is used by the CVG layer for IPv6 profile support.
+
+if DECT_CDD_LAYER
+
+config DECT_CDD_LOG_LEVEL
+	int "DECT NR+ CDD service log level"
+	default 3
+	range 0 4
+	depends on LOG
+	help
+	  Log level for the DECT NR+ CDD service.
+
+endif # DECT_CDD_LAYER

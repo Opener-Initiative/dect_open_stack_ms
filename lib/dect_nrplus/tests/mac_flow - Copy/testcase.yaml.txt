@@ -1,0 +1,17 @@
+
+
+common:
+  build_only: true
+  tags:
+    - modem
+  harness: console
+  harness_config:
+    fixture: dect_nrplus
+
+tests:
+  testing.dect_nrplus.mac.flow:
+    tags: dect_nrplus mac sm flow
+    depends_on: 
+    platform_allow:
+      - native_posix
+      - nrf9151dk/nrf9151/ns

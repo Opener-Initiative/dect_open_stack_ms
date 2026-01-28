@@ -1,0 +1,15 @@
+description: Nordic DECT NR+ L2 Network Driver
+
+compatible: "nordic,dect-nrplus"
+
+include: net-if-base.yaml
+properties:
+  cvg-service-type:
+    type: int
+    required: false
+    default: 1
+    description: |
+      The DECT CVG service type to use for IP traffic.
+      0 = Transparent
+      1 = Sequenced
+      (Other services like ARQ/FC can be added later)

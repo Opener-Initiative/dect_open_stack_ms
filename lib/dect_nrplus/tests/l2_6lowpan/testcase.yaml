@@ -1,0 +1,11 @@
+
+tests:
+  dect_stack.integration.cvg_to_cvg:
+    tags: dect_nrplus stack_integration
+    platform_allow: native_sim
+    integration_platforms:
+      - native_sim
+    harness: ztest
+    harness_config:
+      type: one_line
+    timeout: 300

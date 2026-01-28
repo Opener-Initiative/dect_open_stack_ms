@@ -1,0 +1,91 @@
+# /* lib/dect_nrplus/Kconfig.dect_dlc */
+# Copyright (c) 2023 Nordic Semiconductor ASA
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+
+menuconfig DECT_DLC_LAYER
+	bool "DECT NR+ DLC Layer Support"
+	default n
+	# default y if DECT_MAC_LAYER
+	# depends on DECT_MAC_LAYER || ZTEST
+	# help
+	#   Enable the DECT NR+ Data Link Control (DLC) layer.
+	#   This layer is responsible for routing, segmentation, and reassembly
+	#   of data packets as per ETSI TS 103 636-5. It sits between the
+	#   CVG layer and the MAC layer.
+
+# if DECT_DLC_LAYER
+
+config DECT_DLC_RX_THREAD_STACK_SIZE
+	int "DLC RX thread stack size"
+	default 2048
+	# help
+	#   Stack size for the DLC layer's RX thread. This thread
+	#   receives data from the MAC layer, performs reassembly,
+	#   and passes complete SDUs up to the CVG layer.
+
+config DECT_DLC_RX_THREAD_PRIORITY
+	int "DLC RX thread priority"
+	default 5
+	# help
+	#   Priority for the DLC RX thread.
+
+config DECT_DLC_TX_SERVICE_THREAD_STACK_SIZE
+	int "DLC TX service thread stack size"
+	default 2048
+	# help
+	#   Stack size for the DLC layer's TX service thread. This thread
+	#   handles background tasks like ARQ retransmissions.
+
+config DECT_DLC_TX_SERVICE_THREAD_PRIORITY
+	int "DLC TX service thread priority"
+	default 5
+	# help
+	#   Priority for the DLC TX service thread.
+
+config DECT_DLC_MAX_SDU_PAYLOAD_SIZE
+	int "Maximum DLC SDU payload size (CVG PDU)"
+	default 1500 
+	# Sized for a standard IP MTU
+	# help
+	#   Maximum size of a Service Data Unit (SDU) that the DLC layer
+	#   can accept from the CVG layer. This defines the upper limit
+	#   for a single logical packet before DLC segmentation.
+
+config DECT_DLC_LOG_LEVEL
+	int "DECT NR+ DLC layer log level"
+	default 3
+	range 0 4
+	depends on LOG
+	# help
+	#   Log level for the DECT NR+ DLC layer.
+
+config DECT_DLC_DEFAULT_SDU_LIFETIME_MS
+	int "Default DLC SDU Lifetime (ms)"
+	default 5000
+	# help
+	#   Default lifetime for a DLC SDU in milliseconds. This is used for both
+	#   the retransmission buffer (ARQ) and the reassembly buffer (SAR).
+	#   If an SDU is not fully transmitted or reassembled within this time,
+	#   it will be discarded. This value can be reconfigured over-the-air
+	#   via the DLC Timers Configuration Control IE.
+
+
+
+
+if ZTEST
+
+config DECT_DLC_API_MOCK
+	bool "Enable mock API for the DLC layer"
+	default n
+	help
+	  FOR TEST USE ONLY.
+	  When enabled, the dlc_send_data() and dlc_receive_data() functions
+	  will call through function pointers that can be replaced at runtime
+	  by a test spy. This allows unit tests for upper layers (like CVG)
+	  to intercept and inject data to/from the DLC layer.
+
+endif # ZTEST
+
+
+
+# endif # DECT_DLC_LAYER

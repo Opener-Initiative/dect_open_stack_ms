@@ -1,0 +1,16 @@
+
+tests:
+  mac_pdu.serialization:
+    tags: dect_nrplus mac pdu
+    harness: ztest
+    platform_allow: 
+      - native_sim
+      - native_sim/native
+      - native_sim/native/64
+    integration_platforms:
+      - native_sim
+      - native_sim/native
+      - native_sim/native/64
+    timeout: 15
+
+    

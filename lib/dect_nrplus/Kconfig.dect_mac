@@ -1,0 +1,604 @@
+# /* lib/dect_nrplus/Kconfig.dect_mac */
+# Kconfig for DECT NR+ MAC Layer
+
+# Main menu for DECT MAC Layer configuration
+menuconfig DECT_MAC_LAYER
+	bool "DECT NR+ MAC Layer Support"
+    default y
+    # default y if DECT_NRPLUS_STACK
+    # depends on DECT_NRPLUS_STACK || ZTEST
+	# help
+	#   Enable the DECT NR+ Medium Access Control (MAC) layer.
+	#   This layer is responsible for managing radio resources, device association,
+	#   data transmission scheduling, and basic link security as per ETSI TS 103 636-4.
+	#   It interacts with the nRF Modem DECT PHY library.
+
+if DECT_MAC_LAYER
+
+config DECT_MAC_OWN_THREAD
+	bool "Run MAC layer in its own thread"
+	default y
+	help
+	  Enable this for normal application use, where the MAC layer will create
+	  and manage its own processing thread. For unit tests that need to
+	  manually control the event loop, this can be disabled. When disabled,
+	  the application/test is responsible for periodically calling
+	  dect_mac_process_event() and dect_mac_service().
+      
+# General MAC Configuration
+choice DECT_MAC_OPERATIONAL_ROLE
+	prompt "DECT MAC Operational Role"
+	default DECT_MAC_ROLE_IS_PT # Default to PT for typical end-device
+	# help
+	#   Select the primary operational role for this MAC instance.
+
+	config DECT_MAC_ROLE_IS_PT
+		bool "Portable Termination (PT)"
+
+	config DECT_MAC_ROLE_IS_FT
+		bool "Fixed Termination (FT)"
+
+	config DECT_MAC_ROLE_IS_FT_PT
+		bool "Fixed Termination (FT) & Portable Termination (PT)"
+endchoice
+
+config DECT_MAC_ROLE_PT
+	bool
+	default y if DECT_MAC_ROLE_IS_PT || DECT_MAC_ROLE_IS_FT_PT
+	default n
+
+config DECT_MAC_ROLE_FT
+	bool
+	default y if DECT_MAC_ROLE_IS_FT || DECT_MAC_ROLE_IS_FT_PT
+	default n
+
+
+config DECT_MAC_THREAD_STACK_SIZE
+	int "MAC main processing thread stack size"
+	default 4096
+	# help
+	#   Stack size for the main DECT MAC processing thread. This thread handles
+	#   events from the PHY and timers, and executes state machine logic.
+
+config DECT_MAC_THREAD_PRIORITY
+	int "MAC main processing thread priority"
+	default 7 
+	# help
+	#   Priority for the main DECT MAC processing thread.
+
+config DECT_MAC_THREAD_SERVICE_INTERVAL_MS
+	int "MAC thread periodic service interval (ms)"
+	default 50 # Reduced for potentially faster scheduling/TX service
+	# help
+	#   Timeout for k_msgq_get in the MAC thread. Allows periodic servicing
+	#   of TX queues and scheduled operations even if no external events.
+	#   Shorter interval is more responsive but uses more CPU when idle.
+
+config DECT_MAC_NETWORK_ID_MS24_PREFIX
+	hex "Network ID - Most Significant 24 bits Prefix"
+	default 0xDECC00
+	# help
+	#   The fixed 24-bit prefix for the DECT NR+ Network ID.
+	#   The least significant 8 bits are derived locally (e.g., from Long RD ID).
+	#   Ensure this prefix does not conflict with other networks.
+	#   Value 0x000000 is invalid per ETSI.
+
+config DECT_MAC_PROVISIONED_LONG_RD_ID
+	hex "Provisioned Long RD ID (32-bit)"
+	default 0x0
+	# help
+	#   The pre-provisioned 32-bit Long Radio Device ID.
+	#   If set to 0 or 0xFFFFFFFF, the MAC core will attempt to derive one
+	#   from the hardware ID (e.g., using hw_id_get()).
+
+config DECT_MAC_OWN_MU_CODE
+    int "Own Default Mu (Subcarrier Scaling) Code (0-3)"
+    default 0 # Code 0 => mu = 2^0 = 1 (e.g. 27kHz for base ETSI band)
+    range 0 3 # Corresponds to mu values 1, 2, 4, 8 for DECT NR+
+    # help
+    #   Code for this device's primary/default operational subcarrier scaling factor mu.
+    #   Actual mu = 2^code. (Refer to ETSI TS 103 636-3 Annex B & Table 4.3-1).
+    #   DECT NR+ typically uses mu codes 0, 1, 2, 3 for mu values 1, 2, 4, 8 respectively.
+
+config DECT_MAC_OWN_BETA_CODE
+    int "Own Default Beta (FFT Scaling) Code (0-15)"
+    default 0 # Code 0 => beta = 1 (code + 1)
+    range 0 15 # Corresponds to beta values 1 to 16
+    # help
+    #   Code for this device's primary/default FFT scaling factor beta.
+    #   Actual beta = code + 1. (Refer to ETSI TS 103 636-3 Annex B & Table 4.3-1).
+
+config DECT_MAC_NVS_ZMS_BLOCK_SIZE
+    int "ZMS Block Size for DECT NVS"
+    default 4096
+    depends on ZMS
+    help
+      Specifies the block size for the Zephyr Memory Storage (ZMS) partition
+      used by the DECT MAC NVS module. This should match the flash erase
+      page size for optimal performance and wear-leveling. For nRF91 series,
+      this is typically 4096.
+
+# MAC Security Configuration
+config DECT_MAC_SECURITY_ENABLE
+    bool "Enable MAC Layer Security (Mode 1)"
+    default y
+    select CRYPTO
+    select PSA_CRYPTO_CLIENT
+    select PSA_CRYPTO_INIT
+    select TIMING_FUNCTIONS
+    select PSA_WANT_ALG_CMAC
+    select PSA_WANT_ALG_CTR
+    select PSA_WANT_KEY_TYPE_AES
+    select PSA_WANT_ALG_ECB_NO_PADDING
+    # Select the underlying Mbed TLS modules that implement the chosen PSA algorithms.
+    # The modules' own Kconfig files have the necessary `depends on MBEDTLS` guards.
+    select MBEDTLS_CMAC_C
+
+
+    select MBEDTLS_CIPHER_C
+    select MBEDTLS_CIPHER_MODE_CTR
+    #   Enable MAC layer security features as per ETSI TS 103 636-4, Mode 1
+    #   (AES-128 CMAC for integrity, AES-128 CTR for ciphering).
+
+if DECT_MAC_SECURITY_ENABLE
+
+    config DECT_MAC_MASTER_PSK_HEX
+        string "Master Pre-Shared Key (32 hex chars for 16 bytes)"
+        default "000102030405060708090A0B0C0D0E0F" 
+        # help
+        #   The 16-byte master Pre-Shared Key (PSK) as a 32-character hexadecimal string.
+        #   This key is used for the simplified PSK-based key derivation.
+        #   IMPORTANT: For production, this key must be securely provisioned.
+
+    config DECT_MAC_HPC_RX_WINDOW_SIZE
+        int "HPC Receive Window Size (Anti-Replay)"
+        default 64
+        range 16 256
+        # help
+        #   Hyper Packet Counter (HPC) receive window size. Defines how many
+        #   HPC values "behind" the newest known valid peer HPC are considered
+        #   acceptable to accommodate packet reordering or minor desynchronization.
+
+    config DECT_MAC_HPC_RX_FORWARD_WINDOW_MAX_ADVANCE
+        int "HPC Receive Forward Window Maximum Advance"
+        default 1024
+        # range 128 8192
+        # help
+        #   Maximum allowable jump "ahead" for a received HPC value (in a MAC Sec Info IE)
+        #   compared to the newest known valid peer HPC.
+
+    config DECT_MAC_MAX_MIC_FAILURES_BEFORE_HPC_RESYNC
+        int "Max MIC Failures Before Requesting HPC Resynchronization"
+        default 3
+        range 1 10
+        # help
+        #   Number of consecutive Message Integrity Code (MIC) failures from a peer
+        #   before this device requests an HPC resynchronization from that peer.
+
+endif # DECT_MAC_SECURITY_ENABLE
+
+
+# comment out due to compilation problems
+# --- PT (Portable Termination) Specific Configuration ---
+# if DECT_MAC_ROLE_PT || DECT_MAC_ROLE_IS_PT
+
+    config DECT_MAC_PT_KEEP_ALIVE_MS
+        int "PT Keep-Alive Interval (ms)"
+        default 20000 # 20 seconds
+        # help
+        #   Interval at which the PT sends a Keep-Alive message to the FT
+        #   when associated and idle, to maintain the association.
+
+    config DECT_MAC_PT_MOBILITY_ENABLE
+        bool "Enable PT Mobility Scanning"
+        default y
+        # help
+        #   Enable the PT to periodically scan for alternative FTs for mobility purposes.
+
+    config DECT_MAC_PT_MOBILITY_SCAN_MS
+        int "PT Mobility Scan Interval (ms)"
+        default 60000 # 60 seconds
+        depends on DECT_MAC_PT_MOBILITY_ENABLE
+        # help
+        #   Interval at which an associated PT performs a background scan for other FTs.
+
+    config DECT_MAC_PT_PAGING_CYCLE_MS
+        int "PT Paging Cycle Listen Interval (ms)"
+        default 1280 # Example: 1.28 seconds (ETSI DRF=8)
+        # help
+        #   The interval at which the PT, when in paging mode, wakes up to listen
+        #   for page messages from the FT.
+
+    config DECT_MAC_PT_CAN_BE_FT
+        bool "PT is also FT Mode Capable"
+        default n
+        # help
+        #   If this PT device can also operate as an FT and wants to signal
+        #   this capability and its preferred FT parameters in its Association Request.
+
+    if DECT_MAC_PT_CAN_BE_FT
+        config DECT_MAC_PT_FT_MODE_SIGNAL_PERIODS
+            bool "PT (as FT capable) signals preferred beacon periods"
+            default y
+        config DECT_MAC_PT_FT_MODE_NET_BEACON_PERIOD_CODE
+            int "PT's Preferred Network Beacon Period Code (0-6 if FT)"
+            default 3 # Code for 1000ms
+            range 0 6
+            depends on DECT_MAC_PT_FT_MODE_SIGNAL_PERIODS
+        config DECT_MAC_PT_FT_MODE_CLUS_BEACON_PERIOD_CODE
+            int "PT's Preferred Cluster Beacon Period Code (0-10 if FT)"
+            default 2 # Code for 100ms
+            range 0 10
+            depends on DECT_MAC_PT_FT_MODE_SIGNAL_PERIODS
+        config DECT_MAC_PT_FT_MODE_NEXT_CHAN_PRESENT
+            bool "PT (as FT capable) signals preferred next channel"
+            default n
+        config DECT_MAC_PT_FT_MODE_NEXT_CLUSTER_CHANNEL_VAL
+            int "PT's Preferred Next Cluster Channel (kHz, if FT capable)"
+            default 1885248 # Example ETSI DECT EU Ch 2
+            depends on DECT_MAC_PT_FT_MODE_NEXT_CHAN_PRESENT
+        config DECT_MAC_PT_FT_MODE_TIME_TO_NEXT_PRESENT
+            bool "PT (as FT capable) signals preferred time to next channel"
+            default n
+        config DECT_MAC_PT_FT_MODE_TIME_TO_NEXT_US_VAL
+            int "PT's Preferred Time To Next Channel (us, if FT capable)"
+            default 10000000 # 10 seconds
+            depends on DECT_MAC_PT_FT_MODE_TIME_TO_NEXT_PRESENT
+    endif # DECT_MAC_PT_CAN_BE_FT
+
+    # PT's own HARQ capabilities/requests for Association Request IE
+    config DECT_MAC_PT_HARQ_TX_PROC_CODE
+        int "PT HARQ TX Processes Code (0-3 for 1,2,4,8 procs)"
+        default 2 # Code 2 => 4 processes
+        range 0 3
+    config DECT_MAC_PT_HARQ_RETX_DELAY_PT_CODE
+        int "PT Max HARQ Re-TX Delay Code (0-31)"
+        default 10 # Example code
+        range 0 31
+    config DECT_MAC_PT_HARQ_RX_PROC_CODE
+        int "PT HARQ RX Processes Code (0-3 for 1,2,4,8 procs)"
+        default 2 # Code 2 => 4 processes
+        range 0 3
+    config DECT_MAC_PT_HARQ_RERX_DELAY_PT_CODE
+        int "PT Max HARQ Re-RX Delay Code (0-31)"
+        default 10 # Example code
+        range 0 31
+
+    config DECT_MAC_KEEP_ALIVE_MS
+        int "PT Keep-Alive Interval (ms)"
+        default 20000 # 20 seconds
+        help
+          Interval at which the PT sends a Keep-Alive message to the FT
+          when associated and idle, to maintain the association.
+
+    config DECT_MAC_PT_PAGING_CYCLE_MS
+        int "PT Paging Cycle Listen Interval (ms)"
+        default 1280 # Example: 1.28 seconds (ETSI DRF=8)
+        help
+          The interval at which the PT, when in paging mode, wakes up to listen
+          for page messages from the FT.
+
+          
+# This section is now common, see "MAC Radio Device Capabilities" menu below.
+
+# endif # DECT_MAC_ROLE_PT
+
+# --- FT (Fixed Termination) Specific Configuration ---
+### REMOVED TO FIX COMPILATION PROBLEMS AS SOME ARE USED IN SHARED FUNCTIONS
+# if DECT_MAC_ROLE_FT
+
+    config DECT_MAC_FT_COUNT_TO_TRIGGER_CODE
+        int "Mobility: Count to Trigger Code (0-7)"
+        default 3
+        range 0 7
+        help
+          Code for the number of consecutive better beacons a PT must see
+          before initiating a handover. (Code 3 -> 4 beacons).
+          This value is advertised in the Cluster Beacon IE.
+
+    config DECT_MAC_FT_REL_QUALITY_CODE
+        int "Mobility: Relative Quality Code (0-7)"
+        default 2
+        range 0 7
+        help
+          Code for the RSSI hysteresis (in dB) a candidate FT must exceed
+          the current FT's signal strength by. (Code 2 -> 6 dB).
+          This value is advertised in the Cluster Beacon IE.
+
+    config DECT_MAC_FT_MIN_QUALITY_CODE
+        int "Mobility: Minimum Quality Code (0-3)"
+        default 0
+        range 0 3
+        help
+          Code for the minimum RSSI level a PT must measure from this FT
+          to consider it for association. (Code 0 -> -90 dBm).
+          This value is advertised in the Cluster Beacon IE.
+
+
+    config DECT_MAC_FT_CLUSTER_BEACON_MS
+        int "FT Cluster Beacon Interval (ms)"
+        default 100
+        help
+          Interval for FT Cluster Beacon (10,50,100,500,1k,1.5k,2k,4k,8k,16k,32k ms).
+    config DECT_MAC_FT_NETWORK_BEACON_MS
+        int "FT Network Beacon Interval (ms)"
+        default 1000
+        help
+          Interval for FT Network Beacon (50,100,500,1k,1.5k,2k,4k ms).
+    config DECT_MAC_FT_MAX_ASSOCIATED_PTS
+        int "FT Maximum number of associated PTs"
+        default 8
+        range 1 64 # MAX_PEERS_PER_FT
+    config DECT_MAC_FT_SECURE_ON_ASSOC
+        bool "FT Policy: Require Secure Association"
+        default y
+    config DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL
+        int "FT Default Initial Operating Channel Number"
+        default 0 # ETSI DECT EU Ch 0
+        help
+          The default absolute channel number that the FT will use if the
+          Dynamic Channel Selection (DCS) mechanism is disabled or fails to
+          find a suitable channel. This should be a legally permissible
+          channel for your region.
+    config DECT_MAC_DCS_NUM_CHANNELS_TO_SCAN
+        int "Number of channels for FT to scan during DCS"
+        default 5
+        range 0 10
+    config DECT_MAC_DCS_CHANNEL_LIST
+        string "DCS Candidate Channel List (comma-separated numbers)"
+        default "0,1,2,3,4" # ETSI DECT EU Ch 0-4
+        depends on DECT_MAC_DCS_NUM_CHANNELS_TO_SCAN > 0
+        
+    config DECT_MAC_DCS_NOISY_THRESHOLD_DBM
+        int "DCS Noisy Channel Threshold (dBm)"
+        default -70
+    config DECT_MAC_DCS_ACCEPTABLE_BUSY_PERCENT
+        int "DCS Acceptable Channel Busy Percentage"
+        default 20
+        range 0 100
+
+    # FT's HARQ capabilities/offers for Association Response IE
+    config DECT_MAC_FT_HARQ_TX_PROC_CODE # For FT TX to PT
+        int "FT HARQ TX Processes Code (0-3 for 1,2,4,8 procs)"
+        default 2 
+        range 0 3
+    config DECT_MAC_FT_HARQ_RETX_DELAY_CODE # For FT TX to PT
+        int "FT Max HARQ Re-TX Delay Code (0-31)"
+        default 10 
+        range 0 31
+    config DECT_MAC_FT_HARQ_RX_PROC_CODE # For FT RX from PT
+        int "FT HARQ RX Processes Code (0-3 for 1,2,4,8 procs)"
+        default 2 
+        range 0 3
+    config DECT_MAC_FT_HARQ_RERX_DELAY_CODE # For FT RX from PT
+        int "FT Max HARQ Re-RX Delay Code (0-31)"
+        default 10 
+        range 0 31
+
+# This section is now common, see "MAC Radio Device Capabilities" menu below.
+
+    config DECT_MAC_FT_USE_FRAME_OFFSET
+        bool "FT Beacon: Enable Frame Offset field"
+        default n
+    config DECT_MAC_FT_DEFAULT_SCHEDULE_REPEAT_FRAMES
+        int "FT Default Schedule: Repetition Interval (Frames)"
+        default 10
+    config DECT_MAC_FT_DEFAULT_SCHEDULE_VALIDITY_FRAMES
+        int "FT Default Schedule: Validity Duration (Frames)"
+        default 100
+    config DECT_MAC_FT_SCHEDULE_START_SFN_OFFSET
+        int "FT Default Schedule: Start SFN Offset from current SFN"
+        default 2
+
+
+config DECT_MAC_FT_SUPPORTS_GROUP_ASSIGNMENT
+	bool
+	default y if DECT_MAC_CAP_SUPPORTS_GROUP_ASSIGNMENT
+	help
+	  Internal option to map the capability flag to the name used in
+	  the FT state machine. This should not be set directly.
+
+
+menu "FT Mobility Parameters"
+	depends on DECT_MAC_ROLE_FT
+	# help
+	#   Parameters advertised by the FT in its Cluster Beacon IE to control
+	#   how PTs evaluate it as a mobility candidate.
+
+config DECT_MAC_FT_COUNT_TO_TRIGGER_CODE
+	int "FT 'Count to Trigger' Code (0-7)"
+	default 3 # 4 consecutive better beacons
+	range 0 7
+	help
+	  Sets the "Count to Trigger" code advertised by the FT. This code (N)
+	  tells a PT how many consecutive beacons it must receive from this FT
+	  that are better than its current FT's signal (plus hysteresis)
+	  before triggering a handover.
+	  Code N corresponds to N+1 beacons.
+	  Ref: ETSI TS 103 636-4, Table 6.4.2.3-4.
+
+config DECT_MAC_FT_REL_QUALITY_CODE
+	int "FT 'Relative Quality' Hysteresis Code (0-7)"
+	default 2 # 6 dB
+	range 0 7
+	help
+	  Sets the "Relative Quality" code, which defines the RSSI hysteresis
+	  in dB that a candidate FT must exceed to be considered "better"
+	  than the currently associated FT.
+	  Code N corresponds to a hysteresis of N * 3 dB.
+	  Ref: ETSI TS 103 636-4, Table 6.4.2.3-5.
+
+config DECT_MAC_FT_MIN_QUALITY_CODE
+	int "FT 'Minimum Quality' Code (0-3)"
+	default 0 # -100 dBm
+	range 0 3
+	help
+	  Sets the "Minimum Quality" code, which defines the minimum RSSI
+	  threshold an FT must meet to even be considered a mobility candidate
+	  by a PT.
+	  Code 0=-100dBm, 1=-90dBm, 2=-80dBm, 3=-70dBm.
+	  Ref: ETSI TS 103 636-4, Table 6.4.2.3-6.
+
+endmenu # FT Mobility Parameters
+
+# endif # DECT_MAC_ROLE_FT
+
+
+
+
+# MAC General Parameters
+config DECT_MAC_RSSI_THR_MIN_DBM
+    int "RSSI Threshold Min for 'free' channel (dBm)"
+    default -90
+config DECT_MAC_RSSI_THR_MAX_DBM
+    int "RSSI Threshold Max for 'busy' channel (dBm)"
+    default -75
+config DECT_MAC_RACH_CW_MIN_IDX
+    int "RACH Contention Window Min Index (0-7) - Global PT Default"
+    default 2 
+config DECT_MAC_RACH_CW_MAX_IDX
+    int "RACH Contention Window Max Index (0-7) - Global PT Default"
+    default 6 
+config DECT_MAC_RACH_RESP_WIN_MS
+    int "RACH Response Window Timeout (ms) - PT Fallback"
+    default 200
+config DECT_MAC_DEFAULT_DATA_MCS
+    int "Default MCS code for data transmissions (0-11)"
+    default 0 
+    range 0 11
+config DECT_MAC_SCHEDULE_PROCESSING_DELAY_US
+    int "PT Schedule Processing Delay (us)"
+    default 5000
+    # help
+    #   Estimated time for PT to process a received schedule and be ready for
+    #   the first occurrence if SFN is not present in Resource Allocation IE.
+
+
+menu "MAC Radio Device Capabilities"
+    # help
+    #     Configure the capabilities this device will advertise in its
+    #     RD Capability Information Element.
+
+    config DECT_MAC_CAP_RELEASE_VERSION
+        int "Advertised Release Version"
+        default 1 # Code for Release 2 of the standard
+        # help
+        #   The release version of the DECT NR+ standard this device complies with.
+
+    config DECT_MAC_CAP_SUPPORTS_GROUP_ASSIGNMENT
+        bool "Supports Group Assignment"
+        default n
+    config DECT_MAC_CAP_SUPPORTS_PAGING
+        bool "Supports Paging"
+        default y
+    config DECT_MAC_CAP_SUPPORTS_MESH
+        bool "Supports Mesh Operation"
+        default n
+    config DECT_MAC_CAP_SUPPORTS_SCHED_DATA
+        bool "Supports Scheduled Data Transfer"
+        default y
+
+    menu "Primary PHY Capability Set (Set 0)"
+        # help
+        #     Configure the primary (base) physical layer capabilities.
+        #     These values are used for the first 5-octet set in the RD Capability IE.
+
+        config DECT_MAC_CAP_DLC_SERVICE_SUPPORT_CODE
+            int "DLC Service Support Code (0-7)"
+            default 5 # Code 5 = Types 0,1,2,3 supported
+            range 0 7
+        config DECT_MAC_CAP_RX_TX_DIVERSITY_CODE
+            int "RX for TX Diversity Antennas Code (0-3)"
+            default 0 # Code 0 = 1 antenna
+            range 0 3
+        config DECT_MAC_CAP_MAX_NSS_RX_CODE
+            int "Max RX Spatial Streams Code (0-3)"
+            default 0 # Code 0 => 1 stream
+            range 0 3
+        config DECT_MAC_CAP_MAX_MCS_CODE
+            int "Max Supported MCS Index Code (0-11)"
+            default 11 # Code 11 => MCS11
+            range 0 11
+        config DECT_MAC_CAP_HARQ_BUFFER_CODE
+            int "HARQ Soft Buffer Size Code (0-15)"
+            default 7 # Example: Code 7 might map to 1024000 bytes
+            range 0 15
+        config DECT_MAC_CAP_NUM_HARQ_PROC_CODE
+            int "Number of HARQ Processes Support Code (0-3)"
+            default 3 # Code 3 => 8 processes
+            range 0 3
+        config DECT_MAC_CAP_HARQ_FEEDBACK_DELAY_CODE
+            int "HARQ Feedback Delay Code (0-15)"
+            default 0 # Code 0 => 2 subslots
+            range 0 15
+        config DECT_MAC_CAP_SUPPORTS_DECT_DELAY
+            bool "Supports DECT_Delay for RACH response"
+            default y
+        config DECT_MAC_CAP_SUPPORTS_HALF_DUPLEX
+            bool "Supports Half-Duplex operation for RACH/DL"
+            default y
+    endmenu
+endmenu
+
+
+
+config DECT_MAC_SHELL_ENABLE
+    bool "Enable DECT MAC Debug Shell Commands"
+    default y if SHELL && DEBUG # More restrictive default
+    depends on SHELL
+    # help
+    #   Enable a set of shell commands for debugging and testing the DECT MAC layer.
+
+# ... (other log levels and buffer sizes remain as previously defined) ...
+
+config DECT_MAC_PDU_MAX_SIZE
+    int "Maximum total MAC PDU size for PHY"
+    default 4096 
+    # Increased to allow TESTING
+    # Increased to allow larger payloads with headers/MIC
+    # default 2048 
+
+
+config DECT_MAC_SDU_MAX_SIZE
+    int "Maximum MAC SDU (DLC PDU / MAC SDU Area) payload size"
+    default 1636
+
+    
+
+config DECT_MAC_PCC_CACHE_SIZE
+	int "PCC event cache size"
+	default 8
+	help
+	  Defines the number of recent Physical Common Channel (PCC) events
+	  to cache. When a Physical Downlink Channel (PDC) event arrives,
+	  the MAC layer searches this cache to find the corresponding PCC
+	  to retrieve the full packet context. A larger cache can handle
+	  more overlapping receptions but consumes more RAM.
+
+config DECT_MAC_PCC_CACHE_TIMEOUT_MS
+	int "PCC event cache entry timeout (ms)"
+	default 50
+	help
+	  The maximum time in milliseconds that a PCC event will be cached
+	  while waiting for its corresponding PDC event. If the PDC does not
+	  arrive within this time, the PCC entry is considered stale and will
+	  be purged.
+
+if ZTEST
+
+config DECT_MAC_SEND_MOCK_API
+	bool "Enable mock API for dect_mac_send()"
+	default n
+	help
+	  FOR TEST USE ONLY.
+	  When enabled, the dect_mac_send() function will call through a
+	  function pointer that can be replaced at runtime by a test spy.
+	  This allows unit tests for upper layers (like DLC) to intercept
+	  and verify data being sent to the MAC. This should NOT be enabled
+	  for integration tests that require the real MAC send functionality.
+
+endif # ZTEST
+
+
+endif # DECT_MAC_LAYER
+

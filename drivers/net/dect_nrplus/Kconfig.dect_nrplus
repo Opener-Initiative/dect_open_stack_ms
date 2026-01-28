@@ -1,0 +1,32 @@
+
+if NET_L2_DECT_NRPLUS
+
+config DECT_NRPLUS_RX_THREAD_STACK_SIZE
+	int "DECT NR+ L2 driver RX thread stack size"
+	default 2048
+	help
+	  Stack size for the DECT NR+ L2 driver's RX thread. This thread
+	  receives data from the CVG layer and passes it up to the IP stack.
+	  
+config DECT_NRPLUS_LOG_LEVEL
+	int "DECT NR+ L2 driver log level"
+	default 3
+	range 0 4
+	depends on NET_LOG
+	help
+	  Log level for the DECT NR+ L2 network driver.
+	  0=off, 1=error, 2=warning, 3=info, 4=debug
+
+
+# Option for 6LoWPAN integration over DECT NR+
+config NET_L2_6LO_DECT_NRPLUS
+	bool "6LoWPAN over DECT NR+"
+	depends on NET_L2_6LO && NET_IPV6 # 6LoWPAN requires IPv6
+	select NET_L2_SIXLoWPAN # Selects the generic 6LoWPAN L2 component
+	help
+		Enable 6LoWPAN adaptation layer to run on top of the DECT NR+ L2 driver.
+		This allows IPv6 packets to be compressed and fragmented for transmission
+		over the DECT NR+ link. The DECT NR+ L2 driver will then interact with
+		the CVG layer.
+
+endif # NET_L2_DECT_NRPLUS

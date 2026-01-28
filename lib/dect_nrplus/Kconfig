@@ -1,0 +1,13 @@
+# lib/dect_nrplus/Kconfig
+#
+# Copyright (c) 2024 Manulytica Ltd
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# This is the main Kconfig file for the dect_nrplus_driver library.
+# It is automatically sourced by the Zephyr build system because it is
+# named 'Kconfig' and resides in the same directory as the library's
+# CMakeLists.txt that calls zephyr_library().
+
+# Source the main menu and options for the DECT NR+ stack.
+source "../nrf/lib/dect_nrplus/Kconfig.dect_module"

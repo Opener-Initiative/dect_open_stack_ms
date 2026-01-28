@@ -1,0 +1,18 @@
+
+tests:
+  testing.dect_nrplus.cvg.advanced:
+    tags: dect_nrplus cvg arq fc
+    platform_allow: 
+      - native_sim
+      - native_sim/native
+      - native_sim/native/64
+      - nrf9161dk/nrf9161/ns
+    integration_platforms:
+      - native_sim
+      - native_sim/native
+      - native_sim/native/64
+      - nrf9161dk/nrf9161/ns
+    harness: ztest
+    harness_config:
+      type: one_line
+    timeout: 3000

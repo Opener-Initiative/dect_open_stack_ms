@@ -1,0 +1,74 @@
+
+/*
+ * Copyright (c) 2024 Manulytica Ltd
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Device Tree overlay for the DECT NR+ driver on the nRF9151 DK (Non-Secure).
+ */
+
+/ {
+	/*
+	 * Create a node for the DECT NR+ L2 network driver.
+	 * The NET_DEVICE_DT_INST_DEFINE macro in dect_nrplus.c will use this
+	 * node to create the network interface device.
+	 */
+	dect_nrplus0: dect_nrplus {
+		compatible = "nordic,dect-nrplus";
+		label = "DECT_NRPLUS_0";
+		status = "okay";
+
+		/*
+		 * Custom property to define the default CVG service type.
+		 * This is an example of how you can pass configuration from
+		 * the device tree to the driver.
+		 * 0 = Transparent, 1 = Seq Num, 2 = SAR, 3 = FC, 4 = FC+ARQ
+		 */
+		cvg-service-type = <4>; /* Default to Flow Control + ARQ */
+	};
+};
+
+// /*
+//  * The nRF9151 has 1MB (0x100000 bytes) of flash. We need to define partitions
+//  * for the bootloader, the application, and our non-volatile storage area.
+//  * This layout is a common example and may need to be adjusted based on the
+//  * size of your application and bootloader (e.g., MCUBoot).
+//  */
+// &flash0 {
+// 	partitions {
+// 		compatible = "fixed-partitions";
+// 		#address-cells = <1>;
+// 		#size-cells = <1>;
+
+// 		/*
+// 		 * The boot partition, typically for a bootloader like MCUBoot.
+// 		 * Size: 64 KB (0x10000)
+// 		 */
+// 		boot_partition: partition@0 {
+// 			label = "mcuboot";
+// 			reg = <0x00000000 0x00010000>;
+// 			read-only;
+// 		};
+
+// 		/*
+// 		 * The application image partition. It starts after the bootloader.
+// 		 * Size: 896 KB (0xE0000)
+// 		 * This is where the main Zephyr application and the DECT NR+ driver will reside.
+// 		 */
+// 		slot0_partition: partition@10000 {
+// 			label = "image-0";
+// 			reg = <0x00010000 0x000E0000>;
+// 		};
+
+// 		/*
+// 		 * The storage partition for non-volatile data.
+// 		 * This is used by the ZMS (Zephyr Memory Storage) module to store
+// 		 * the HPC counter. It is placed at the end of the flash memory.
+// 		 * Size: 64 KB (0x10000)
+// 		 */
+// 		storage_partition: partition@f0000 {
+// 			label = "storage";
+// 			reg = <0x000F0000 0x00010000>;
+// 		};
+// 	};
+// };

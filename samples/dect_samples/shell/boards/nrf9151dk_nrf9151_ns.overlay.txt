@@ -1,0 +1,64 @@
+/*
+ * Copyright (c) 2024 Manulytica Ltd
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Device Tree overlay for the DECT NR+ driver on the nRF9151 DK (Non-Secure).
+ */
+
+/ {
+	/*
+	 * Define a new node for the DECT NR+ L2 network driver.
+	 */
+	dect_nrplus0: dect_nrplus {
+		compatible = "nordic,dect-nrplus";
+		label = "DECT_NRPLUS_0";
+		status = "okay";
+		cvg-service-type = <4>; /* Default to Flow Control + ARQ */
+	};
+
+	// /*
+	// * Modify the 'chosen' node to specify the default crypto backend.
+	// */
+	// chosen {
+	// 	zephyr,crypto = &crypto0;
+	// };
+
+
+	// /*
+	// * Ensure the crypto hardware peripheral is enabled.
+	// */
+	// &crypto0 {
+	// 	status = "okay";
+	// };
+
+
+
+
+	// /*
+	// * Modify the flash controller node to define our application's memory layout.
+	// */
+	// &flash0 {
+	// 	partitions {
+	// 		compatible = "fixed-partitions";
+	// 		#address-cells = <1>;
+	// 		#size-cells = <1>;
+
+	// 		boot_partition: partition@0 {
+	// 			label = "mcuboot";
+	// 			reg = <0x00000000 0x00010000>;
+	// 			read-only;
+	// 		};
+
+	// 		slot0_partition: partition@10000 {
+	// 			label = "image-0";
+	// 			reg = <0x00010000 0x000E0000>;
+	// 		};
+
+	// 		storage_partition: partition@f0000 {
+	// 			label = "storage";
+	// 			reg = <0x000F0000 0x00010000>;
+	// 		};
+	// 	};
+	// };
+};

@@ -1,0 +1,49 @@
+cmake:
+  application:
+    configuration-dir: /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/mac_ft_beacon
+    source-dir: /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/mac_ft_beacon
+  board:
+    name: native_sim
+    path:
+     - /home/bob/ncs/v3-zlink-U/zephyr/boards/native/native_sim
+    qualifiers: native/64
+    revision: 
+  devicetree:
+    bindings-dirs:
+     - /home/bob/ncs/v3-zlink-U/nrf/dts/bindings
+     - /home/bob/ncs/v3-zlink-U/zephyr/dts/bindings
+    files:
+     - /home/bob/ncs/v3-zlink-U/zephyr/boards/native/native_sim/native_sim_64.dts
+    include-dirs:
+     - /home/bob/ncs/v3-zlink-U/nrf/include
+     - /home/bob/ncs/v3-zlink-U/nrf/dts/common
+     - /home/bob/ncs/v3-zlink-U/nrf/dts/riscv
+     - /home/bob/ncs/v3-zlink-U/nrf/dts/arm
+     - /home/bob/ncs/v3-zlink-U/nrf/dts
+     - /home/bob/ncs/v3-zlink-U/zephyr/include
+     - /home/bob/ncs/v3-zlink-U/zephyr/include/zephyr
+     - /home/bob/ncs/v3-zlink-U/zephyr/dts/common
+     - /home/bob/ncs/v3-zlink-U/zephyr/dts/x86
+     - /home/bob/ncs/v3-zlink-U/zephyr/dts/xtensa
+     - /home/bob/ncs/v3-zlink-U/zephyr/dts/sparc
+     - /home/bob/ncs/v3-zlink-U/zephyr/dts/riscv
+     - /home/bob/ncs/v3-zlink-U/zephyr/dts/posix
+     - /home/bob/ncs/v3-zlink-U/zephyr/dts/nios2
+     - /home/bob/ncs/v3-zlink-U/zephyr/dts/arm64
+     - /home/bob/ncs/v3-zlink-U/zephyr/dts/arm
+     - /home/bob/ncs/v3-zlink-U/zephyr/dts/arc
+     - /home/bob/ncs/v3-zlink-U/zephyr/dts
+  kconfig:
+    files:
+     - /home/bob/ncs/v3-zlink-U/zephyr/boards/native/native_sim/native_sim_64_defconfig
+     - /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/mac_ft_beacon/prj.conf
+     - /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/twister-out/native_sim_native_64/host/mac_ft_beacon.basic/zephyr/misc/generated/extra_kconfig_options.conf
+    user-files:
+     - /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/tests/mac_ft_beacon/prj.conf
+  toolchain:
+    name: host
+    path: 
+  zephyr:
+    version: 4.0.99
+    zephyr-base: /home/bob/ncs/v3-zlink-U/zephyr
+version: 0.1.0

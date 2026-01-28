@@ -1,0 +1,2 @@
+"nrf":"/home/bob/ncs/v3-zlink-U/nrf":"/home/bob/ncs/v3-zlink-U/nrf/sysbuild"
+"mcuboot":"/home/bob/ncs/v3-zlink-U/bootloader/mcuboot":"/home/bob/ncs/v3-zlink-U/bootloader/mcuboot/boot/zephyr/sysbuild"
