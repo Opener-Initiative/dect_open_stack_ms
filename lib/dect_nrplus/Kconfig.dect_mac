@@ -120,25 +120,20 @@ config DECT_MAC_NVS_ZMS_BLOCK_SIZE
 
 # MAC Security Configuration
 config DECT_MAC_SECURITY_ENABLE
-    bool "Enable MAC Layer Security (Mode 1)"
-    default y
-    select CRYPTO
-    select PSA_CRYPTO_CLIENT
-    select PSA_CRYPTO_INIT
-    select TIMING_FUNCTIONS
-    select PSA_WANT_ALG_CMAC
-    select PSA_WANT_ALG_CTR
-    select PSA_WANT_KEY_TYPE_AES
-    select PSA_WANT_ALG_ECB_NO_PADDING
-    # Select the underlying Mbed TLS modules that implement the chosen PSA algorithms.
-    # The modules' own Kconfig files have the necessary `depends on MBEDTLS` guards.
-    select MBEDTLS_CMAC_C
-
-
-    select MBEDTLS_CIPHER_C
-    select MBEDTLS_CIPHER_MODE_CTR
-    #   Enable MAC layer security features as per ETSI TS 103 636-4, Mode 1
-    #   (AES-128 CMAC for integrity, AES-128 CTR for ciphering).
+	bool "Enable MAC Layer Security (Authentication & Encryption)"
+	depends on DECT_MAC_LAYER
+	select DECT_SECURITY_ENABLE
+	help
+	  Enable security for the MAC layer, including:
+	  - Authentication handshake (challenge-response with PSK)
+	  - AES-128 CMAC for message integrity (5-byte truncated MIC)
+	  - AES-128 CTR for confidentiality
+	  
+	  This enables the cryptographic operations for secure association
+	  and encrypted data transfer as specified in ETSI TS 103 636-4, Clause 5.9.
+	  
+	  The unified security subsystem (DECT_SECURITY_ENABLE) provides
+	  the underlying crypto primitives.
 
 if DECT_MAC_SECURITY_ENABLE
 

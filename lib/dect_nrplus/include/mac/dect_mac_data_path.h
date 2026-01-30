@@ -185,8 +185,6 @@ void dect_mac_data_path_handle_op_complete(pending_op_type_t completed_type,
 
 
 
-
-
                        
                                     
 

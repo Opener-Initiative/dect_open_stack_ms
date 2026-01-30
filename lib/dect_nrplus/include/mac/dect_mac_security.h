@@ -81,22 +81,6 @@ int security_crypt_payload(uint8_t *payload_in_out,
                            uint8_t *iv, /* IV is modified in CTR mode */
                            bool encrypt);
 
-// /**
-//  * @brief Derives session integrity and cipher keys from a master pre-shared key.
-//  *
-//  * THIS IS A PLACEHOLDER KDF AND IS NOT SECURE FOR PRODUCTION.
-//  * A proper KDF (e.g., HKDF based on AES-CMAC or a standard key derivation function)
-//  * should be used, ideally incorporating nonces exchanged during an authentication handshake.
-//  * For this phase, it implements a very simple derivation for testing purposes.
-//  *
-//  * @param master_key Pointer to the 16-byte master pre-shared key.
-//  * @param out_session_integrity_key Buffer to store the 16-byte derived integrity key.
-//  * @param out_session_cipher_key Buffer to store the 16-byte derived cipher key.
-//  * @return 0 on success, negative error code on failure (e.g., NULL pointers).
-//  */
-// int security_derive_session_keys_from_psk(const uint8_t *master_key,
-//                                           uint8_t *out_session_integrity_key,
-//                                           uint8_t *out_session_cipher_key);
 
 
  /**

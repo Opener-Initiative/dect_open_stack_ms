@@ -10,10 +10,6 @@
 
 /**
  * @brief Necassary Fudge until we can get the DECT PHY working
- *
- * Blah
- * Blah
- * Blah
  **/
 enum nrf_modem_dect_phy_feedback_format {
 	NRF_MODEM_DECT_PHY_FEEDBACK_FORMAT_NONE = 0,

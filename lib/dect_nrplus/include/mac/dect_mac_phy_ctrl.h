@@ -176,15 +176,7 @@ int dect_mac_phy_ctrl_assemble_final_pdu(
     const uint8_t *mac_sdu_area_data,
     size_t mac_sdu_area_len,
     uint16_t *out_assembled_pdu_len_cleartext);
-// int dect_mac_phy_ctrl_assemble_final_pdu(
-//     uint8_t *target_final_mac_pdu_buf,
-//     size_t target_buf_max_len,
-//     const dect_mac_header_type_octet_t *mac_hdr_type_octet,
-//     const void *common_hdr_data,
-//     size_t common_hdr_len,
-//     const uint8_t *mac_sdu_area_data,
-//     size_t mac_sdu_area_len,
-//     uint16_t *out_assembled_pdu_len_cleartext);
+
 
 /**
  * @brief Calculates the Physical Control Channel (PCC) `packet_length`, `df_mcs`,

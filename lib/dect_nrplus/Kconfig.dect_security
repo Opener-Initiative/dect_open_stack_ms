@@ -1,0 +1,47 @@
+# Kconfig.dect_security
+# Security subsystem configuration for DECT NR+ driver
+
+config DECT_SECURITY_ENABLE
+	bool "Enable DECT NR+ Security Subsystem"
+	help
+	  Enable the unified security subsystem for DECT NR+ MAC and CVG layers.
+	  This provides encryption and authentication services.
+
+if DECT_SECURITY_ENABLE
+
+choice DECT_CRYPTO_BACKEND
+	prompt "Cryptographic backend"
+	default DECT_CRYPTO_PSA
+	help
+	  Select the cryptographic backend for DECT NR+ security operations.
+
+config DECT_CRYPTO_PSA
+	bool "PSA Crypto API"
+	select PSA_CRYPTO_INIT
+	select PSA_WANT_ALG_CTR
+	select PSA_WANT_ALG_CMAC
+	select PSA_WANT_KEY_TYPE_AES
+	help
+	  Use PSA Crypto API for cryptographic operations.
+	  This is the default and recommended backend.
+
+
+config DECT_CRYPTO_TINYCRYPT
+	bool "TinyCrypt"
+	depends on !NRF_SECURITY
+	help
+	  Use TinyCrypt for cryptographic operations.
+	  This is a lightweight alternative for platforms without PSA support.
+	  Note: Not yet implemented.
+
+endchoice
+
+config DECT_SECURITY_LOG_LEVEL
+	int "DECT Security log level"
+	default 3
+	range 0 4
+	help
+	  Log level for the DECT security subsystem.
+	  0=off, 1=error, 2=warning, 3=info, 4=debug
+
+endif # DECT_SECURITY_ENABLE

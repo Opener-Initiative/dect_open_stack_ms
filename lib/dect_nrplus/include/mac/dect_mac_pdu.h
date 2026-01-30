@@ -118,6 +118,19 @@ typedef struct {
 	uint8_t tx_count_result;
 } __attribute__((packed)) dect_mac_measurement_report_ie_t;
 
+/* ETSI TS 103 636-4, Figure 6.4.3.6-1 */
+typedef struct {
+	uint8_t flags; /* RSV(2b)|LongID(1b)|ShortID(1b)|RSV(4b) */
+	uint16_t short_rd_id;
+	uint32_t long_rd_id;
+} __attribute__((packed)) dect_mac_identity_update_ie_t;
+
+/* ETSI TS 103 636-4, Figure 6.4.3.2-1 */
+typedef struct {
+	uint8_t flags; /* NetID(1b)|RSV(7b) */
+	uint32_t network_id; /* 24 bits used if present */
+} __attribute__((packed)) dect_mac_system_info_ie_t;
+
 
 
 /* ETSI TS 103 636-4, Figure 6.4.3.17-1 */
@@ -184,6 +197,8 @@ typedef struct {
 #define IE_TYPE_AUTH_CHALLENGE              0b011110
 #define IE_TYPE_AUTH_RESPONSE               0b011111
 #define IE_TYPE_AUTH_SUCCESS                0b100000
+#define IE_TYPE_SYSTEM_INFO                 0b100001
+#define IE_TYPE_IDENTITY_UPDATE             0b100010
 #define IE_TYPE_ESCAPE_TO_PROPRIETARY       0b111110 // 6-bit
 #define IE_TYPE_EXTENSION                   0b111111 // 6-bit, indicates 1-byte extension for IE type
 
@@ -196,42 +211,6 @@ typedef struct {
 #define IE_TYPE_SHORT_RD_STATUS             0b00001 // Payload 1 byte
 #define IE_TYPE_SHORT_RD_CAP_SHORT          0b00010 // Payload 1 byte
 #define IE_TYPE_SHORT_ASSOC_CTRL            0b00011 // Payload 1 byte
-
-
-// // --- Information Element Structures (Payloads AFTER MAC Mux Header) ---
-// typedef struct { // ETSI TS 103 636-4, Table 6.4.3.3-1 Resource Allocation IE fields
-//     // --- Bitmap fields ---
-//     dect_alloc_type_t alloc_type_val;
-//     bool add_allocation;
-//     bool id_present;
-//     dect_repeat_type_t repeat_val;
-//     bool sfn_present;
-//     bool channel_present;
-//     bool rlf_present; // dectScheduledResourceFailure timer code present
-
-//     // --- Resource 1 fields ---
-//     uint16_t start_subslot_val_res1; // Actual value to be serialized (8 or 9 bits based on flag)
-//     bool length_type_is_slots_res1;
-//     uint8_t length_val_res1;        // Value (0-127 representing 1-128 units)
-
-//     // --- Resource 2 fields (only if alloc_type_val == RES_ALLOC_TYPE_BIDIR) ---
-//     uint16_t start_subslot_val_res2;
-//     bool length_type_is_slots_res2;
-//     uint8_t length_val_res2;
-
-//     // --- Optional fields based on bitmap ---
-//     uint16_t short_rd_id_val;
-//     uint8_t repetition_value;       // Actual value (e.g. 1 means every frame/subslot)
-//     uint8_t validity_value;         // 0xFF for permanent
-//     uint8_t sfn_val;
-//     uint16_t channel_val;           // 13 MSB are channel, 3 LSB reserved (0)
-//     uint8_t dect_sched_res_fail_timer_code; // 4 MSB are code, 4 LSB reserved (0)
-
-//     // --- Helper flags for (de)serialization, set by caller/parser based on link's mu ---
-//     bool res1_is_9bit_subslot; // True if Start Subslot for Res1 should be 9 bits
-//     bool res2_is_9bit_subslot; // True if Start Subslot for Res2 should be 9 bits
-// } dect_mac_resource_alloc_ie_fields_t;
-
 
 typedef enum { // ETSI TS 103 636-4, Table 6.4.2.5-2 Association Reject Cause
     ASSOC_REJECT_CAUSE_NO_RADIO_CAP   = 0,
@@ -288,43 +267,6 @@ typedef struct {
 	dect_assoc_release_cause_t cause;
 } dect_mac_assoc_release_ie_t;
 
-
-// // ETSI TS 103 636-4, Annex A.2. Details based on ETSI TS 103 636-3 Annex B.
-// typedef struct {
-//     // Octet 0 of the 5-octet set
-//     uint8_t dlc_service_type_support_code;  // 3 MSB: See Part 5, B.1.2 (e.g., 000=Type0, 001=Type1, ..., 101=Type0,1,2,3)
-//     uint8_t rx_for_tx_diversity_code;       // Next 3 bits: See Part 3, B.2 (TX Diversity Antennas: 0=1, 1=2, 2=4, 3=8)
-//     // 2 LSB Reserved
-
-//     // Octet 1 of the 5-octet set
-//     uint8_t mu_value;                       // 3 MSB: Subcarrier scaling factor μ (1-8, code 0-7 -> val mu=2^code)
-//     uint8_t beta_value;                     // Next 4 bits: Fourier transform scaling factor β (1-16, code 0-15 -> val beta=code+1)
-//     // 1 LSB Reserved
-
-//     // Octet 2 of the 5-octet set
-//     uint8_t max_nss_for_rx_code;            // 3 MSB: Max Spatial Streams (0=1, 1=2, 2=4, 3=8)
-//     uint8_t max_mcs_code;                   // Next 4 bits: Max MCS Index (0-11 for MCS0-MCS11)
-//     // 1 LSB Reserved
-
-//     // Octet 3 of the 5-octet set
-//     uint8_t harq_soft_buffer_size_code;     // 4 MSB: See Part 3, B.2 (codes for 16000 to 2048000 bytes)
-//     uint8_t num_harq_processes_code;        // Next 2 bits: (0=1, 1=2, 2=4, 3=8 processes)
-//     // 2 LSB Reserved
-
-//     // Octet 4 of the 5-octet set
-//     uint8_t harq_feedback_delay_code;       // 4 MSB: See Part 3, B.2 (codes for 0-6 subslots)
-//     bool supports_dect_delay;               // Bit 3: If DECT_Delay for RACH response is supported
-//     bool supports_half_duplex;              // Bit 2: If half-duplex operation (diff chan for RACH resp/DL sched) is supported
-//     // 2 LSB Reserved
-// } dect_mac_phy_capability_set_t;
-
-
-
-// #define MAX_PHY_CAPABILITY_VARIANTS_IN_IE 4 // Example: Allow up to 4 explicit 5-octet sets
-//                                             // num_phy_capabilities field (N-1) can be 0-7.
-//                                             // If N-1=7, then N=8 sets. Base + 7 explicit.
-//                                             // So array should be at least 7 if supporting max.
-//                                             // Let's use a smaller practical max for now.
 
 typedef struct { // ETSI TS 103 636-4, Table 6.4.3.5-1 RD Capability IE fields
     // --- Octet 0 ---
@@ -436,6 +378,34 @@ typedef struct {
 
 // --- PDU (De)Serialization Function Prototypes ---
 
+int build_mac_mux_header(uint8_t *buf, size_t buf_len,
+			 uint8_t ie_type_value, uint16_t ie_payload_len,
+			 uint8_t mac_ext_format_override);
+
+int build_load_info_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
+			     const dect_mac_load_info_ie_t *load_info);
+
+int parse_load_info_ie_muxed(const uint8_t *ie_payload_buf, uint16_t payload_len,
+			     dect_mac_load_info_ie_t *out_load_info);
+
+int build_measurement_report_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
+				      const dect_mac_measurement_report_ie_t *report);
+
+int parse_measurement_report_ie_muxed(const uint8_t *ie_payload_buf, uint16_t payload_len,
+				      dect_mac_measurement_report_ie_t *out_report);
+
+int build_identity_update_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
+				   const dect_mac_identity_update_ie_t *id_update);
+
+int parse_identity_update_ie_muxed(const uint8_t *ie_payload_buf, uint16_t payload_len,
+				   dect_mac_identity_update_ie_t *out_id_update);
+
+int build_system_info_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
+			       const dect_mac_system_info_ie_t *sys_info);
+
+int parse_system_info_ie_muxed(const uint8_t *ie_payload_buf, uint16_t payload_len,
+			       dect_mac_system_info_ie_t *out_sys_info);
+
 /**
  * @brief Parses a MAC Multiplexing header.
  *
@@ -495,21 +465,6 @@ int build_assoc_release_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_
 int build_route_info_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
 			      const dect_mac_route_info_ie_t *route_info_fields);
 
-// /**
-//  * @brief Builds a complete MUXed Group Assignment IE.
-//  *
-//  * @param target_ie_area_buf Buffer to write the full MUXed IE into.
-//  * @param target_buf_max_len Max length of the buffer.
-//  * @param is_single True if this assignment is for a single RD.
-//  * @param is_direct True if the resource direction is inverted.
-//  * @param group_id The group ID for this assignment.
-//  * @param tags Pointer to an array of resource tags.
-//  * @param num_tags The number of tags in the array.
-//  * @return Total length of the MUXed IE, or a negative error code.
-//  */
-// // int build_group_assignment_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
-// // 				    bool is_single, bool is_direct, uint8_t group_id,
-// // 				    const uint8_t *tags, uint8_t num_tags);
 
 int build_group_assignment_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
 				    const dect_mac_group_assignment_fields_t *fields);
@@ -570,22 +525,6 @@ int parse_route_info_ie_payload(const uint8_t *ie_payload, uint16_t ie_payload_l
  */
 int build_resource_alloc_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
 				  const dect_mac_resource_alloc_ie_fields_t *res_alloc_fields);                
-
-
-// int build_joining_information_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
-// 				       const uint16_t *ep_values, uint8_t num_eps);
-
-// int build_auth_initiate_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
-// 				 uint32_t pt_nonce);
-
-// int build_auth_challenge_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
-// 				  uint32_t pt_nonce, uint32_t ft_nonce);
-
-// int build_auth_response_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
-// 				 const uint8_t *pt_mac);
-
-// int build_auth_success_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
-// 				const uint8_t *ft_mac);
 
 
 // Functions to parse specific IE payloads (after MUX header is stripped)

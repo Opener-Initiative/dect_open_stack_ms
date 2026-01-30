@@ -135,12 +135,6 @@ int dect_nrplus_stack_init(void)
 		return err;
 	}
 
-	// err = dect_mac_api_init(&g_dlc_to_app_rx_dlist);
-	// if (err) {
-	// 	LOG_ERR("MAC API init failed: %d", err);
-	// 	return err;
-	// }
-
 #if defined(CONFIG_DECT_MAC_ROLE_FT)
 	dect_mac_role_t my_role = MAC_ROLE_FT;
 #elif defined(CONFIG_DECT_MAC_ROLE_PT)

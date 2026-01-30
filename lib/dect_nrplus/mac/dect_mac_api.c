@@ -223,7 +223,6 @@ int dect_mac_api_ft_send_to_pt(mac_sdu_t *sdu, mac_flow_id_t flow, uint16_t targ
     // Check if MAC is in FT role and PT is connected (implementation-specific)
     // Add SDU to TX dlist with target PT info
     sdu->target_peer_short_rd_id = target_pt_short_rd_id;
-    // sys_dlist_append(mac_tx_dlists[flow], &sdu->node);
 	sys_dlist_t *target_dlist_ptr = NULL;
 
 	switch (flow) {

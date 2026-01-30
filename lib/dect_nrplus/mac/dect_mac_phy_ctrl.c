@@ -64,7 +64,7 @@ static void ft_build_pcc_header(union nrf_modem_dect_phy_hdr *pcc_hdr,
 		mcs_to_use_for_pcc_calc = 0;
 	}
 
-	dect_mac_phy_ctrl_calculate_pcc_params(pdc_content_len_for_phy, mu_code, 0,
+	dect_mac_phy_ctrl_calculate_pcc_params(pdc_content_len_for_phy, mu_code, ctx->own_phy_params.beta,
 					       &calculated_pcc_packet_len_field,
 					       &mcs_to_use_for_pcc_calc,
 					       &calculated_pcc_pkt_len_type_field);
@@ -77,10 +77,7 @@ static void ft_build_pcc_header(union nrf_modem_dect_phy_hdr *pcc_hdr,
 		pcc1->packet_length_type = calculated_pcc_pkt_len_type_field;
 		pcc1->packet_length = calculated_pcc_packet_len_field;
 		pcc1->short_network_id = (uint8_t)(ctx->network_id_32bit & 0xFF);
-		// uint16_t be_tx_short_id = sys_cpu_to_be16(ctx->own_short_rd_id);
 
-		// pcc1->transmitter_id_hi = (uint8_t)(be_tx_short_id >> 8);
-		// pcc1->transmitter_id_lo = (uint8_t)(be_tx_short_id & 0xFF);
 		pcc1->transmitter_id_hi = (uint8_t)(ctx->own_short_rd_id >> 8);
 		pcc1->transmitter_id_lo = (uint8_t)(ctx->own_short_rd_id & 0xFF);
 
@@ -100,20 +97,13 @@ static void ft_build_pcc_header(union nrf_modem_dect_phy_hdr *pcc_hdr,
 		pcc2->packet_length_type = calculated_pcc_pkt_len_type_field;
 		pcc2->packet_length = calculated_pcc_packet_len_field;
 		pcc2->short_network_id = (uint8_t)(ctx->network_id_32bit & 0xFF);
-		// uint16_t be_tx_short_id = sys_cpu_to_be16(ctx->own_short_rd_id);
 
-		// pcc2->transmitter_id_hi = (uint8_t)(be_tx_short_id >> 8);
-		// pcc2->transmitter_id_lo = (uint8_t)(be_tx_short_id & 0xFF);
 		pcc2->transmitter_id_hi = (uint8_t)(ctx->own_short_rd_id >> 8);
 		pcc2->transmitter_id_lo = (uint8_t)(ctx->own_short_rd_id & 0xFF);
 
 		pcc2->transmit_power = ctx->config.default_tx_power_code;
 		pcc2->df_mcs = mcs_to_use_for_pcc_calc & 0x0F;
 
-		// uint16_t be_rx_short_id = sys_cpu_to_be16(target_receiver_short_id);
-
-		// pcc2->receiver_id_hi = (uint8_t)(be_rx_short_id >> 8);
-		// pcc2->receiver_id_lo = (uint8_t)(be_rx_short_id & 0xFF);
 		/* Directly assign bytes from the native uint16_t.
 		 * The struct fields are defined as hi/lo, so this correctly
 		 * places the bytes for the PHY, regardless of host endianness.
@@ -260,8 +250,6 @@ int dect_mac_phy_ctrl_assemble_final_pdu(
     printk("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
     printk("[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> Using MAC Header Type: 0x%02X\n", mac_hdr_type_octet_byte);	
 
-    // if (!target_final_mac_pdu_buf || !mac_hdr_type_octet || !out_assembled_pdu_len_cleartext) {
-	// if (!target_final_mac_pdu_buf || !mac_hdr_type_octet_byte || !out_assembled_pdu_len_cleartext) {
 	if (!target_final_mac_pdu_buf || !out_assembled_pdu_len_cleartext) {
 		if (!target_final_mac_pdu_buf ){printk("[PHY CTRL] ERROR:dect_mac_phy_ctrl_assemble_final_pdu -> (!target_final_mac_pdu_buf}\n");}
 		if (!mac_hdr_type_octet_byte){printk("[PHY CTRL] ERROR:dect_mac_phy_ctrl_assemble_final_pdu -> (!mac_hdr_type_octet_byte}\n");}
@@ -279,10 +267,6 @@ int dect_mac_phy_ctrl_assemble_final_pdu(
         if (mac_sdu_area_data != NULL || mac_sdu_area_len != 0) return -EINVAL;
     }
 
-    // // 1. MAC Header Type (1 byte)
-    // if (target_buf_max_len < sizeof(dect_mac_header_type_octet_t)) return -ENOMEM;
-    // memcpy(target_final_mac_pdu_buf + current_offset, mac_hdr_type_octet, sizeof(dect_mac_header_type_octet_t));
-    // current_offset += sizeof(dect_mac_header_type_octet_t);
     /* 1. MAC Header Type (1 byte) */
     if (target_buf_max_len < 1) return -ENOMEM;
     target_final_mac_pdu_buf[current_offset] = mac_hdr_type_octet_byte;
@@ -341,15 +325,6 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 		return -EFAULT;
 	}
 
-	// if (ctx->pending_op_type != PENDING_OP_NONE && ctx->pending_op_handle != phy_op_handle) {
-	// 	if (ctx->pending_op_type != op_type || ctx->pending_op_handle != phy_op_handle) {
-	// 		LOG_WRN("PHY_CTRL_TX: Op %s (H:%u) busy. New TX for %s (H:%u) rejected.",
-	// 			dect_pending_op_to_str(ctx->pending_op_type),
-	// 			ctx->pending_op_handle, dect_pending_op_to_str(op_type),
-	// 			phy_op_handle);				
-	// 		return -EBUSY;
-	// 	}
-	// }
 	ctx->pending_op_handle = phy_op_handle;
 	ctx->pending_op_type = op_type;
 
@@ -375,28 +350,6 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 		}
 		printk("\n");
 
-	// // const uint8_t *pdc_content_for_phy =
-	// // 	full_mac_pdu_to_send + sizeof(dect_mac_header_type_octet_t);
-	// // uint16_t pdc_content_len_for_phy =
-	// // 	full_mac_pdu_len - sizeof(dect_mac_header_type_octet_t);
-	
-	// /* The PDC payload IS the full MAC PDU */
-	// const uint8_t *pdc_content_for_phy = full_mac_pdu_to_send;
-	// uint16_t pdc_content_len_for_phy = full_mac_pdu_len;
-
-	// if (pdc_content_len_for_phy > sizeof(g_phy_pdc_tx_constructor_buf_ctrl)) {
-	// 	LOG_ERR("PHY_CTRL_TX: Effective PDC content for PHY TX too large (%u > %zu)",
-	// 		pdc_content_len_for_phy, sizeof(g_phy_pdc_tx_constructor_buf_ctrl));
-	// 	if (ctx->pending_op_handle == phy_op_handle) {
-	// 		ctx->pending_op_type = PENDING_OP_NONE;
-	// 		ctx->pending_op_handle = 0;
-	// 	}
-	// 	return -ENOMEM;
-	// }
-	// if (pdc_content_len_for_phy > 0) {
-	// 	memcpy(g_phy_pdc_tx_constructor_buf_ctrl, pdc_content_for_phy,
-	// 	       pdc_content_len_for_phy);
-	// }
 	/* The PDC payload IS the full MAC PDU. Copy it to the constructor buffer. */
 	if (full_mac_pdu_len > sizeof(g_phy_pdc_tx_constructor_buf_ctrl)) {
 		LOG_ERR("PHY_CTRL_TX: Full MAC PDU for PHY TX too large (%u > %zu)",
@@ -687,12 +640,22 @@ void dect_mac_phy_ctrl_calculate_pcc_params(size_t mac_pdc_payload_len_bytes,
 		num_subslots_needed = TBS_MAX_SUB_SLOTS_J;
 	}
 
-	*out_packet_length_type_field = 0;
+	uint8_t subslots_per_slot = get_subslots_per_etsi_slot_for_mu(mu_code);
 
-	if (num_subslots_needed > 0 && num_subslots_needed <= TBS_MAX_SUB_SLOTS_J) {
-		*out_packet_length_field = num_subslots_needed - 1;
+	if (num_subslots_needed > 16) {
+		/* Large payload: Try to use Slot mode (Type 1) if possible.
+		 * Note: Currently limited by TBS tables spanning only 16 subslots total.
+		 */
+		uint8_t slots_needed = (num_subslots_needed + subslots_per_slot - 1) / subslots_per_slot;
+		if (slots_needed > 16) {
+			slots_needed = 16;
+			LOG_WRN("PCC_CALC: Payload exceeds 16-slot max capacity. Clamping.");
+		}
+		*out_packet_length_field = slots_needed - 1;
+		*out_packet_length_type_field = 1; /* Slot mode */
 	} else {
-		*out_packet_length_field = TBS_MAX_SUB_SLOTS_J - 1;
+		*out_packet_length_field = num_subslots_needed - 1;
+		*out_packet_length_type_field = 0; /* Subslot mode */
 	}
 
 	LOG_DBG("PCC_CALC: Payload %zuB, mu_c %u, beta_c %u, MCS %u -> %u subslots (PCC len_f 0x%X, type %u)",

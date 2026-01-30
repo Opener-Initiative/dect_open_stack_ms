@@ -280,21 +280,6 @@ typedef struct {
     uint32_t invalid_next_hop_addr_be;
 } __attribute__((packed)) dect_dlc_ie_route_error_t;
 
-/**
- * @brief DLC Routing Header structure.
- * (ETSI TS 103 636-5, Figure 5.3.4-1). Variable length based on bitmap.
- * This struct represents the maximum possible fields for simplicity.
- * Actual serialization/deserialization must be driven by the bitmap field.
- */
-// typedef struct {
-//     uint16_t bitmap_be; // Routing bitmap field (2 octets, Big Endian)
-//     uint32_t source_addr_be;
-//     uint32_t dest_addr_be;
-//     uint8_t hop_count;
-//     uint8_t hop_limit;
-//     uint32_t delay_be;
-//     uint8_t sequence_number;
-// } __attribute__((packed)) dect_dlc_routing_header_t;
 
 /**
  * @brief Item structure for the FIFO queue from DLC RX thread to the CVG/Application layer.

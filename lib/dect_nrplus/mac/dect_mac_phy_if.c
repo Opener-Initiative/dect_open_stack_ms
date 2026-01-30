@@ -91,14 +91,6 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 		event_handle = event->pdc.handle;
 		is_op_event = true;
 
-        // /* Find the cached PCC to get the phy_type for this PDC */
-        // for (int i = 0; i < MAX_PENDING_PCC_TRANSACTIONS; i++) {
-        //     if (event_ctx->pcc_transaction_cache[i].is_valid &&
-        //         event_ctx->pcc_transaction_cache[i].transaction_id == event->pdc.transaction_id) {
-        //         msg_to_queue.data.pcc.phy_type = event_ctx->pcc_transaction_cache[i].pcc_data.phy_type;
-        //         break;
-        //     }
-        // }
         const uint8_t *data = event->pdc.data;
         size_t len = 8; /* Adjust this based on your needs */
         printk("[MOCK_PHY] RX_QUEUE:PDC Payload Hexdump (first %zu bytes): ", len);

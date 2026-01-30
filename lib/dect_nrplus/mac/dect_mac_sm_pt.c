@@ -112,9 +112,7 @@ void pt_send_association_release_action(dect_mac_peer_info_t *old_ft_info);
 // Helpers from data_path or utils (ensure they are accessible)
 extern uint32_t get_subslot_duration_ticks(dect_mac_context_t *ctx);
 extern uint64_t modem_us_to_ticks(uint64_t us, uint32_t tick_rate_khz);
-// extern void update_next_occurrence(dect_mac_context_t *ctx, dect_mac_schedule_t *schedule, uint64_t current_modem_time);
 extern void update_next_occurrence(dect_mac_context_t *ctx, dect_mac_schedule_t *schedule, uint64_t current_modem_time, uint8_t link_mu_code);
-// extern uint64_t calculate_target_modem_time(dect_mac_context_t *ctx, uint64_t sfn_zero_anchor_time, uint8_t anchor_sfn_val, uint8_t target_sfn_val, uint16_t target_subslot_idx);
 extern uint64_t calculate_target_modem_time(dect_mac_context_t *ctx, uint64_t sfn_zero_anchor_time, uint8_t sfn_of_anchor_relevance, uint8_t target_sfn_val, uint16_t target_subslot_idx, uint8_t link_mu_code, uint8_t link_beta_code);
 
 // --- PT Timer Expiry Action Functions (called by dispatcher) ---
@@ -167,34 +165,34 @@ bool pt_get_next_tx_opportunity(uint64_t *out_start_time, uint16_t *out_carrier,
 		return false;
 	}
 
+	uint32_t transition_ticks = modem_us_to_ticks(
+		ctx->phy_latency.scheduled_operation_transition_us,
+		NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 	uint32_t prep_latency_ticks = modem_us_to_ticks(
 		ctx->phy_latency.idle_to_active_tx_us +
 			ctx->phy_latency.scheduled_operation_startup_us,
 		NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 
-	// if (sched->next_occurrence_modem_time >= (ctx->last_known_modem_time + prep_latency_ticks)) {
-	// 	*out_start_time = sched->next_occurrence_modem_time;
-	// 	*out_carrier = sched->channel;
-	// 	*out_schedule = *sched;
-	// 	printk("  - out_start_time:%lluus \n", sched->next_occurrence_modem_time);
-	// 	return true;
-	// }
-	if (sched->next_occurrence_modem_time >= (k_ticks_to_us_floor64(k_uptime_ticks()) + 
-			modem_ticks_to_us(prep_latency_ticks, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ))) {
+	uint64_t earliest_start = k_ticks_to_us_floor64(k_uptime_ticks()) + 
+		modem_ticks_to_us(prep_latency_ticks, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+
+	/* If another operation just ended or will end, ensure transition guard band */
+	if (ctx->last_phy_op_end_time > 0) {
+		uint64_t transition_earliest = ctx->last_phy_op_end_time + 
+			modem_ticks_to_us(transition_ticks, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+		if (transition_earliest > earliest_start) {
+			earliest_start = transition_earliest;
+		}
+	}
+
+	if (sched->next_occurrence_modem_time >= earliest_start) {
 		*out_start_time = sched->next_occurrence_modem_time;
 		*out_carrier = sched->channel;
 		*out_schedule = *sched;
 		printk("  - out_start_time:%lluus \n", sched->next_occurrence_modem_time);
 		return true;
-	}	
-	// if (sched->next_occurrence_modem_time >= (k_ticks_to_us_floor64(k_uptime_ticks()) + prep_latency_ticks)) {
-	// 	*out_start_time = sched->next_occurrence_modem_time;
-	// 	*out_carrier = sched->channel;
-	// 	*out_schedule = *sched;
-	// 	printk("  - out_start_time:%lluus \n", sched->next_occurrence_modem_time);
-	// 	return true;
-	// }
-printk("[ERROR] pt_get_next_tx_opportunity return FALSE\n");
+	}
+	printk("[ERROR] pt_get_next_tx_opportunity return FALSE (earliest %llu)\n", earliest_start);
 	return false;
 }
 
@@ -726,15 +724,6 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 
 	printk("[PT_SM] pt_handle_phy_op_complete_internal: completed_op_type:%s(%d) Started... \n", dect_pending_op_to_str(completed_op_type),completed_op_type);
 
-    // if (ctx->state == MAC_STATE_PT_WAIT_ASSOC_RESP && completed_op_type == PENDING_OP_NONE) {
-    //     // Assume RX operation completed; check for AssocResp packet
-    //     printk("[PT_SM] RX completed in PT_WAIT_ASSOC_RESP, awaiting PDC event\n");
-    //     // Optionally, set a pending operation or timer to wait for PDC
-    // } else {
-    //     LOG_WRN("PT SM: OP_COMPLETE pt_handle_phy_op_complete_internal for unhandled PT op type: %s (Hdl %u), err %d (SUCCESS)",
-    //             dect_pending_op_to_str(completed_op_type), event->handle, event->err);
-    // }
-
 
     switch (completed_op_type) {
 		
@@ -748,6 +737,9 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 				k_timer_stop(&ctx->role_ctx.pt.beacon_listen_timer);
 				dect_mac_core_clear_pending_op();
 				dect_mac_sm_pt_start_operation();
+			} else {
+				LOG_DBG("PT_SM: Generic Unicast TX complete in state %s. Clearing pending op.", dect_mac_state_to_str(ctx->state));
+				dect_mac_core_clear_pending_op();
 			}
 			break;
         case PENDING_OP_PT_PAGING_LISTEN:
@@ -1346,6 +1338,17 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 				if (parse_resource_alloc_ie_payload(ie_payload, ie_len, ft_mu_code, &res_alloc_fields) == 0) {
 					if (res_alloc_fields.repeat_val == RES_ALLOC_REPEAT_FRAMES_GROUP || res_alloc_fields.repeat_val == RES_ALLOC_REPEAT_SUBSLOTS_GROUP) {
 						res_alloc_found = true;
+						/* Update template immediately so subsequent GroupAssignment in same beacon can use it */
+						dect_mac_schedule_t *group_sched = &ctx->role_ctx.pt.group_schedule;
+						group_sched->is_active = true;
+						group_sched->alloc_type = res_alloc_fields.alloc_type_val;
+						group_sched->ul_start_subslot = res_alloc_fields.start_subslot_val_res1;
+						group_sched->ul_duration_subslots = res_alloc_fields.length_val_res1 + 1;
+						group_sched->ul_length_is_slots = res_alloc_fields.length_type_is_slots_res1;
+						group_sched->repeat_type = res_alloc_fields.repeat_val;
+						group_sched->repetition_value = res_alloc_fields.repetition_value;
+						group_sched->validity_value = res_alloc_fields.validity_value;
+						group_sched->channel = res_alloc_fields.channel_present ? res_alloc_fields.channel_val : ctx->current_rx_op_carrier;
 					}
 				}
 			} else if (ie_type == IE_TYPE_BROADCAST_IND) {
@@ -1371,19 +1374,6 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 		}
 
 		uint16_t beacon_rx_carrier = ctx->current_rx_op_carrier;
-
-		if (res_alloc_found) {
-			dect_mac_schedule_t *group_sched = &ctx->role_ctx.pt.group_schedule;
-			group_sched->is_active = false;
-			group_sched->alloc_type = res_alloc_fields.alloc_type_val;
-			group_sched->ul_start_subslot = res_alloc_fields.start_subslot_val_res1;
-			group_sched->ul_duration_subslots = res_alloc_fields.length_val_res1 + 1;
-			group_sched->ul_length_is_slots = res_alloc_fields.length_type_is_slots_res1;
-			group_sched->repeat_type = res_alloc_fields.repeat_val;
-			group_sched->repetition_value = res_alloc_fields.repetition_value;
-			group_sched->validity_value = res_alloc_fields.validity_value;
-			group_sched->channel = res_alloc_fields.channel_present ? res_alloc_fields.channel_val : beacon_rx_carrier;
-		}
 
 		if (cb_found && rach_found) {
 			/* The PT must adopt the Network ID of the FT it is associating with. */
@@ -1861,9 +1851,6 @@ static void pt_send_auth_initiate_action(void)
 		return;
 	}
 
-	// dect_mac_header_type_octet_t hdr_type = {.version = 0,
-	// 					 .mac_security = MAC_SECURITY_NONE,
-	// 					 .mac_header_type = MAC_COMMON_HEADER_TYPE_UNICAST};
 	uint8_t hdr_type_octet_byte = 0;
 	hdr_type_octet_byte |= (MAC_COMMON_HEADER_TYPE_UNICAST & 0x0F);
 	hdr_type_octet_byte |= (MAC_SECURITY_NONE & 0x03) << 4;
@@ -1886,9 +1873,6 @@ static void pt_send_auth_initiate_action(void)
 	uint16_t pdu_len;
 	int ret;
 
-	// ret = dect_mac_phy_ctrl_assemble_final_pdu(pdu_sdu->data, CONFIG_DECT_MAC_PDU_MAX_SIZE,
-	// 					   &hdr_type, &common_hdr, sizeof(common_hdr),
-	// 					   sdu_area_buf, (size_t)sdu_area_len, &pdu_len);
 	ret = dect_mac_phy_ctrl_assemble_final_pdu(pdu_sdu->data, CONFIG_DECT_MAC_PDU_MAX_SIZE,
 						   hdr_type_octet_byte, &common_hdr, sizeof(common_hdr),
 						   sdu_area_buf, (size_t)sdu_area_len, &pdu_len);
@@ -1986,14 +1970,10 @@ static void pt_send_association_request_action(void)
 
 	dect_mac_change_state(MAC_STATE_PT_ASSOCIATING);
 
-	printk("PT_SM_ASSOC_REQ: Attempting Association Request to FT 0x%04X on RACH carrier %u (Attempt %u). \n",
+	LOG_INF("PT_SM_ASSOC_REQ: Attempting Association Request to FT 0x%04X on RACH carrier %u (Attempt %u).",
 		ctx->role_ctx.pt.target_ft.short_rd_id,
 		ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel,
 		ctx->role_ctx.pt.current_assoc_retries + 1);
-	// LOG_INF("PT_SM_ASSOC_REQ: Attempting Association Request to FT 0x%04X on RACH carrier %u (Attempt %u).",
-	// 	ctx->role_ctx.pt.target_ft.short_rd_id,
-	// 	ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel,
-	// 	ctx->role_ctx.pt.current_assoc_retries + 1);
 
 	uint8_t sdu_area_buf[128];
 	dect_mac_assoc_req_ie_t assoc_req_fields;
@@ -2084,10 +2064,6 @@ static void pt_send_association_request_action(void)
 		return;
 	}
 
-	// dect_mac_header_type_octet_t hdr_type_octet;
-	// hdr_type_octet.version = 0;
-	// hdr_type_octet.mac_security = MAC_SECURITY_NONE;
-	// hdr_type_octet.mac_header_type = MAC_COMMON_HEADER_TYPE_UNICAST;
 	uint8_t hdr_type_octet_byte = 0;
 	hdr_type_octet_byte |= (MAC_COMMON_HEADER_TYPE_UNICAST & 0x0F) << 0;
 	hdr_type_octet_byte |= (MAC_SECURITY_NONE & 0x03) << 4;
@@ -2110,10 +2086,6 @@ static void pt_send_association_request_action(void)
 	uint8_t * const full_mac_pdu_for_phy = full_mac_pdu_for_phy_slab;
 
 	uint16_t pdu_len;
-	// int ret = dect_mac_phy_ctrl_assemble_final_pdu(full_mac_pdu_for_phy, CONFIG_DECT_MAC_PDU_MAX_SIZE,
-    //                                      &hdr_type_octet, &common_hdr, sizeof(common_hdr),
-    //                                      sdu_area_buf, (size_t)sdu_area_len,
-    //                                      &pdu_len);
 	int ret = dect_mac_phy_ctrl_assemble_final_pdu(full_mac_pdu_for_phy, CONFIG_DECT_MAC_PDU_MAX_SIZE,
                                          hdr_type_octet_byte, &common_hdr, sizeof(common_hdr),
                                          sdu_area_buf, (size_t)sdu_area_len,
@@ -2237,12 +2209,7 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 			if (parse_assoc_resp_ie_payload(ie_payload_ptr, ie_payload_len,
 							&resp_fields) == 0) {
 				resp_ie_found = true;
-			}
-		// } else if (ie_type == IE_TYPE_ASSOC_REQ) {
-		// 	if (parse_rd_capability_ie_payload(ie_payload_ptr, ie_payload_len,
-		// 					   &ft_cap_fields) == 0) {
-		// 		ft_cap_found = true;
-		// 	}			
+			}		
 		} else if (ie_type == IE_TYPE_RD_CAPABILITY) {
 			if (parse_rd_capability_ie_payload(ie_payload_ptr, ie_payload_len,
 							   &ft_cap_fields) == 0) {
@@ -2617,9 +2584,6 @@ static void pt_send_auth_response_action(void)
 		return;
 	}
 
-	// dect_mac_header_type_octet_t hdr_type = {.version = 0,
-	// 					 .mac_security = MAC_SECURITY_NONE,
-	// 					 .mac_header_type = MAC_COMMON_HEADER_TYPE_UNICAST};
 	uint8_t hdr_type_octet_byte = 0;
 	hdr_type_octet_byte |= (MAC_COMMON_HEADER_TYPE_UNICAST & 0x0F);
 	hdr_type_octet_byte |= (MAC_SECURITY_NONE & 0x03) << 4;
@@ -2641,9 +2605,6 @@ static void pt_send_auth_response_action(void)
 
 	uint16_t pdu_len;
 
-	// ret = dect_mac_phy_ctrl_assemble_final_pdu(pdu_sdu->data, CONFIG_DECT_MAC_PDU_MAX_SIZE,
-	// 					   &hdr_type, &common_hdr, sizeof(common_hdr),
-	// 					   sdu_area_buf, (size_t)sdu_area_len, &pdu_len);
 	ret = dect_mac_phy_ctrl_assemble_final_pdu(pdu_sdu->data, CONFIG_DECT_MAC_PDU_MAX_SIZE,
 						   hdr_type_octet_byte, &common_hdr, sizeof(common_hdr),
 						   sdu_area_buf, (size_t)sdu_area_len, &pdu_len);
@@ -2742,13 +2703,16 @@ static void pt_process_group_assignment_ie(const uint8_t *payload, uint16_t len)
 	uint8_t group_id = (payload[0] >> 0) & 0x3F;
 
 	if (group_id != ft->group_id) {
+		LOG_DBG("GROUP_ASSIGN: Group ID mismatch (rcvd %u, own %u)", group_id, ft->group_id);
 		return; /* Not for our group */
 	}
 
 	uint8_t num_tags = len - 1;
+	LOG_INF("GROUP_ASSIGN: Processing Group %u Assignment with %u tags. Own tag: %u", group_id, num_tags, ft->resource_tag);
 
 	for (int i = 0; i < num_tags; i++) {
 		uint8_t tag = payload[i + 1] & 0x7F;
+		LOG_DBG("GROUP_ASSIGN: Checking tag[%d] = %u", i, tag);
 
 		if (tag == ft->resource_tag) {
 			/* This is our slot repetition */
@@ -2796,12 +2760,6 @@ static void pt_send_keep_alive_action(void)
 		k_timer_stop(&ctx->role_ctx.pt.keep_alive_timer);
 		return;
 	}
-
-	// if (ctx->pending_op_type != PENDING_OP_NONE) {
-	// 	LOG_DBG("PT_SM_KA: PHY op %s pending, deferring Keep Alive. Will retry on next timer expiry.",
-	// 		dect_pending_op_to_str(ctx->pending_op_type));
-	// 	return;
-	// }
 
 	LOG_INF("PT_SM_KA: Sending Keep Alive to associated FT 0x%04X.",
 		ctx->role_ctx.pt.associated_ft.short_rd_id);
@@ -3033,8 +2991,6 @@ static void pt_send_keep_alive_action(void)
  * @param ctx 
  * @param success 
  */
-/**** THIS IS FOR TESTING THE MAC LAYER ****/
-// #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)
 static void pt_authentication_complete_action(dect_mac_context_t* ctx, bool success) {
 	printk("[AUTH_COMPLETE_DBG] pt_authentication_complete_action called with success: %d\n", success);
 
@@ -3147,7 +3103,6 @@ static void pt_authentication_complete_action(dect_mac_context_t* ctx, bool succ
         }
     }
 }
-// #endif /* IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
 
 
 void dect_mac_sm_pt_initiate_authentication_protocol(void)
@@ -3318,56 +3273,7 @@ static void pt_process_page_indication(void)
 // }
 #endif
 
-// static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
-// 					   const dect_mac_cluster_beacon_ie_fields_t *cb_fields,
-// 					   uint32_t ft_long_id, uint16_t ft_short_id,
-// 					   int16_t rssi_q7_1, uint16_t beacon_rx_carrier)
-// {
 
-// 	if (ft_long_id == ctx->role_ctx.pt.associated_ft.long_rd_id) {
-// 		/* This is a beacon from our current FT, update its info */
-// 		ctx->role_ctx.pt.associated_ft.rssi_2 = rssi_q7_1;
-// 		/* Update the trigger count based on the latest beacon from our FT */
-// 		ctx->role_ctx.pt.initial_count_to_trigger = cb_fields->count_to_trigger_code;
-// 		return;
-// 	}
-
-// 	pt_update_mobility_candidate(beacon_rx_carrier, rssi_q7_1, ft_long_id, ft_short_id);
-
-// 	/* Find the updated candidate to evaluate it */
-// 	for (int i = 0; i < MAX_MOBILITY_CANDIDATES; i++) {
-// 		dect_mobility_candidate_t *cand = &ctx->role_ctx.pt.mobility_candidates[i];
-
-// 		if (cand->is_valid && cand->long_rd_id == ft_long_id) {
-// 			/* RelQuality code (0-7) maps to 0,3,6,9... dB. Multiply by 2 for Q7.1 format. */
-// 			int16_t rssi_hysteresis = (int16_t)(cb_fields->rel_quality_code * 3 * 2);
-
-// 			if (cand->rssi_2 > (ctx->role_ctx.pt.associated_ft.rssi_2 + rssi_hysteresis)) {
-// 				if (cand->trigger_count_remaining > 0) {
-// 					cand->trigger_count_remaining--;
-// 					LOG_INF("MOBILITY: Candidate FT 0x%04X is stronger. Trigger count now %u.",
-// 						cand->short_rd_id, cand->trigger_count_remaining);
-// 				}
-
-// 				if (cand->trigger_count_remaining == 0) {
-// 					LOG_INF("MOBILITY: Handover triggered for candidate FT 0x%04X!",
-// 						cand->short_rd_id);
-// 					pt_initiate_handover_action(ctx, cand);
-// 				}
-// 			} else {
-// 				/* Not significantly better, reset its trigger count */
-// 				if (cand->trigger_count_remaining !=
-// 				    ctx->role_ctx.pt.initial_count_to_trigger) {
-// 					LOG_DBG("MOBILITY: Candidate FT 0x%04X not strong enough. Resetting trigger count.",
-// 						cand->short_rd_id);
-// 					cand->trigger_count_remaining =
-// 						ctx->role_ctx.pt.initial_count_to_trigger;
-// 				}
-// 			}
-// 			break;
-// 		}
-// 	}
-// }
 static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
 					   const dect_mac_cluster_beacon_ie_fields_t *cb_fields,
 					   uint32_t ft_long_id, uint16_t ft_short_id,
@@ -3487,69 +3393,6 @@ printk("[MOBILITY_CANDIDATE_DBG] Stored new candidate in slot. Parsed RACH chann
 
 
 
-// static void pt_send_association_release_action(dect_mac_peer_info_t *old_ft_info)
-// {
-// 	if (!old_ft_info || !old_ft_info->is_valid) {
-// 		return;
-// 	}
-
-// 	LOG_INF("MOBILITY: Sending Association Release to old FT 0x%08X", old_ft_info->long_rd_id);
-
-// 	uint8_t sdu_area_buf[16];
-// 	dect_mac_assoc_release_ie_t release_fields = {.cause = ASSOC_RELEASE_CAUSE_MOBILITY};
-
-// 	int sdu_area_len = build_assoc_release_ie_muxed(sdu_area_buf, sizeof(sdu_area_buf),
-// 							&release_fields);
-// 	if (sdu_area_len < 0) {
-// 		LOG_ERR("MOBILITY: Failed to build Assoc Release IE: %d", sdu_area_len);
-// 		return;
-// 	}
-
-// 	/* This is a fire-and-forget message, sent unreliably. */
-// 	/* A full implementation might use a reliable service. */
-// 	dect_mac_context_t *ctx = dect_mac_get_active_context();
-
-// 	mac_sdu_t *sdu = dect_mac_buffer_alloc(K_NO_WAIT);
-// 	if (!sdu) {
-// 		LOG_ERR("MOBILITY: Failed to alloc SDU for Assoc Release.");
-// 		return;
-// 	}
-
-// 	uint8_t hdr_type_octet_byte = 0;
-
-// 	hdr_type_octet_byte |= (MAC_COMMON_HEADER_TYPE_UNICAST & 0x0F);
-// 	hdr_type_octet_byte |= (MAC_SECURITY_NONE & 0x03) << 4;
-
-// 	dect_mac_unicast_header_t common_hdr;
-
-// 	increment_psn_and_hpc(ctx);
-// 	common_hdr.sequence_num_high_reset_rsv =
-// 		SET_SEQ_NUM_HIGH_RESET_RSV((ctx->psn >> 8) & 0x0F, 1);
-// 	common_hdr.sequence_num_low = ctx->psn & 0xFF;
-// 	common_hdr.transmitter_long_rd_id_be = sys_cpu_to_be32(ctx->own_long_rd_id);
-// 	common_hdr.receiver_long_rd_id_be = sys_cpu_to_be32(old_ft_info->long_rd_id);
-
-// 	uint16_t pdu_len;
-// 	int ret;
-
-// 	ret = dect_mac_phy_ctrl_assemble_final_pdu(sdu->data, CONFIG_DECT_MAC_PDU_MAX_SIZE,
-// 						       hdr_type_octet_byte, &common_hdr, sizeof(common_hdr),
-// 						       sdu_area_buf, (size_t)sdu_area_len,
-// 						       &pdu_len);
-
-// 	if (ret != 0) {
-// 		dect_mac_buffer_free(sdu);
-// 		return;
-// 	}
-// 	sdu->len = pdu_len;
-
-// 	/* This should be sent on the OLD FT's RACH resources, which we no longer track.
-// 	 * For simplicity, we send it via the generic API, which will use the NEW FT's
-// 	 * resources. This is a simplification; a full implementation would need to
-// 	 * temporarily use the old link's parameters for this one message.
-// 	 */
-// 	dect_mac_api_send(sdu, MAC_FLOW_HIGH_PRIORITY);
-// }
  void pt_send_association_release_action(dect_mac_peer_info_t *old_ft_info)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();

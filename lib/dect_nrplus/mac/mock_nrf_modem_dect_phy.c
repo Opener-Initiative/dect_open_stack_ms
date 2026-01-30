@@ -1,6 +1,5 @@
 /* lib/dect_nrplus/mac/mock_nrf_modem_dect_phy.c */
 // Overview: This is the complete, corrected mock PHY. It is based on the new architecture that uses the Zephyr kernel clock as the single source of truth, ensuring correct time synchronization for all tests.
-// --- REPLACE ENTIRE FILE ---
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -64,16 +63,6 @@ void mock_phy_complete_reset(mock_phy_context_t *ctx)
     ctx->state = PHY_STATE_DEINITIALIZED;
 }
 
-
-// void mock_phy_init_context(mock_phy_context_t *ctx, struct dect_mac_context *mac_ctx,
-// 			   mock_phy_context_t *peer_ctx)
-// {
-// 	memset(ctx, 0, sizeof(mock_phy_context_t));
-// 	ctx->transaction_id_counter = 123;
-// 	ctx->mac_ctx = mac_ctx;
-// 	ctx->peer_ctx = peer_ctx;
-// 	ctx->state = PHY_STATE_DEINITIALIZED;
-// }
 void mock_phy_init_context(mock_phy_context_t *ctx, struct dect_mac_context *mac_ctx,
 			   mock_phy_context_t **peers, size_t num_peers)
 {
@@ -165,191 +154,9 @@ uint64_t mock_phy_get_next_event_time(mock_phy_context_t *const phy_contexts[],
 	return next_event_time;
 }
 
-
-// void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
-// {
-// 	/* Process timeline events */
-// 	// printk("/* Process timeline events */ \n");
-// 	for (int i = 0; i < MOCK_TIMELINE_MAX_EVENTS; ++i) {
-// 		mock_scheduled_operation_t *op = &ctx->timeline[i];
-
-// 		/* Mark operations as running when their start time is reached */
-// 		if (op->active && !op->running && op->start_time_us <= current_time_us) {
-// 			op->running = true;
-// 		}
-
-// 		if (op->active && op->running && op->end_time_us <= current_time_us) {
-// 			mock_phy_set_active_context(ctx);
-
-// 			printk("[MOCK_EVENT_GEN_DBG] Generating OP_COMPLETE event for handle %u.\n", op->handle);
-
-// 			/*
-// 			 * A real PHY sends specific events (like RSSI results) BEFORE the
-// 			 * generic OP_COMPLETE. We simulate that here.
-// 			 */
-// 			// if (op->type == MOCK_OP_TYPE_RSSI) {
-// 			// 	/* Create a dummy RSSI result indicating a quiet channel */
-// 			// 	printk("op->type == MOCK_OP_TYPE_RSSI : Create a dummy RSSI result indicating a quiet channel */ \n");
-// 			// 	static int8_t dummy_rssi_meas[] = { -89, -91, -95, -89, -35, -87 };
-// 			// 	struct nrf_modem_dect_phy_event rssi_evt = {
-// 			// 		.id = NRF_MODEM_DECT_PHY_EVT_RSSI,
-// 			// 		.time = op->end_time_us,
-// 			// 		.rssi = { .handle = op->handle,
-// 			// 			  .carrier = op->carrier,
-// 			// 			  .meas_len = ARRAY_SIZE(dummy_rssi_meas),
-// 			// 			  .meas = dummy_rssi_meas }
-// 			// 	};
-// 			// 	mock_phy_send_event(&rssi_evt);
-// 			// }
-
-// 			/* Now send the generic completion event for all op types */
-// 			struct nrf_modem_dect_phy_event complete_evt = {
-// 				.id = NRF_MODEM_DECT_PHY_EVT_COMPLETED,
-// 				.time = op->end_time_us,
-// 				.op_complete = { .handle = op->handle,
-// 						.err = NRF_MODEM_DECT_PHY_SUCCESS }
-//             };
-// 			mock_phy_send_event(&complete_evt);
-// 			op->active = false;
-
-// 			/* If this was an RX operation, remove it from the active list */
-// 			if (op->type == MOCK_OP_TYPE_RX || op->type == MOCK_OP_TYPE_RSSI) {
-// 				for (size_t k = 0; k < ctx->num_active_rx_ops; k++) {
-// 					// if (ctx->active_rx_ops[k].handle == op->handle) {
-// 					// 	/* Remove by swapping with the last element */
-// 					// 	ctx->active_rx_ops[k] = ctx->active_rx_ops[ctx->num_active_rx_ops - 1];
-// 					// 	printk("ctx->num_active_rx_ops:%d \n", ctx->num_active_rx_ops);
-// 					// 	ctx->num_active_rx_ops--;
-// 					// 	printk("ctx->num_active_rx_ops:%d \n", ctx->num_active_rx_ops);
-// 					// 	break;
-// 					// }
-// 					if (ctx->active_rx_ops[k]->handle == op->handle) {
-// 						/* Remove by swapping with the last element */
-// 						ctx->active_rx_ops[k] =
-// 							ctx->active_rx_ops[ctx->num_active_rx_ops - 1];
-// 						printk("ctx->num_active_rx_ops:%d \n", ctx->num_active_rx_ops);
-// 						ctx->num_active_rx_ops--;
-// 						printk("ctx->num_active_rx_ops:%d \n", ctx->num_active_rx_ops);
-// 						break;
-// 					}					
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	/* Process RX queue events */
-// 	// printk("/* Process RX queue events */ \n");
-// 	for (int i = 0; i < MOCK_RX_QUEUE_MAX_PACKETS; ++i) {
-// 		mock_rx_packet_t *pkt = &ctx->rx_queue[i];
-
-// 		if (pkt->active && pkt->reception_time_us <= current_time_us) {
-//             /* Find matching RX operation */
-// 			// for (int j = 0; j < MOCK_TIMELINE_MAX_EVENTS; ++j) {
-// 			// 	mock_scheduled_operation_t *rx_op = &ctx->timeline[j];
-
-// 			// 	if (rx_op->active && rx_op->running &&
-// 			// 	    rx_op->type == MOCK_OP_TYPE_RX &&
-// 			// 	    pkt->carrier == rx_op->carrier) {
-// 			// 		uint16_t tid = ctx->transaction_id_counter++;
-
-//             //         /* Send PCC event */
-// 			// 		struct nrf_modem_dect_phy_event pcc_evt = {
-// 			// 			.id = NRF_MODEM_DECT_PHY_EVT_PCC,
-// 			// 			.time = pkt->reception_time_us,
-// 			// 		};
-// 			// 		pcc_evt.pcc = pkt->pcc_data;
-// 			// 		pcc_evt.pcc.handle = rx_op->handle;
-// 			// 		pcc_evt.pcc.transaction_id = tid;
-// 			// 		mock_phy_set_active_context(ctx);
-// 			// 		mock_phy_send_event(&pcc_evt);
-
-// 			// 		if (pkt->pdc_len > 0) {
-// 			// 			struct nrf_modem_dect_phy_event pdc_evt = {
-// 			// 				.id = NRF_MODEM_DECT_PHY_EVT_PDC,
-// 			// 				.time = pkt->reception_time_us,
-// 			// 				.pdc = {.handle = rx_op->handle,
-// 			// 					.transaction_id = tid,
-// 			// 					.data = pkt->pdc_payload,
-// 			// 					.len = pkt->pdc_len}
-//             //             };
-// 			// 			mock_phy_set_active_context(ctx);
-// 			// 			mock_phy_send_event(&pdc_evt);
-// 			// 		}
-
-// 			// 		pkt->active = false;
-// 			// 		break;
-// 			// 	}
-// 			// }
-// 			int active_slot = 0;
-// 			bool rx_op_found = false;
-// 			printk("[MOCK_PHY_RX_DBG] Processing queued packet for carrier %u at time %llu\n",
-// 			       pkt->carrier, current_time_us);
-
-// 			for (int j = 0; j < MOCK_TIMELINE_MAX_EVENTS; ++j) {
-// 				mock_scheduled_operation_t *rx_op = &ctx->timeline[j];
-
-// 				if (rx_op->handle == 1604170158) { /* Hardcoded handle for debug */
-// 					printk("[MOCK_PROCESS_DBG] Checking timeline slot %d for handle %u. Active: %d, Running: %d, Type: %d, Carrier: %u\n",
-// 					       j, rx_op->handle, rx_op->active, rx_op->running, rx_op->type, rx_op->carrier);
-// 				}
-
-// 				active_slot = j;
-// 				if (rx_op->active){
-// 					printk("timeline[%d] -> rx_op->active:%s && rx_op->running:%s && rx_op->type[%d] == [1]or[2] && pkt->carrier[%d] == rx_op->carrier[%d] \n", 
-// 						active_slot, rx_op->active?"Active":"Inactive", rx_op->running ?"Running":"Stopped", rx_op->type, pkt->carrier, rx_op->carrier);
-// 				}
-
-// 				// if (rx_op->active && rx_op->running &&
-// 				//     (rx_op->type == MOCK_OP_TYPE_RX || rx_op->type == MOCK_OP_TYPE_RSSI)&&
-// 				//     pkt->carrier == rx_op->carrier) {
-// 				if (rx_op->active && rx_op->running &&
-// 				    (rx_op->type == MOCK_OP_TYPE_RX || rx_op->type == MOCK_OP_TYPE_RSSI)) {				
-// 					uint16_t tid = ctx->transaction_id_counter++;
-
-// 					printk("  -> Checking against active RX op: handle=%u, carrier=%u, type=%d\n",
-// 					       rx_op->handle, rx_op->carrier, rx_op->type);
-						   
-// 					/* Send PCC event */
-// 					struct nrf_modem_dect_phy_event pcc_evt = {
-// 						.id = NRF_MODEM_DECT_PHY_EVT_PCC,
-// 						.time = pkt->reception_time_us,
-// 					};
-// 					pcc_evt.pcc = pkt->pcc_data;
-// 					pcc_evt.pcc.handle = rx_op->handle;
-// 					pcc_evt.pcc.transaction_id = tid;
-// 					mock_phy_set_active_context(ctx);
-// 					mock_phy_send_event(&pcc_evt);
-
-// 					/* Send PDC event if there is a payload */
-// 					if (pkt->pdc_len > 0) {
-// 						struct nrf_modem_dect_phy_event pdc_evt = {
-// 							.id = NRF_MODEM_DECT_PHY_EVT_PDC,
-// 							.time = pkt->reception_time_us,
-// 							.pdc = { .handle = rx_op->handle,
-// 								 .transaction_id = tid,
-// 								 .data = pkt->pdc_payload,
-// 								 .len = pkt->pdc_len }
-// 						};
-// 						mock_phy_set_active_context(ctx);
-// 						mock_phy_send_event(&pdc_evt);
-// 					}
-
-// 					pkt->active = false;
-// 					rx_op_found = true;
-// 					break;
-// 				}
-// 			}
-// 			if (!rx_op_found) {
-// 				printk("MOCK_PHY: RX packet for carrier %u dropped, no active RX operation final timeline.\n",
-// 					pkt->carrier);
-// 				// pkt->active = false; /* Discard the packet */
-// 			}
-// 		}
-// 	}
-// }
-// Overview: Refactors the mock PHY's event processing to be a true discrete-event simulator. It now finds and processes only the single, next chronological event instead of batch-processing, which fixes the event queue overflow bug.
-// --- REPLACE ENTIRE FUNCTION: mock_phy_process_events ---
-// // <<START REPLACEMENT CODE>>
+/* Overview: Refactors the mock PHY's event processing to be a true discrete-event simulator. 
+** It now finds and processes only the single, next chronological event instead of batch-processing, which fixes the event queue overflow bug.
+*/
 void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
 {
 	/* Process timeline for completed operations */
@@ -435,8 +242,6 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
 	/* Deactivate the processed packet */
 	pkt->active = false;
 }
-// <<END REPLACEMENT CODE>>
-
 
 
 
@@ -510,26 +315,6 @@ int nrf_modem_dect_phy_tx(const struct nrf_modem_dect_phy_tx_params *params)
 	g_last_tx_pdu_len_capture = params->data_size;
 	memcpy(g_last_tx_pdu_capture, params->data, params->data_size);
 
-	// if (g_active_phy_ctx->peer_ctx) {
-	// 	mock_rx_packet_t rx_pkt = {
-	// 		.active = true,
-	// 		.reception_time_us = start_time_us + 100, /* 100us prop delay */
-	// 		.carrier = params->carrier,
-	// 		.pcc_data =
-	// 			{
-	// 				.phy_type = params->phy_type,
-	// 				.hdr = *params->phy_header,
-	// 				.rssi_2 = -120, /* -60 dBm in Q7.1 */
-	// 				.snr = 80,	/* 20 dB in Q13.2 */
-	// 			},
-	// 		.pdc_len = params->data_size,
-	// 	};
-	// 	if (params->data) {
-	// 		memcpy(rx_pkt.pdc_payload, params->data, params->data_size);
-	// 	}
-	// 	mock_phy_queue_rx_packet(g_active_phy_ctx->peer_ctx, &rx_pkt);
-	// }
-
 	printk("\n--- DEBUG_PROBE: nrf_modem_dect_phy_tx ---\n");
 	printk("  - Transmitter is: %s\n", (g_active_phy_ctx->mac_ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
 	printk("  - Number of configured peers: %zu\n", g_active_phy_ctx->num_peers);
@@ -593,12 +378,6 @@ int nrf_modem_dect_phy_rx(const struct nrf_modem_dect_phy_rx_params *params)
 			      UINT64_MAX :
 			      (start_time_us + modem_ticks_to_us(params->duration,
 								NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ));
-
-	// uint64_t end_time_us = 
-	// 	(params->duration == 0) ? 
-	// 				(start_time_us + 1000000000) : /* 1000 seconds */
-	// 				(start_time_us + modem_ticks_to_us(params->duration, 
-	// 							NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ));
 
 	g_active_phy_ctx->timeline[slot] = (mock_scheduled_operation_t){
 		.active = true,
@@ -777,16 +556,6 @@ static void mock_phy_send_event(const struct nrf_modem_dect_phy_event *event)
 		g_event_handler(event);
 	}
 }
-
-// static int find_free_timeline_slot(mock_phy_context_t *ctx)
-// {
-// 	printk("[MOCK_HELPER_DBG] Entering find_free_timeline_slot...\n");
-	
-// 	for (int i = 0; i < MOCK_TIMELINE_MAX_EVENTS; ++i)
-// 		if (!ctx->timeline[i].active)
-// 			return i;
-// 	return -1;
-// }
 
 static int find_free_timeline_slot(mock_phy_context_t *ctx)
 {

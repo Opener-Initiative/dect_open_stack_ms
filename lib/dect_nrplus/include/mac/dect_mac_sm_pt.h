@@ -96,17 +96,6 @@ void pt_rach_response_window_timer_expired_action(void);
  */
 void dect_mac_sm_pt_beacon_listen_timer_expired_action(void);
 
-// /**
-//  * @brief PT processes a received Group Assignment IE.
-//  *
-//  * This function is called when a Group Assignment IE is found in a beacon.
-//  * It checks if the PT's assigned resource tag is present and, if so,
-//  * activates the corresponding group schedule.
-//  *
-//  * @param payload Pointer to the Group Assignment IE payload.
-//  * @param len Length of the payload.
-//  */
-// static void pt_process_group_assignment_ie(const uint8_t *payload, uint16_t len);
 
 /**
  * @brief PT initiates the (stubbed) authentication protocol with the associated FT.

@@ -80,8 +80,6 @@ static uint32_t read_bits_adv(const uint8_t *buf, int *bit_offset_ptr, int *rema
         return 0; // Or a specific error indicator if needed
     }
     if (*remaining_bits_ptr < num_bits) {
-        // printk("PDU_RD_BITS: Not enough bits remaining (%d) to read %u bits at offset %d",
-                // *remaining_bits_ptr, num_bits, *bit_offset_ptr);
         LOG_ERR("PDU_RD_BITS: Not enough bits remaining (%d) to read %u bits at offset %d",
                 *remaining_bits_ptr, num_bits, *bit_offset_ptr);				
         *remaining_bits_ptr = 0;
@@ -93,7 +91,6 @@ static uint32_t read_bits_adv(const uint8_t *buf, int *bit_offset_ptr, int *rema
         value <<= 1;
         int byte_idx = (*bit_offset_ptr + i) / 8;
         int bit_idx_in_byte = (*bit_offset_ptr + i) % 8;
-        // if (READ_BIT(buf[byte_idx], 7 - bit_idx_in_byte)) { // READ_BIT is 0-indexed from MSB
         if ((buf[byte_idx] >> (7 - bit_idx_in_byte)) & 1) { // READ_BIT is 0-indexed from MSB    
             
             value |= 1;
@@ -109,9 +106,9 @@ static uint32_t read_bits_adv(const uint8_t *buf, int *bit_offset_ptr, int *rema
 
 
 // --- MAC MUX Header Functions ---
-static int build_mac_mux_header_internal(uint8_t *buf, size_t buf_len,
-                                         uint8_t ie_type_value, uint16_t ie_payload_len,
-                                         uint8_t mac_ext_format_override)
+int build_mac_mux_header(uint8_t *buf, size_t buf_len,
+			uint8_t ie_type_value, uint16_t ie_payload_len,
+			uint8_t mac_ext_format_override)
 {
 	if (!buf) {
 		return -EINVAL;
@@ -179,7 +176,7 @@ int build_route_info_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max
 
 	size_t payload_len = sizeof(dect_mac_route_info_ie_t);
 
-	int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
 						      IE_TYPE_ROUTE_INFO, payload_len, 0);
 	if (mux_hdr_len < 0) {
 		return mux_hdr_len;
@@ -1890,7 +1887,7 @@ int build_assoc_req_ies_area(uint8_t *target_ie_area_buf, size_t target_buf_max_
         return ie_payload_len_bytes;
     }
 
-    mux_hdr_len_bytes = build_mac_mux_header_internal(target_ie_area_buf + current_offset_bytes,
+    mux_hdr_len_bytes = build_mac_mux_header(target_ie_area_buf + current_offset_bytes,
                                                target_buf_max_len - current_offset_bytes,
                                                IE_TYPE_ASSOC_REQ, (uint16_t)ie_payload_len_bytes,
                                                0 /* auto-detect MAC_Ext format */);
@@ -1918,7 +1915,7 @@ int build_assoc_req_ies_area(uint8_t *target_ie_area_buf, size_t target_buf_max_
         return ie_payload_len_bytes;
     }
 
-    mux_hdr_len_bytes = build_mac_mux_header_internal(target_ie_area_buf + current_offset_bytes,
+    mux_hdr_len_bytes = build_mac_mux_header(target_ie_area_buf + current_offset_bytes,
                                                target_buf_max_len - current_offset_bytes,
                                                IE_TYPE_RD_CAPABILITY, (uint16_t)ie_payload_len_bytes,
                                                0 /* auto-detect MAC_Ext format */);
@@ -1999,7 +1996,7 @@ int build_assoc_resp_sdu_area_content(uint8_t *target_sdu_area_buf, size_t targe
 	printk("[PDU_BUILD] Building MUX header for AssocResp IE with IE Type: %d\n",
 	       IE_TYPE_ASSOC_RESP);
 
-	mux_hdr_len_bytes = build_mac_mux_header_internal(target_sdu_area_buf + current_write_offset_in_buf,
+	mux_hdr_len_bytes = build_mac_mux_header(target_sdu_area_buf + current_write_offset_in_buf,
 						   target_sdu_area_max_len - current_write_offset_in_buf,
 						   IE_TYPE_ASSOC_RESP, (uint16_t)ie_payload_len_bytes,
 						   0 /* auto-detect MAC_Ext */);
@@ -2025,7 +2022,7 @@ int build_assoc_resp_sdu_area_content(uint8_t *target_sdu_area_buf, size_t targe
 								  ft_cap_fields);
 	if (ie_payload_len_bytes < 0) { LOG_ERR("ASSOC_RESP_AREA: Serialize FT RD Cap IE failed: %d", ie_payload_len_bytes); return ie_payload_len_bytes; }
 
-	mux_hdr_len_bytes = build_mac_mux_header_internal(target_sdu_area_buf + current_write_offset_in_buf,
+	mux_hdr_len_bytes = build_mac_mux_header(target_sdu_area_buf + current_write_offset_in_buf,
 						   target_sdu_area_max_len - current_write_offset_in_buf,
 						   IE_TYPE_RD_CAPABILITY, (uint16_t)ie_payload_len_bytes, 0);
 	if (mux_hdr_len_bytes < 0) { LOG_ERR("ASSOC_RESP_AREA: Build MUX for FT RD Cap IE failed: %d", mux_hdr_len_bytes); return mux_hdr_len_bytes; }
@@ -2046,7 +2043,7 @@ int build_assoc_resp_sdu_area_content(uint8_t *target_sdu_area_buf, size_t targe
 		return ie_payload_len_bytes;
 	}
 
-	mux_hdr_len_bytes = build_mac_mux_header_internal(target_sdu_area_buf + current_write_offset_in_buf,
+	mux_hdr_len_bytes = build_mac_mux_header(target_sdu_area_buf + current_write_offset_in_buf,
 						   target_sdu_area_max_len - current_write_offset_in_buf,
 						   IE_TYPE_RES_ALLOC, (uint16_t)ie_payload_len_bytes, 0);
 	if (mux_hdr_len_bytes < 0) {
@@ -2100,7 +2097,7 @@ int build_beacon_sdu_area_content(uint8_t *target_sdu_area_buf, size_t target_sd
         return ie_payload_len_bytes;
     }
 
-    mux_hdr_len_bytes = build_mac_mux_header_internal(target_sdu_area_buf + current_offset_bytes,
+    mux_hdr_len_bytes = build_mac_mux_header(target_sdu_area_buf + current_offset_bytes,
                                                target_sdu_area_max_len - current_offset_bytes,
                                                IE_TYPE_CLUSTER_BEACON, (uint16_t)ie_payload_len_bytes,
                                                0 /* auto-detect MAC_Ext format */);
@@ -2129,7 +2126,7 @@ int build_beacon_sdu_area_content(uint8_t *target_sdu_area_buf, size_t target_sd
         return ie_payload_len_bytes;
     }
 
-    mux_hdr_len_bytes = build_mac_mux_header_internal(target_sdu_area_buf + current_offset_bytes,
+    mux_hdr_len_bytes = build_mac_mux_header(target_sdu_area_buf + current_offset_bytes,
                                                target_sdu_area_max_len - current_offset_bytes,
                                                IE_TYPE_RACH_INFO, (uint16_t)ie_payload_len_bytes,
                                                0 /* auto-detect MAC_Ext format */);
@@ -2163,7 +2160,7 @@ int build_broadcast_indication_ie_muxed(uint8_t *target_ie_area_buf, size_t targ
     sys_put_be16(paged_pt_short_id, payload);
     size_t payload_len = sizeof(payload);
 
-    int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+    int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
                                                   IE_TYPE_BROADCAST_IND, payload_len, 0);
     if (mux_hdr_len < 0) {
         return mux_hdr_len;
@@ -2178,7 +2175,7 @@ int build_broadcast_indication_ie_muxed(uint8_t *target_ie_area_buf, size_t targ
 
 int build_keep_alive_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len) {
     // Short IE, 0 byte payload. MAC_Ext = 11 (override code 4), Length bit = 0.
-    return build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+    return build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
                                          IE_TYPE_SHORT_KEEP_ALIVE, 0, 4);
 }
 
@@ -2196,7 +2193,7 @@ int build_mac_security_info_ie_muxed(uint8_t *target_ie_area_buf, size_t target_
 
     // MAC_Ext=01 (8-bit length) or 00 (fixed length by type) could be used.
     // Let's use 01 for clarity on length, even if fixed. Auto-detect (0) would pick 01.
-    int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+    int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
                                                   IE_TYPE_MAC_SECURITY_INFO, (uint16_t)payload_len, 0);
     if (mux_hdr_len < 0) return mux_hdr_len;
     if ((size_t)mux_hdr_len + payload_len > target_buf_max_len) return -ENOMEM;
@@ -2232,7 +2229,7 @@ int build_user_data_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_
     // user_data_flow_ie_type should be one of IE_TYPE_USER_DATA_FLOW_X
 
     // Auto-detect MAC_Ext format based on dlc_pdu_len (0 for auto-detect)
-    int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+    int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
                                                   user_data_flow_ie_type, dlc_pdu_len, 0);
     if (mux_hdr_len < 0) return mux_hdr_len;
     if ((size_t)mux_hdr_len + dlc_pdu_len > target_buf_max_len) return -ENOMEM;
@@ -2260,7 +2257,7 @@ int build_joining_information_ie_muxed(uint8_t *target_ie_area_buf, size_t targe
 		sys_put_be16(ep_values[i], &payload_buf[1 + (i * 2)]);
 	}
 
-	int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
 						      IE_TYPE_JOINING_INFORMATION, payload_len, 0);
 	if (mux_hdr_len < 0) {
 		return mux_hdr_len;
@@ -2280,7 +2277,7 @@ int build_auth_initiate_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_
 	dect_mac_auth_initiate_ie_t payload = {.pt_nonce_be = sys_cpu_to_be32(pt_nonce) };
 	size_t payload_len = sizeof(payload);
 
-	int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
 						      IE_TYPE_AUTH_INITIATE, payload_len, 0);
 	if (mux_hdr_len < 0) {
 		return mux_hdr_len;
@@ -2302,7 +2299,7 @@ int build_auth_challenge_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf
 	};
 	size_t payload_len = sizeof(payload);
 
-	int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
 						      IE_TYPE_AUTH_CHALLENGE, payload_len, 0);
 	if (mux_hdr_len < 0) {
 		return mux_hdr_len;
@@ -2323,7 +2320,7 @@ int build_auth_response_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_
 	memcpy(payload.pt_mac, pt_mac, DECT_MAC_AUTH_MAC_SIZE);
 	size_t payload_len = sizeof(payload);
 
-	int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
 						      IE_TYPE_AUTH_RESPONSE, payload_len, 0);
 	if (mux_hdr_len < 0) {
 		return mux_hdr_len;
@@ -2344,7 +2341,7 @@ int build_auth_success_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_m
 	memcpy(payload.ft_mac, ft_mac, DECT_MAC_AUTH_MAC_SIZE);
 	size_t payload_len = sizeof(payload);
 
-	int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
 						      IE_TYPE_AUTH_SUCCESS, payload_len, 0);
 	if (mux_hdr_len < 0) {
 		return mux_hdr_len;
@@ -2371,7 +2368,7 @@ int build_assoc_release_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_
 	/* Per ETSI Table 6.4.2.6-1, the cause is the 4 LSBs of the first octet. */
 	payload_buf[0] = release_fields->cause & 0x0F;
 
-	int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
 						      IE_TYPE_ASSOC_RELEASE, payload_len, 0);
 	if (mux_hdr_len < 0) {
 		return mux_hdr_len;
@@ -2438,7 +2435,7 @@ int build_resource_alloc_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf
 		return ie_payload_len;
 	}
 
-	int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
 							IE_TYPE_RES_ALLOC,
 							(uint16_t)ie_payload_len, 0);
 	if (mux_hdr_len < 0) {
@@ -2482,7 +2479,7 @@ int build_group_assignment_ie_muxed(uint8_t *target_ie_area_buf, size_t target_b
 
 	size_t payload_len = 1 + fields->num_tags;
 
-	int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
 						      IE_TYPE_GROUP_ASSIGNMENT, payload_len, 0);
 	if (mux_hdr_len < 0) {
 		return mux_hdr_len;
@@ -2516,7 +2513,7 @@ int build_load_info_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_
 	if ((load_info->flags >> 5) & 0x01) payload_len++; /* RACH load */
 	if ((load_info->flags >> 4) & 0x01) payload_len += 2; /* Channel load */
 
-	int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
 						      IE_TYPE_LOAD_INFO, payload_len, 0);
 	if (mux_hdr_len < 0) {
 		return mux_hdr_len;
@@ -2560,7 +2557,7 @@ int build_measurement_report_ie_muxed(uint8_t *target_ie_area_buf, size_t target
 	if ((report->flags >> 5) & 0x01) payload_len++; /* RSSI-1 */
 	if ((report->flags >> 4) & 0x01) payload_len++; /* TX count */
 
-	int mux_hdr_len = build_mac_mux_header_internal(target_ie_area_buf, target_buf_max_len,
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
 						      IE_TYPE_MEASUREMENT_REPORT, payload_len, 0);
 	if (mux_hdr_len < 0) {
 		return mux_hdr_len;
@@ -2577,5 +2574,188 @@ int build_measurement_report_ie_muxed(uint8_t *target_ie_area_buf, size_t target
 	if ((report->flags >> 4) & 0x01) *ptr++ = report->tx_count_result;
 
 	return mux_hdr_len + payload_len;
+}
+
+int parse_load_info_ie_muxed(const uint8_t *ie_payload_buf, uint16_t payload_len,
+			     dect_mac_load_info_ie_t *out_load_info)
+{
+	if (!ie_payload_buf || !out_load_info || payload_len < 1) {
+		return -EINVAL;
+	}
+
+	const uint8_t *ptr = ie_payload_buf;
+	out_load_info->flags = *ptr++;
+	uint16_t consumed = 1;
+
+	bool max_assoc_is_16bit = (out_load_info->flags >> 7) & 0x01;
+	if (max_assoc_is_16bit) {
+		if (payload_len < consumed + 2) return -EBADMSG;
+		out_load_info->max_associated_rds = sys_get_be16(ptr);
+		ptr += 2;
+		consumed += 2;
+	} else {
+		if (payload_len < consumed + 1) return -EBADMSG;
+		out_load_info->max_associated_rds = *ptr++;
+		consumed += 1;
+	}
+
+	if ((out_load_info->flags >> 6) & 0x01) {
+		if (payload_len < consumed + 1) return -EBADMSG;
+		out_load_info->currently_associated_rds_in_pt_mode_percentage = *ptr++;
+		consumed++;
+	}
+	if ((out_load_info->flags >> 5) & 0x01) {
+		if (payload_len < consumed + 1) return -EBADMSG;
+		out_load_info->rach_load_in_percentage = *ptr++;
+		consumed++;
+	}
+	if ((out_load_info->flags >> 4) & 0x01) {
+		if (payload_len < consumed + 2) return -EBADMSG;
+		out_load_info->percentage_of_subslots_detected_free = *ptr++;
+		out_load_info->percentage_of_subslots_detected_busy = *ptr++;
+		consumed += 2;
+	}
+
+	return consumed;
+}
+
+int parse_measurement_report_ie_muxed(const uint8_t *ie_payload_buf, uint16_t payload_len,
+				      dect_mac_measurement_report_ie_t *out_report)
+{
+	if (!ie_payload_buf || !out_report || payload_len < 1) {
+		return -EINVAL;
+	}
+
+	const uint8_t *ptr = ie_payload_buf;
+	out_report->flags = *ptr++;
+	uint16_t consumed = 1;
+
+	if ((out_report->flags >> 7) & 0x01) {
+		if (payload_len < consumed + 1) return -EBADMSG;
+		out_report->snr_result = *ptr++;
+		consumed++;
+	}
+	if ((out_report->flags >> 6) & 0x01) {
+		if (payload_len < consumed + 1) return -EBADMSG;
+		out_report->rssi2_result = *ptr++;
+		consumed++;
+	}
+	if ((out_report->flags >> 5) & 0x01) {
+		if (payload_len < consumed + 1) return -EBADMSG;
+		out_report->rssi1_result = *ptr++;
+		consumed++;
+	}
+	if ((out_report->flags >> 4) & 0x01) {
+		if (payload_len < consumed + 1) return -EBADMSG;
+		out_report->tx_count_result = *ptr++;
+		consumed++;
+	}
+
+	return consumed;
+}
+
+int build_identity_update_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
+				   const dect_mac_identity_update_ie_t *id_update)
+{
+	if (!target_ie_area_buf || !id_update) {
+		return -EINVAL;
+	}
+
+	size_t payload_len = 1;
+	if ((id_update->flags >> 4) & 0x01) payload_len += 2; /* Short ID */
+	if ((id_update->flags >> 5) & 0x01) payload_len += 4; /* Long ID */
+
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
+						      IE_TYPE_IDENTITY_UPDATE, payload_len, 0);
+	if (mux_hdr_len < 0) return mux_hdr_len;
+	if ((size_t)mux_hdr_len + payload_len > target_buf_max_len) return -ENOMEM;
+
+	uint8_t *ptr = target_ie_area_buf + mux_hdr_len;
+	*ptr++ = id_update->flags;
+	if ((id_update->flags >> 4) & 0x01) {
+		sys_put_be16(id_update->short_rd_id, ptr);
+		ptr += 2;
+	}
+	if ((id_update->flags >> 5) & 0x01) {
+		sys_put_be32(id_update->long_rd_id, ptr);
+		ptr += 4;
+	}
+
+	return mux_hdr_len + payload_len;
+}
+
+int parse_identity_update_ie_muxed(const uint8_t *ie_payload_buf, uint16_t payload_len,
+				   dect_mac_identity_update_ie_t *out_id_update)
+{
+	if (!ie_payload_buf || !out_id_update || payload_len < 1) {
+		return -EINVAL;
+	}
+
+	const uint8_t *ptr = ie_payload_buf;
+	out_id_update->flags = *ptr++;
+	uint16_t consumed = 1;
+
+	if ((out_id_update->flags >> 4) & 0x01) {
+		if (payload_len < consumed + 2) return -EBADMSG;
+		out_id_update->short_rd_id = sys_get_be16(ptr);
+		ptr += 2;
+		consumed += 2;
+	}
+	if ((out_id_update->flags >> 5) & 0x01) {
+		if (payload_len < consumed + 4) return -EBADMSG;
+		out_id_update->long_rd_id = sys_get_be32(ptr);
+		ptr += 4;
+		consumed += 4;
+	}
+
+	return consumed;
+}
+
+int build_system_info_ie_muxed(uint8_t *target_ie_area_buf, size_t target_buf_max_len,
+			       const dect_mac_system_info_ie_t *sys_info)
+{
+	if (!target_ie_area_buf || !sys_info) {
+		return -EINVAL;
+	}
+
+	size_t payload_len = 1;
+	if ((sys_info->flags >> 7) & 0x01) payload_len += 3; /* Network ID (24 bits) */
+
+	int mux_hdr_len = build_mac_mux_header(target_ie_area_buf, target_buf_max_len,
+						      IE_TYPE_SYSTEM_INFO, payload_len, 0);
+	if (mux_hdr_len < 0) return mux_hdr_len;
+	if ((size_t)mux_hdr_len + payload_len > target_buf_max_len) return -ENOMEM;
+
+	uint8_t *ptr = target_ie_area_buf + mux_hdr_len;
+	*ptr++ = sys_info->flags;
+	if ((sys_info->flags >> 7) & 0x01) {
+		ptr[0] = (sys_info->network_id >> 16) & 0xFF;
+		ptr[1] = (sys_info->network_id >> 8) & 0xFF;
+		ptr[2] = sys_info->network_id & 0xFF;
+		ptr += 3;
+	}
+
+	return mux_hdr_len + payload_len;
+}
+
+int parse_system_info_ie_muxed(const uint8_t *ie_payload_buf, uint16_t payload_len,
+			       dect_mac_system_info_ie_t *out_sys_info)
+{
+	if (!ie_payload_buf || !out_sys_info || payload_len < 1) {
+		return -EINVAL;
+	}
+
+	const uint8_t *ptr = ie_payload_buf;
+	out_sys_info->flags = *ptr++;
+	uint16_t consumed = 1;
+
+	if ((out_sys_info->flags >> 7) & 0x01) {
+		if (payload_len < consumed + 3) return -EBADMSG;
+		out_sys_info->network_id = (ptr[0] << 16) | (ptr[1] << 8) | ptr[2];
+		ptr += 3;
+		consumed += 3;
+	}
+
+	return consumed;
 }
 

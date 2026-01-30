@@ -11,8 +11,6 @@
 
 #include <mac/dect_mac_pdu.h>
 
-LOG_MODULE_REGISTER(test_mac_integration, LOG_LEVEL_DBG);
-
 /* Test Harness State & Mocks */
 static struct {
 	dect_mac_context_t ft_ctx;

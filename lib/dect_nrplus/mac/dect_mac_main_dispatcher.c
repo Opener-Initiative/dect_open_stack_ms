@@ -198,12 +198,6 @@ printk("PCC_DISPATCH: common_pre_handle_phy_pcc_event - ctx->role:%d && ctx->sta
 static bool common_pre_handle_phy_pdc_event(const struct nrf_modem_dect_phy_pdc_event *pdc_event_data) {
     if (!pdc_event_data) return false;
 
-    // LOG_DBG("PDC_DISPATCH: Rcvd. H:%u, Len:%zu, RSSI2:%.1f, SNR:%.2f, TID:%u",
-    //         pdc_event_data->handle, pdc_event_data->len,
-    //         pdc_event_data->rssi_2 / 2.0, pdc_event_data->snr / 4.0,
-    //         pdc_event_data->transaction_id);
-
-
     LOG_DBG("PDC_DISPATCH: Rcvd. H:%u, Len:%zu, RSSI2:%.1f, SNR:%.2f, TID:%u",
             pdc_event_data->handle, pdc_event_data->len,
             (double)pdc_event_data->rssi_2 / 2.0, (double)pdc_event_data->snr / 4.0,
@@ -280,13 +274,6 @@ void dect_mac_event_dispatch(const struct dect_mac_event_msg *msg)
 // printk(" dispatch_to_sm: %s\n",(dispatch_to_sm ? "True" : "False"));
 
     switch (msg->type) {
-        // case MAC_EVENT_PHY_OP_COMPLETE:
-        //     // The role-specific SM will call dect_mac_phy_ctrl_handle_op_complete()
-        //     // to get the completed_op_type and clear global pending status.
-        //     LOG_INF("DISPATCH: OP_COMPLETE for handle %u, err %d (%s). Forwarding to SM.",
-        //             msg->data.op_complete.handle, msg->data.op_complete.err,
-        //             nrf_modem_dect_phy_err_to_str(msg->data.op_complete.err));
-        //     break;
         case MAC_EVENT_PHY_OP_COMPLETE: {
             pending_op_type_t completed_type = dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete);
 
@@ -396,8 +383,6 @@ int dect_mac_test_inject_event_internal(struct dect_mac_context *ctx,
 	return k_msgq_put(&mac_event_msgq, &msg, K_NO_WAIT);
 }
 #endif /* IS_ENABLED(CONFIG_ZTEST) */
-
-
 
 
 // --- String Conversion Utility Functions ---

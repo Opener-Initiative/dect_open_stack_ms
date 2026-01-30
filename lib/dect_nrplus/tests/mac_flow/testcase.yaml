@@ -1,7 +1,6 @@
-
 tests:
-  mac.integration:
-    tags: dect_nrplus mac sm flow
+  mac_flow.basic:
+    tags: dect_nrlus
     platform_allow: 
       - native_sim
       - native_sim/native
@@ -15,4 +14,4 @@ tests:
     harness: ztest
     harness_config:
       type: one_line
-    timeout: 3000
+    timeout: 300

@@ -21,95 +21,6 @@
 #include <modem/nrf_modem_lib.h>
 #endif
 
-
-
-// LOG_MODULE_REGISTER(dect_mac, CONFIG_DECT_MAC_API_LOG_LEVEL);
-
-// /* Thread definitions from dect_mac_main.c are now internal to the MAC module */
-// K_THREAD_STACK_DEFINE(dect_mac_stack_area, CONFIG_DECT_MAC_THREAD_STACK_SIZE);
-// static struct k_thread dect_mac_thread_data;
-// static k_tid_t dect_mac_thread_id;
-// extern struct k_msgq mac_event_msgq;
-
-// static void dect_mac_thread_entry(void *p1, void *p2, void *p3)
-// {
-// 	ARG_UNUSED(p1);
-// 	ARG_UNUSED(p2);
-// 	ARG_UNUSED(p3);
-
-// 	LOG_INF("DECT MAC Thread Started. TID: %p", k_current_get());
-
-// 	struct dect_mac_event_msg msg;
-// 	while (1) {
-// 		int ret = k_msgq_get(&mac_event_msgq, &msg,
-// 				     K_MSEC(CONFIG_DECT_MAC_THREAD_SERVICE_INTERVAL_MS));
-
-// 		if (ret == 0) {
-// 			dect_mac_event_dispatch(&msg);
-// 		} else if (ret != -EAGAIN) {
-// 			LOG_ERR("Error reading from MAC event queue: %d", ret);
-// 		}
-
-// 		/* Periodic servicing for TX queues and schedules */
-// 		dect_mac_data_path_service_tx();
-// 	}
-// }
-
-// int dect_mac_init(sys_dlist_t *rx_dlist_from_dlc, dlc_tx_status_cb_t status_cb)
-// {
-// 	int err;
-
-// 	err = dect_mac_phy_if_init();
-// 	if (err) {
-// 		LOG_ERR("MAC-PHY interface init failed: %d", err);
-// 		return err;
-// 	}
-
-// 	err = dect_mac_api_init(rx_dlist_from_dlc);
-// 	if (err) {
-// 		LOG_ERR("MAC API init failed: %d", err);
-// 		return err;
-// 	}
-
-// 	dect_mac_data_path_register_dlc_callback(status_cb);
-
-// #if IS_ENABLED(CONFIG_DECT_MAC_ROLE_FT)
-// 	dect_mac_role_t my_role = MAC_ROLE_FT;
-// #elif IS_ENABLED(CONFIG_DECT_MAC_ROLE_PT)
-// 	dect_mac_role_t my_role = MAC_ROLE_PT;
-// #else
-// #error "A DECT MAC role must be selected in Kconfig"
-// #endif
-
-// 	err = dect_mac_core_init(my_role, CONFIG_DECT_MAC_PROVISIONED_LONG_RD_ID);
-// 	if (err) {
-// 		LOG_ERR("MAC Core init failed: %d", err);
-// 		return err;
-// 	}
-
-// 	dect_mac_thread_id = k_thread_create(&dect_mac_thread_data, dect_mac_stack_area,
-// 					 K_THREAD_STACK_SIZEOF(dect_mac_stack_area),
-// 					 dect_mac_thread_entry, NULL, NULL, NULL,
-// 					 CONFIG_DECT_MAC_THREAD_PRIORITY, 0, K_NO_WAIT);
-// 	if (dect_mac_thread_id == NULL) {
-// 		LOG_ERR("CRITICAL: Failed to create DECT MAC thread!");
-// 		return -EAGAIN;
-// 	}
-// 	k_thread_name_set(dect_mac_thread_id, "dect_mac");
-
-// 	return 0;
-// }
-
-// void dect_mac_start(void)
-// {
-// 	dect_mac_context_t *ctx = dect_mac_get_active_context();
-// 	if (ctx->role == MAC_ROLE_PT) {
-// 		dect_mac_sm_pt_start_operation();
-// 	} else {
-// 		dect_mac_sm_ft_start_operation();
-// 	}
-// }
-
 LOG_MODULE_REGISTER(dect_mac, CONFIG_DECT_MAC_API_LOG_LEVEL);
 
 
@@ -274,6 +185,12 @@ void dect_mac_start(void)
 		dect_mac_change_state(MAC_STATE_ERROR);
 	
 		return;
+	}
+
+	/* Enable STF cover sequence for improved robustness (TS 103 636-3 Cl. 6.3.7) */
+	err = nrf_modem_dect_phy_stf_cover_seq_control(true, true);
+	if (err) {
+		LOG_WRN("Failed to configure STF cover sequence: %d. Continuing with default.", err);
 	}
 
 
