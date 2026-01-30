@@ -21,7 +21,8 @@ This software implementation:
 
 ## Technical Overview
 
-This repository contains an experimental implementation of the **DECT 2020 NR+ (New Radio Plus)** protocol stack based on the **ETSI DECT 2020 NR+ Standard Version 2.1.1**.
+This repository contains an experimental implementation of the **DECT 2020 NR+ (New Radio Plus)** protocol stack based on the **ETSI TS 103-636 Standard Version 2.1.1**.
+This library covers Parts 4 & 5 of the specification.
 
 ### Architecture
 
