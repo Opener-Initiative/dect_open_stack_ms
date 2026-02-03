@@ -3,16 +3,14 @@
  * @file mock_nrf_modem_dect_phy.h
  * @brief Enhanced Mock PHY for Nordic DECT NR+ with improved realism
  * 
- * This mock PHY provides a realistic simulation of the Nordic DECT NR+ modem
- * while using microseconds for timing to aid development and testing.
+ * This mock PHY provides a realistic simulation of the Nordic DECT NR+ modem.
  * 
  * Key Features:
- * - Proper PHY state machine matching Nordic hardware
- * - Realistic operation lifecycle and event sequencing
- * - Hardware latency simulation
- * - Multi-device communication support
- * - Scheduling conflict detection
- * - Enhanced debugging and statistics
+ * - Discrete-event simulation using Zephyr kernel time (us).
+ * - Multi-device peer-to-peer simulation.
+ * - RF Environment simulation (Noise floor, RSSI).
+ * - Error injection (Probabilistic packet loss).
+ * - Collision detection (Overlapping transmissions on same carrier).
  */
 
 #ifndef MOCK_NRF_MODEM_DECT_PHY_H__
@@ -33,6 +31,9 @@
 
 /** @brief Maximum number of packets that can be queued for reception */
 #define MOCK_RX_QUEUE_MAX_PACKETS 32
+
+/** @brief Maximum number of carriers to simulate noise floors for */
+#define MOCK_MAX_CARRIERS 10
 
 /* ========================================================================
  * GLOBAL TEST CONTROL FLAGS
@@ -68,8 +69,7 @@ extern bool g_strict_scheduling_mode;
  * TYPE DEFINITIONS
  * ======================================================================== */
 
-/* Forward declaration for self-referential peer pointers */
-struct mock_phy_context_t;
+struct mock_phy_context_t; /* Forward declaration */
 
 /**
  * @brief PHY internal states
@@ -83,9 +83,6 @@ typedef enum {
     PHY_STATE_ACTIVE,         /**< PHY activated, can schedule operations */
 } mock_phy_internal_state_t;
 
-/**
- * @brief Types of PHY operations
- */
 typedef enum {
     MOCK_OP_TYPE_NONE = 0,
     MOCK_OP_TYPE_TX,       /**< Transmission operation */
@@ -126,7 +123,7 @@ typedef struct {
     mock_op_type_t type;            /**< Operation type */
     uint64_t transaction_id;        /**< Internal transaction ID */
     
-    /* Timing (all in microseconds) */
+    /* Timing (us) */
     uint64_t scheduled_time_us;     /**< When operation was scheduled */
     uint64_t start_time_us;         /**< When execution starts */
     uint64_t end_time_us;           /**< When execution ends */
@@ -149,7 +146,6 @@ typedef struct {
     
     /* Context for MAC layer */
     void *context;                  /**< User context pointer */
-    
 } mock_scheduled_operation_t;
 
 /**
@@ -161,8 +157,10 @@ typedef struct {
 typedef struct {
     bool active;                    /**< Packet is in queue */
     uint64_t reception_time_us;     /**< When packet should be received */
+    uint64_t duration_us;           /* Added for collision detection */
     uint16_t carrier;               /**< RF carrier */
-    uint16_t network_id;            /**< Network ID */
+    uint16_t network_id;            /**< Network ID */    
+
     
     /* Packet data */
     struct nrf_modem_dect_phy_pcc_event pcc_data;  /**< PCC event data */
@@ -172,13 +170,10 @@ typedef struct {
     /* Reception quality (for realistic simulation) */
     int8_t rssi_dbm;                /**< Received signal strength */
     int8_t snr_db;                  /**< Signal-to-noise ratio */
-    
 } mock_rx_packet_t;
 
 /**
  * @brief PHY context statistics
- * 
- * Tracks operation counts for debugging and performance analysis.
  */
 typedef struct {
     uint32_t tx_count;              /**< Number of TX operations scheduled */
@@ -193,48 +188,36 @@ typedef struct {
 
 /**
  * @brief PHY context structure
- * 
- * Represents the complete state of a single virtual PHY instance.
- * Supports multi-device simulation through peer connections.
  */
 typedef struct mock_phy_context_t {
-    /* State management */
-    mock_phy_internal_state_t state;        /**< Current PHY state */
-    uint64_t state_change_time_us;          /**< When state last changed */
+    mock_phy_internal_state_t state;
+    uint64_t state_change_time_us;
     
-    /* MAC layer connection */
-    struct dect_mac_context *mac_ctx;       /**< Associated MAC context */
+    struct dect_mac_context *mac_ctx;
     
-    /* Multi-device simulation */
-    struct mock_phy_context_t **peers;      /**< Array of peer PHY contexts */
-    size_t num_peers;                       /**< Number of peers */
+    struct mock_phy_context_t **peers;
+    size_t num_peers;
     
-    /* Operation scheduling */
-    mock_scheduled_operation_t timeline[MOCK_TIMELINE_MAX_EVENTS];  /**< Scheduled operations */
-    uint32_t next_handle;                   /**< Next auto-generated handle */
-    uint16_t transaction_id_counter;        /**< Transaction ID counter */
+    mock_scheduled_operation_t timeline[MOCK_TIMELINE_MAX_EVENTS];
+    uint32_t next_handle;
+    uint16_t transaction_id_counter;
     
-    /* RX operation tracking (for packet matching) */
-    mock_scheduled_operation_t *active_rx_ops[MOCK_TIMELINE_MAX_EVENTS];  /**< Active RX ops */
-    size_t num_active_rx_ops;               /**< Number of active RX ops */
+    mock_scheduled_operation_t *active_rx_ops[MOCK_TIMELINE_MAX_EVENTS];
+    size_t num_active_rx_ops;
     
-    /* RX packet queue */
-    mock_rx_packet_t rx_queue[MOCK_RX_QUEUE_MAX_PACKETS];  /**< Queued packets */
+    mock_rx_packet_t rx_queue[MOCK_RX_QUEUE_MAX_PACKETS];
     
-    /* Current RF state */
-    uint32_t current_carrier;               /**< Current carrier frequency */
-    enum nrf_modem_dect_phy_radio_mode current_mode;  /**< Current radio mode */
+    uint32_t current_carrier;
+    enum nrf_modem_dect_phy_radio_mode current_mode;
     
-    /* Statistics */
-    mock_phy_stats_t stats;                 /**< Operation statistics */
-    
+    mock_phy_stats_t stats;
 } mock_phy_context_t;
 
 /* ========================================================================
- * PUBLIC API - MOCK CONTROL FUNCTIONS
+ * PUBLIC API - MOCK CONTROL & TEST CONFIG
  * ======================================================================== */
 
-/**
+ /**
  * @brief Initialize PHY context
  * 
  * Initializes a PHY context for use in testing. The context must be initialized
@@ -253,7 +236,7 @@ void mock_phy_init_context(mock_phy_context_t *ctx,
                            mock_phy_context_t **peers, 
                            size_t num_peers);
 
-/**
+                           /**
  * @brief Set the active PHY context
  * 
  * The active context is used for all subsequent Nordic PHY API calls
@@ -290,7 +273,7 @@ void mock_phy_complete_reset(mock_phy_context_t *ctx);
  * 
  * @note The packet is copied into the queue, so the caller can free/reuse
  *       the packet structure after this call returns.
- */
+ **/
 int mock_phy_queue_rx_packet(mock_phy_context_t *dest_ctx,
                               const mock_rx_packet_t *packet);
 
@@ -313,7 +296,7 @@ int mock_phy_queue_rx_packet(mock_phy_context_t *dest_ctx,
  * if (next != UINT64_MAX) {
  *     k_sleep(K_USEC(next - current_time));
  * }
- */
+ **/                     
 uint64_t mock_phy_get_next_event_time(mock_phy_context_t *const phy_contexts[],
                                        size_t num_contexts);
 
@@ -338,8 +321,27 @@ uint64_t mock_phy_get_next_event_time(mock_phy_context_t *const phy_contexts[],
  * @example
  * uint64_t current = k_ticks_to_us_floor64(k_uptime_ticks());
  * mock_phy_process_events(&phy_ctx, current);
- */
+ **/
 void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us);
+
+/**
+ * @brief Set the background noise (RSSI) for a specific carrier.
+ * @param carrier Carrier index (0-9)
+ * @param dbm RSSI value in dBm (e.g., -100 for clean, -60 for noisy)
+ */
+void mock_phy_test_set_noise_floor(uint16_t carrier, int8_t dbm);
+
+/**
+ * @brief Configure probabilistic packet loss.
+ * @param loss_rate_percent 0 to 100. (0 = perfect link).
+ */
+void mock_phy_test_config_error_injection(uint8_t loss_rate_percent);
+
+/**
+ * @brief Enable or disable collision simulation.
+ * @param enabled If true, overlapping packets result in CRC errors.
+ */
+void mock_phy_test_config_collisions(bool enabled);
 
 /* ========================================================================
  * NORDIC PHY API
@@ -396,6 +398,7 @@ int nrf_modem_dect_phy_rssi(const struct nrf_modem_dect_phy_rssi_params *params)
  */
 int nrf_modem_dect_phy_cancel(uint32_t handle);
 
+
 /* ========================================================================
  * NORDIC PHY API - STUB IMPLEMENTATIONS
  * 
@@ -403,6 +406,7 @@ int nrf_modem_dect_phy_cancel(uint32_t handle);
  * They return success (0) but don't perform full simulation.
  * ======================================================================== */
 
+/* Stubs */
 int nrf_modem_dect_phy_configure(const struct nrf_modem_dect_phy_config_params *params);
 int nrf_modem_dect_phy_tx_harq(const struct nrf_modem_dect_phy_tx_params *params);
 int nrf_modem_dect_phy_tx_rx(const struct nrf_modem_dect_phy_tx_rx_params *params);
