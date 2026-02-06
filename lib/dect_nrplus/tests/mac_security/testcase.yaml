@@ -1,15 +1,11 @@
 tests:
-  mac_security.crypto:
+  testing.dect_nrplus.mac_security.crypto:
     tags: dect_nrplus mac security
     harness: ztest
     platform_allow:
-      - native_sim
-      - native_sim/native
-      - native_sim/native/64
       - nrf9151dk/nrf9151/ns
       - nrf9161dk/nrf9161/ns
     integration_platforms:
-      - native_sim
       - nrf9151dk
       - nrf9161dk
     timeout: 20

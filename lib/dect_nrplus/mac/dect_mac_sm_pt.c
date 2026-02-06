@@ -443,6 +443,10 @@ void dect_mac_sm_pt_start_operation(void)
 	printk("[PT_START_OP_DBG] Entering dect_mac_sm_pt_start_operation...\n");
 
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
+
+	/* Hard reset of the context before starting PT operations */
+	dect_mac_reset_context(ctx);
+
 	dect_mac_change_state(MAC_STATE_PT_SCANNING);
 	uint16_t scan_carrier = CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL;
 	printk("PT_SM_START_DBG: Initializing scan with carrier value: %u (0x%X)\n", scan_carrier, scan_carrier);
@@ -450,10 +454,6 @@ void dect_mac_sm_pt_start_operation(void)
 
 	uint32_t phy_op_handle;
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
-	ctx->role_ctx.pt.current_assoc_retries = 0;
-	memset(&ctx->role_ctx.pt.target_ft, 0, sizeof(dect_mac_peer_info_t));
-	memset(&ctx->role_ctx.pt.associated_ft, 0, sizeof(dect_mac_peer_info_t));
-	ctx->keys_provisioned = false;
 
 	int ret = dect_mac_phy_ctrl_start_rx(scan_carrier, 0,
 					   NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS,
@@ -847,8 +847,24 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 				printk("[PT_SM] case PENDING_OP_PT_RACH_ASSOC_REQ: The original TX op is complete and the next RX op is scheduled, clear the pending state from the TX op. POINT 2 \n");
                 // dect_mac_core_clear_pending_op();				
 
+			} else if (event->err == NRF_MODEM_DECT_PHY_ERR_LBT_CHANNEL_BUSY) {
+				/* 
+				 * P1.4.1.1: Implement RACH Backoff Pause/Resume.
+				 * If the channel is busy (LBT failure), we do NOT increase the Contention Window (CW).
+				 * We explicitly pause the backoff (or rather, just retry after a short, fixed interval)
+				 * effectively resuming the attempt when the channel might be free.
+				 */
+				printk("PT_SM: RACH TX failed (LBT BUSY). Pausing/Retrying without increasing CW.\n");
+				dect_mac_change_state(MAC_STATE_PT_RACH_BACKOFF);
+
+				/* Retry relatively quickly, e.g., next frame or shortly after. 
+				 * ETSI TS 103 636-4 implies staying in same backoff stage.
+				 */
+				k_timer_start(&ctx->rach_context.rach_backoff_timer,
+					      K_MSEC(10), K_NO_WAIT);
+
 			} else {
-				/* Any other error (LBT_BUSY or other PHY error) triggers backoff */
+				/* Any other error (or collision implied by lack of Ack later) triggers backoff adjustment */
 				printk("PT_SM: RACH TX failed (err %d, %s). Increasing CW and backing off.",
 				       event->err, nrf_modem_dect_phy_err_to_str(event->err));
 				// LOG_WRN("PT_SM: RACH TX failed (err %d, %s). Increasing CW and backing off.",
@@ -1115,9 +1131,7 @@ static void pt_handle_phy_pcc_internal(const struct nrf_modem_dect_phy_pcc_event
 
 	/* HARQ feedback processing can still happen immediately */
 	if (pcc_event->phy_type == 1 && ctx->state == MAC_STATE_ASSOCIATED) {
-		uint16_t pcc_tx_short_id =
-			(uint16_t)((pcc_event->hdr.hdr_type_2.transmitter_id_hi << 8) |
-				   pcc_event->hdr.hdr_type_2.transmitter_id_lo);
+		uint16_t pcc_tx_short_id = dect_mac_phy_ctrl_get_transmitter_id((const union nrf_modem_dect_phy_hdr *)&pcc_event->hdr, pcc_event->phy_type);
 		dect_mac_data_path_process_harq_feedback(&pcc_event->hdr.hdr_type_2.feedback,
 							 pcc_tx_short_id);
 	}
@@ -1175,15 +1189,7 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 
 	printk("ctx->state:%s[%d] phy_type:%s header_type:%d \n",dect_mac_state_to_str(ctx->state), ctx->state, assoc_pcc_event->phy_type == 0? "Beacon":"Unicast", mac_hdr_type_octet.mac_header_type );
 
-	if (assoc_pcc_event->phy_type == 0) { /* Beacon */
-		ft_sender_short_id_from_pcc =
-			(uint16_t)((assoc_pcc_event->hdr.hdr_type_1.transmitter_id_hi << 8) |
-				   assoc_pcc_event->hdr.hdr_type_1.transmitter_id_lo);
-	} else if (assoc_pcc_event->phy_type == 1) { /* Unicast/Data */
-		ft_sender_short_id_from_pcc =
-			(uint16_t)((assoc_pcc_event->hdr.hdr_type_2.transmitter_id_hi << 8) |
-				   assoc_pcc_event->hdr.hdr_type_2.transmitter_id_lo);
-	}
+	ft_sender_short_id_from_pcc = dect_mac_phy_ctrl_get_transmitter_id((const union nrf_modem_dect_phy_hdr *)&assoc_pcc_event->hdr, assoc_pcc_event->phy_type);
 
 	if (mac_hdr_type_octet.mac_header_type == MAC_COMMON_HEADER_TYPE_BEACON) {
 		common_hdr_actual_len = sizeof(dect_mac_beacon_header_t);

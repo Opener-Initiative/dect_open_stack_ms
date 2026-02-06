@@ -1,6 +1,6 @@
 # tests/mac_ft_beacon/testcase.yaml
 tests:
-  mac_ft_beacon.basic:
+  testing.dect_nrplus.mac_ft_beacon.basic:
     tags: dect_nrplus mac ft
     platform_allow: 
       - native_sim

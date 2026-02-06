@@ -93,6 +93,16 @@ int dect_mac_core_get_peer_slot_idx(uint16_t peer_short_id);
 
 
 /**
+ * @brief Resets the MAC context to a clean state for a new operation.
+ *
+ * This function stops all active timers, clears role-specific contexts,
+ * and resets sequence numbers and pending operation flags.
+ *
+ * @param ctx Pointer to the MAC context to reset.
+ */
+void dect_mac_reset_context(dect_mac_context_t *ctx);
+
+/**
  * @brief Clears the MAC's pending PHY operation state.
  *
  * This should be called by the state machine once it has fully handled an

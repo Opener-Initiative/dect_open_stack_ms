@@ -29,6 +29,8 @@ LOG_MODULE_REGISTER(dect_mac_phy_if, CONFIG_DECT_MAC_PHY_IF_LOG_LEVEL);
 #define MAX_CONCURRENT_PHY_OPS 16
 #endif
 
+static struct k_spinlock g_phy_if_lock;
+
 typedef struct {
 	uint32_t handle;
 	struct dect_mac_context *ctx;
@@ -64,6 +66,7 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 	/* Find the context associated with this event's handle */
 	uint32_t event_handle = 0;
 	bool is_op_event = false;
+	k_spinlock_key_t key = k_spin_lock(&g_phy_if_lock);
 
 	/* Extract handle from events that have one */
 	switch (event->id) {
@@ -126,6 +129,7 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 		}
 		// printk("g_op_handle_map last:%d < %d\n", last, MAX_CONCURRENT_PHY_OPS);
 	}
+	k_spin_unlock(&g_phy_if_lock, key);
 
 	if (!event_ctx) {
 		printk("[PHY_IF HANDLER] ***WARNING***: Could not find context for event %d (handle %u). Using globally active context.\n",
@@ -331,11 +335,13 @@ int dect_mac_phy_if_init(void)
 static int count_active_handles(void)
 {
     int count = 0;
+    k_spinlock_key_t key = k_spin_lock(&g_phy_if_lock);
     for (int i = 0; i < MAX_CONCURRENT_PHY_OPS; i++) {
         if (g_op_handle_map[i].handle != 0) {
             count++;
         }
     }
+    k_spin_unlock(&g_phy_if_lock, key);
     return count;
 }
 
@@ -353,13 +359,16 @@ void debug_operation_handle_map(const char *test_name)
 
 void dect_mac_phy_if_reset_handle_map(void)
 {
+	k_spinlock_key_t key = k_spin_lock(&g_phy_if_lock);
 	memset(g_op_handle_map, 0, sizeof(g_op_handle_map));
+	k_spin_unlock(&g_phy_if_lock, key);
 	LOG_DBG("PHY_IF_MAP: Handle map reset for new test case.");
 }
 
 
 void dect_mac_phy_if_register_op_handle(uint32_t handle, struct dect_mac_context *ctx)
 {
+	k_spinlock_key_t key = k_spin_lock(&g_phy_if_lock);
 	for (int i = 0; i < MAX_CONCURRENT_PHY_OPS; i++) {
 		// printk("  - g_op_handle_map[%d].handle:%d \n",i ,g_op_handle_map[i].handle);
 		if (g_op_handle_map[i].handle == 0 || !g_op_handle_map[i].handle) {
@@ -368,15 +377,18 @@ void dect_mac_phy_if_register_op_handle(uint32_t handle, struct dect_mac_context
 
 			printk("[PHY_IF_MAP] Registered handle %u to context %p (Role %s) - g_op_handle_map[%d].handle:%d \n",
 			       handle, (void *)ctx, (ctx->role == MAC_ROLE_PT ? "PT" : "FT"), i ,g_op_handle_map[i].handle);
+			k_spin_unlock(&g_phy_if_lock, key);
 			return;
 		}
 		// printk("  - g_op_handle_map[%d].handle:%d \n",i ,g_op_handle_map[i].handle);
 	}
+	k_spin_unlock(&g_phy_if_lock, key);
 	printk("[PHY_IF_MAP] ***ERROR***: No free slots to register handle %u\n", handle);
 }
 
 void dect_mac_phy_if_deregister_op_handle(uint32_t handle)
 {
+	k_spinlock_key_t key = k_spin_lock(&g_phy_if_lock);
 	for (int i = 0; i < MAX_CONCURRENT_PHY_OPS; i++) {
 		if (g_op_handle_map[i].handle == handle) {
             printk("[PHY_IF_MAP] Deregistering handle %u (context %p) from slot %d\n",
@@ -384,8 +396,10 @@ void dect_mac_phy_if_deregister_op_handle(uint32_t handle)
 			g_op_handle_map[i].handle = 0;
 			g_op_handle_map[i].ctx = NULL;
 			// memset(&g_op_handle_map[i], 0, sizeof(op_handle_map_entry_t));
+			k_spin_unlock(&g_phy_if_lock, key);
 			return;
 		}
 		// printk("  - Registered g_op_handle_map[%d].handle:%d \n",i ,g_op_handle_map[i].handle);
 	}
+	k_spin_unlock(&g_phy_if_lock, key);
 }

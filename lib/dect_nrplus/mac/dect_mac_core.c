@@ -28,6 +28,7 @@ LOG_MODULE_REGISTER(dect_mac_core, CONFIG_DECT_MAC_CORE_LOG_LEVEL);
 
 // static __thread dect_mac_context_t *g_active_mac_ctx;
 static dect_mac_context_t *g_active_mac_ctx;
+static struct k_spinlock g_active_mac_ctx_lock;
 
 // External message queue (defined in dect_mac_phy_if.c, used by timer handlers here)
 extern struct k_msgq mac_event_msgq;
@@ -55,12 +56,17 @@ static void pcc_cache_timeout_handler(struct k_timer *timer_id)
 // Global MAC Context Definition
 dect_mac_context_t *dect_mac_get_active_context(void)
 {
-	return g_active_mac_ctx;
+	k_spinlock_key_t key = k_spin_lock(&g_active_mac_ctx_lock);
+	dect_mac_context_t *ctx = g_active_mac_ctx;
+	k_spin_unlock(&g_active_mac_ctx_lock, key);
+	return ctx;
 }
 
 void dect_mac_test_set_active_context(dect_mac_context_t *ctx)
 {
+	k_spinlock_key_t key = k_spin_lock(&g_active_mac_ctx_lock);
 	g_active_mac_ctx = ctx;
+	k_spin_unlock(&g_active_mac_ctx_lock, key);
     // printk("[MAC_CORE] Setting active context to %p (Role: %s)\n", (void *)ctx,
     //     (ctx && ctx->role == MAC_ROLE_PT) ? "PT" : "FT");
     // printk("[MAC_CORE] dect_mac_test_set_active_context: Context-> State: %d \n", g_active_mac_ctx->state);
@@ -81,12 +87,71 @@ void dect_mac_core_register_state_change_cb(dect_mac_state_change_cb_t cb)
 
 
 
+void dect_mac_reset_context(dect_mac_context_t *ctx)
+{
+	if (!ctx) return;
+
+	LOG_INF("MAC CORE: Resetting MAC context (Role: %s)", 
+		(ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
+
+	k_spinlock_key_t key = k_spin_lock(&ctx->lock);
+
+	/* 1. Stop common timers */
+	k_timer_stop(&ctx->rach_context.rach_backoff_timer);
+	k_timer_stop(&ctx->rach_context.rach_response_window_timer);
+
+	/* 2. Stop role-specific timers and cleanup peer info */
+	if (ctx->role == MAC_ROLE_PT) {
+		k_timer_stop(&ctx->role_ctx.pt.beacon_listen_timer);
+		k_timer_stop(&ctx->role_ctx.pt.keep_alive_timer);
+		k_timer_stop(&ctx->role_ctx.pt.mobility_scan_timer);
+		k_timer_stop(&ctx->role_ctx.pt.paging_cycle_timer);
+		k_timer_stop(&ctx->role_ctx.pt.reject_timer);
+		
+		/* Reset PT contexts */
+		memset(&ctx->role_ctx.pt.target_ft, 0, sizeof(dect_mac_peer_info_t));
+		memset(&ctx->role_ctx.pt.associated_ft, 0, sizeof(dect_mac_peer_info_t));
+		ctx->role_ctx.pt.current_assoc_retries = 0;
+	} else { /* FT Role */
+		k_timer_stop(&ctx->role_ctx.ft.beacon_timer);
+		
+		for (int i = 0; i < MAX_PEERS_PER_FT; i++) {
+			k_timer_stop(&ctx->role_ctx.ft.connected_pts[i].link_supervision_timer);
+			/* Hard reset of peer slots */
+			memset(&ctx->role_ctx.ft.connected_pts[i], 0, sizeof(dect_mac_peer_info_t));
+			ctx->role_ctx.ft.keys_provisioned_for_peer[i] = false;
+		}
+	}
+
+	/* 3. Stop PCC cache timers */
+	for (int i = 0; i < MAX_PENDING_PCC_TRANSACTIONS; i++) {
+		k_timer_stop(&ctx->pcc_transaction_cache[i].timeout_timer);
+		ctx->pcc_transaction_cache[i].is_valid = false;
+	}
+
+	/* 4. Reset sequence numbers and security flags */
+	ctx->psn = 0;
+	ctx->hpc = 1; 
+	ctx->keys_provisioned = false;
+	ctx->send_mac_sec_info_ie_on_next_tx = false;
+	
+	/* 5. Clear pending operations */
+	ctx->pending_op_type = PENDING_OP_NONE;
+	ctx->pending_op_handle = 0;
+	ctx->last_known_modem_time = 0;
+	ctx->last_phy_op_end_time = 0;
+
+	k_spin_unlock(&ctx->lock, key);
+}
+
 void dect_mac_core_clear_pending_op(void)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
-    printk("[CORE] Clearing pending_op: %d\n", ctx->pending_op_type);
+    
 
 	if (ctx) {
+		k_spinlock_key_t key = k_spin_lock(&ctx->lock);
+		printk("[CORE] Clearing pending_op: %d\n", ctx->pending_op_type);
 		if (ctx->pending_op_type != PENDING_OP_NONE) {
 			LOG_DBG("MAC_CORE: Clearing pending op (was Type: %s, Hdl: %u)",
 				dect_pending_op_to_str(ctx->pending_op_type),
@@ -94,6 +159,7 @@ void dect_mac_core_clear_pending_op(void)
 			ctx->pending_op_type = PENDING_OP_NONE;
 			ctx->pending_op_handle = 0;
 		}
+		k_spin_unlock(&ctx->lock, key);
 	}
 }
 

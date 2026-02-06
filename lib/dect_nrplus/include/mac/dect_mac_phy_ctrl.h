@@ -146,6 +146,32 @@ int dect_mac_phy_ctrl_cancel_op(uint32_t phy_op_handle);
 pending_op_type_t dect_mac_phy_ctrl_handle_op_complete(const struct nrf_modem_dect_phy_op_complete_event *event);
 
 /**
+ * @brief Unified helper to build a PCC header for both Type 1 and Type 2.
+ */
+void dect_mac_phy_ctrl_build_pcc_header(union nrf_modem_dect_phy_hdr *pcc_hdr,
+				       const struct dect_mac_context *ctx,
+				       uint16_t full_mac_pdu_len,
+				       uint16_t target_receiver_short_id, bool is_beacon,
+				       uint8_t mu_code,
+				       const union nrf_modem_dect_phy_feedback *feedback,
+				       pending_op_type_t op_type);
+
+/**
+ * @brief Extracts the Transmitter ID from a received PCC header.
+ */
+uint16_t dect_mac_phy_ctrl_get_transmitter_id(const union nrf_modem_dect_phy_hdr *hdr, uint8_t phy_type);
+
+/**
+ * @brief Extracts the Receiver ID from a received PCC header.
+ */
+uint16_t dect_mac_phy_ctrl_get_receiver_id(const union nrf_modem_dect_phy_hdr *hdr, uint8_t phy_type);
+
+/**
+ * @brief Derives the actual SDU length in bytes from the PCC length fields and TBS tables.
+ */
+uint16_t dect_mac_phy_ctrl_get_packet_length_bytes(const union nrf_modem_dect_phy_hdr *hdr, uint8_t phy_type, uint8_t mu, uint8_t beta);
+
+/**
  * @brief Assembles the final MAC PDU structure before security operations (MIC, encryption).
  *
  * This function takes the main components of a MAC PDU (MAC Header Type octet,

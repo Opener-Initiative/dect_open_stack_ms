@@ -77,6 +77,26 @@ static dect_mac_public_state_t dect_mac_state_t_to_public(dect_mac_state_t inter
 
 
 
+static void handle_state_exit_cleanup(dect_mac_context_t *ctx, dect_mac_state_t old_state)
+{
+	/* Role-specific "On Exit" cleanup */
+	if (ctx->role == MAC_ROLE_PT) {
+		if (old_state == MAC_STATE_ASSOCIATED) {
+			LOG_DBG("PT_DISPATCH: Exiting ASSOCIATED state, stopping link timers.");
+			k_timer_stop(&ctx->role_ctx.pt.keep_alive_timer);
+			k_timer_stop(&ctx->role_ctx.pt.mobility_scan_timer);
+			k_timer_stop(&ctx->role_ctx.pt.paging_cycle_timer);
+		}
+	} else { /* FT Role */
+		if (old_state == MAC_STATE_FT_BEACONING) {
+			LOG_DBG("FT_DISPATCH: Exiting BEACONING state, stopping beacon timer.");
+			k_timer_stop(&ctx->role_ctx.ft.beacon_timer);
+		}
+	}
+
+	/* Common cleanup when entering low-power or terminal states */
+}
+
 void dect_mac_change_state(dect_mac_state_t new_state) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
 
@@ -88,16 +108,16 @@ void dect_mac_change_state(dect_mac_state_t new_state) {
 
 		printk("[DISPATCH] Changing MAC State: %s -> %s (Role: %s)\n", dect_mac_state_to_str(ctx->state),
 			dect_mac_state_to_str(new_state), (ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
-		// LOG_INF("MAC State: %s -> %s (Role: %s)", dect_mac_state_to_str(ctx->state),
-		// 	dect_mac_state_to_str(new_state), (ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
 
-		/* "On Exit" logic for the old state */
-		if (ctx->role == MAC_ROLE_PT && ctx->state == MAC_STATE_ASSOCIATED) {
-			printk("Exiting ASSOCIATED state, stopping link timers.");
-            // LOG_DBG("Exiting ASSOCIATED state, stopping link timers.");
-			k_timer_stop(&ctx->role_ctx.pt.keep_alive_timer);
-			k_timer_stop(&ctx->role_ctx.pt.mobility_scan_timer);
+		/* Perform cleanup based on the state we are LEAVING */
+		handle_state_exit_cleanup(ctx, ctx->state);
+
+		/* 1. Explicitly stop RACH timers if entering IDLE or IDLE-like states */
+		if (new_state == MAC_STATE_IDLE || new_state == MAC_STATE_ERROR) {
+			k_timer_stop(&ctx->rach_context.rach_backoff_timer);
+			k_timer_stop(&ctx->rach_context.rach_response_window_timer);
 		}
+
 		ctx->state = new_state;
 
         printk("old_public_state:%d != %d:new_public_state \n", old_public_state , new_public_state);
@@ -121,8 +141,10 @@ void dect_mac_enter_error_state(const char *reason)
 
 	LOG_ERR("Entering MAC_STATE_ERROR. Reason: %s. Halting MAC operations.", reason);
 
-	/* Attempt to gracefully shut down the PHY */
-	if (ctx->state >= MAC_STATE_FT_BEACONING) { /* Check if active */
+	/* Attempt to gracefully shut down the PHY if not already in a static state */
+	if (ctx->state != MAC_STATE_DEACTIVATED && 
+	    ctx->state != MAC_STATE_IDLE && 
+	    ctx->state != MAC_STATE_ERROR) {
 		dect_mac_phy_ctrl_deactivate();
 	}
 
@@ -429,6 +451,7 @@ const char* dect_mac_event_to_str(dect_mac_event_type_t event_type) {
         [MAC_EVENT_TIMER_EXPIRED_PAGING_CYCLE] = "TMR_PAGING_CYCLE",
         [MAC_EVENT_TIMER_EXPIRED_BEACON]       = "TMR_BEACON",
         [MAC_EVENT_TIMER_EXPIRED_HARQ]         = "TMR_HARQ",
+        [MAC_EVENT_TIMER_EXPIRED_LINK_SUPERVISION] = "TMR_LINK_SUPERVISION",
         [MAC_EVENT_CMD_ENTER_PAGING_MODE]      = "CMD_ENTER_PAGING",
         [MAC_EVENT_CMD_RELEASE_LINK]           = "CMD_RELEASE_LINK",        
     };
@@ -437,8 +460,15 @@ const char* dect_mac_event_to_str(dect_mac_event_type_t event_type) {
 }
 
 const char* dect_pending_op_to_str(pending_op_type_t op_type) {
-    // This mapping needs to be robust and cover all enum values.
-    // Using a static array for direct mapping is better if enum values are contiguous.
+    static const char* const pt_harq_names[] = {
+        "PT_DATA_TX_HARQ0", "PT_DATA_TX_HARQ1", "PT_DATA_TX_HARQ2", "PT_DATA_TX_HARQ3",
+        "PT_DATA_TX_HARQ4", "PT_DATA_TX_HARQ5", "PT_DATA_TX_HARQ6", "PT_DATA_TX_HARQ7"
+    };
+    static const char* const ft_harq_names[] = {
+        "FT_DATA_TX_HARQ0", "FT_DATA_TX_HARQ1", "FT_DATA_TX_HARQ2", "FT_DATA_TX_HARQ3",
+        "FT_DATA_TX_HARQ4", "FT_DATA_TX_HARQ5", "FT_DATA_TX_HARQ6", "FT_DATA_TX_HARQ7"
+    };
+
     switch(op_type) {
         case PENDING_OP_NONE: return "NONE";
         case PENDING_OP_PT_SCAN: return "PT_SCAN";
@@ -459,20 +489,17 @@ const char* dect_pending_op_to_str(pending_op_type_t op_type) {
         case PENDING_OP_FT_AUTH_MSG_TX: return "FT_AUTH_MSG_TX";
         case PENDING_OP_FT_AUTH_MSG_RX: return "FT_AUTH_MSG_RX";
         case PENDING_OP_FT_DATA_RX: return "FT_DATA_RX";
-        /* Generic Operations */
         case PENDING_OP_GENERIC_UNICAST_TX: return "GENERIC_UNICAST_TX";        
         default: break;
     }
-    // Handle HARQ ranges
+
     if (op_type >= PENDING_OP_PT_DATA_TX_HARQ0 && op_type <= PENDING_OP_PT_DATA_TX_HARQ_MAX) {
-        static char pt_harq_str[20];
-        snprintk(pt_harq_str, sizeof(pt_harq_str), "PT_DATA_TX_HARQ%d", op_type - PENDING_OP_PT_DATA_TX_HARQ0);
-        return pt_harq_str;
+        uint32_t idx = op_type - PENDING_OP_PT_DATA_TX_HARQ0;
+        if (idx < ARRAY_SIZE(pt_harq_names)) return pt_harq_names[idx];
     }
     if (op_type >= PENDING_OP_FT_DATA_TX_HARQ0 && op_type <= PENDING_OP_FT_DATA_TX_HARQ_MAX) {
-        static char ft_harq_str[20];
-        snprintk(ft_harq_str, sizeof(ft_harq_str), "FT_DATA_TX_HARQ%d", op_type - PENDING_OP_FT_DATA_TX_HARQ0);
-        return ft_harq_str;
+        uint32_t idx = op_type - PENDING_OP_FT_DATA_TX_HARQ0;
+        if (idx < ARRAY_SIZE(ft_harq_names)) return ft_harq_names[idx];
     }
     return "P_UNKNOWN";
 }
@@ -511,14 +538,6 @@ const char* nrf_modem_dect_phy_err_to_str(enum nrf_modem_dect_phy_err err) {
         case NRF_MODEM_DECT_PHY_ERR_MODEM_ERROR_RF_STATE: return "MODEM_ERROR_RF_STATE";
         case NRF_MODEM_DECT_PHY_ERR_TEMP_HIGH: return "TEMP_HIGH";
         case NRF_MODEM_DECT_PHY_ERR_PROD_LOCK: return "PROD_LOCK";
-        default:
-            {
-                // Using a static buffer for unknown codes has thread-safety implications if multiple
-                // threads call this concurrently for different unknown errors before the string is used.
-                // For typical Zephyr logging from a single MAC thread, this is usually acceptable.
-                static char unknown_err_str[24]; // Enough for "PHY_ERR_0xDEADBEEF"
-                snprintk(unknown_err_str, sizeof(unknown_err_str), "PHY_ERR_0x%X", err);
-                return unknown_err_str;
-            }
+        default: return "PHY_ERR_UNKNOWN";
     }
 }

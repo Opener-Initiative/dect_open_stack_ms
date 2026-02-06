@@ -14,4 +14,3 @@ tests:
     harness: ztest
     harness_config:
       type: one_line
-    timeout: 3000

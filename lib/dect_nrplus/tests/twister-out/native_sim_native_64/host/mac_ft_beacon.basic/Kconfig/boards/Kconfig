@@ -1,2 +1,0 @@
-# Load Zephyr board Kconfig descriptions.
-osource "/home/bob/ncs/v3-zlink-U/zephyr/boards/native/native_sim/Kconfig"

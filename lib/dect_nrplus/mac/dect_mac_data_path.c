@@ -236,11 +236,14 @@ void dect_mac_data_path_init(void) {
 
 static int find_free_harq_tx_process(dect_mac_context_t* ctx) {
     if (!ctx) return -1;
+    k_spinlock_key_t key = k_spin_lock(&ctx->harq_lock);
     for (int i = 0; i < MAX_HARQ_PROCESSES; i++) {
         if (!ctx->harq_tx_processes[i].is_active) {
+            k_spin_unlock(&ctx->harq_lock, key);
             return i;
         }
     }
+    k_spin_unlock(&ctx->harq_lock, key);
     LOG_DBG("HARQ_ALLOC: No free HARQ TX processes available.");
     return -1; // No free process
 }
@@ -298,6 +301,8 @@ void dect_mac_data_path_handle_harq_ack_action(int harq_process_idx) {
         LOG_INF("HARQ_ACK: ACK received for HARQ process %d (PSN: %u, Attempts: %u).",
                 harq_process_idx, harq_p->original_psn, harq_p->tx_attempts);
         k_timer_stop(&harq_p->retransmission_timer);
+
+        k_spinlock_key_t key = k_spin_lock(&ctx->harq_lock);
         if (harq_p->sdu && harq_p->sdu->dlc_status_report_required && g_dlc_status_callback) {
             LOG_DBG("HARQ_ACK: Reporting success to DLC for SN %u.", harq_p->sdu->dlc_sn_for_status);
             g_dlc_status_callback(harq_p->sdu->dlc_sn_for_status, true);
@@ -319,6 +324,7 @@ void dect_mac_data_path_handle_harq_ack_action(int harq_process_idx) {
         harq_p->peer_short_id_for_ft_dl = 0;
         harq_p->scheduled_carrier = 0;
         harq_p->scheduled_tx_start_time = 0;
+        k_spin_unlock(&ctx->harq_lock, key);
     } else {
         LOG_WRN("HARQ_ACK: Received for already inactive HARQ process %d.", harq_process_idx);
     }
@@ -335,6 +341,7 @@ void dect_mac_data_path_handle_harq_nack_action(int harq_process_idx) {
     if (harq_p->is_active) {
         k_timer_stop(&harq_p->retransmission_timer); // Stop current ACK timeout timer
 
+        k_spinlock_key_t key = k_spin_lock(&ctx->harq_lock);
         /* For best-effort, any NACK/timeout is a permanent failure. No retransmissions. */
         if (harq_p->flow_id == MAC_FLOW_BEST_EFFORT) {
             LOG_INF("HARQ_NACK: Best-effort SDU (HARQ %d, PSN %u) failed. Discarding.",
@@ -347,6 +354,7 @@ void dect_mac_data_path_handle_harq_nack_action(int harq_process_idx) {
                 harq_p->sdu = NULL;
             }
             harq_p->is_active = false;
+            k_spin_unlock(&ctx->harq_lock, key);
             return; /* Exit before retransmission logic */
         }        
 
@@ -394,6 +402,7 @@ void dect_mac_data_path_handle_harq_nack_action(int harq_process_idx) {
                     harq_process_idx, harq_p->redundancy_version, harq_p->tx_attempts);
             // The dect_mac_data_path_service_tx function will see needs_retransmission=true and pick it up.
         }
+        k_spin_unlock(&ctx->harq_lock, key);
     } else {
         LOG_WRN("HARQ_NACK: Received for already inactive HARQ process %d.", harq_process_idx);
     }
@@ -931,7 +940,7 @@ printk("  - Checking for HARQ retransmissions...\n");
 LOG_DBG("DP_SVC_TX: Starting HARQ processing for %d processes", MAX_HARQ_PROCESSES);
 
 // Add locking if not already present
-// spin_lock(&ctx->harq_lock);
+k_spinlock_key_t key = k_spin_lock(&ctx->harq_lock);
 
 bool handled_retransmission = false;
 int retransmission_attempts = 0;
@@ -1018,7 +1027,7 @@ for (int i = 0; i < MAX_HARQ_PROCESSES; i++) {
 
 LOG_DBG("DP_SVC_TX: Cleanup phase complete - cleaned %d processes", cleanup_count);
 
-// spin_unlock(&ctx->harq_lock);
+k_spin_unlock(&ctx->harq_lock, key);
 
 if (handled_retransmission) {
     LOG_DBG("DP_SVC_TX: Returning after handling retransmission and cleanup");

@@ -36,14 +36,13 @@ static union nrf_modem_dect_phy_hdr g_phy_pcc_tx_constructor_buf;
 static uint8_t g_phy_pdc_tx_constructor_buf_ctrl[MAX_MAC_PDU_SIZE_FOR_PCC_CALC];
 
 
-static void ft_build_pcc_header(union nrf_modem_dect_phy_hdr *pcc_hdr,
-				const dect_mac_context_t *ctx,
-				const uint8_t *full_mac_pdu_to_send,
-				uint16_t full_mac_pdu_len,
-				uint16_t target_receiver_short_id, bool is_beacon,
-				uint8_t mu_code,
-				const union nrf_modem_dect_phy_feedback *feedback,
-				pending_op_type_t op_type)
+void dect_mac_phy_ctrl_build_pcc_header(union nrf_modem_dect_phy_hdr *pcc_hdr,
+				       const dect_mac_context_t *ctx,
+				       uint16_t full_mac_pdu_len,
+				       uint16_t target_receiver_short_id, bool is_beacon,
+				       uint8_t mu_code,
+				       const union nrf_modem_dect_phy_feedback *feedback,
+				       pending_op_type_t op_type)
 {
 
 	printk("[PCC_BUILD] Building header. Active context role: %s, Network ID LSB to be used: 0x%02X\n",
@@ -267,8 +266,14 @@ int dect_mac_phy_ctrl_assemble_final_pdu(
         if (mac_sdu_area_data != NULL || mac_sdu_area_len != 0) return -EINVAL;
     }
 
+	/* Total required size = 1 (type octet) + common header + SDU area */
+	size_t total_required = 1 + common_hdr_len + mac_sdu_area_len;
+	if (total_required > target_buf_max_len) {
+		LOG_ERR("[PHY CTRL] PDU assembly overflow: %zu > %zu", total_required, target_buf_max_len);
+		return -ENOMEM;
+	}
+
     /* 1. MAC Header Type (1 byte) */
-    if (target_buf_max_len < 1) return -ENOMEM;
     target_final_mac_pdu_buf[current_offset] = mac_hdr_type_octet_byte;
     current_offset += 1;
 
@@ -367,9 +372,9 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 
 	memset(&g_phy_pcc_tx_constructor_buf, 0, sizeof(g_phy_pcc_tx_constructor_buf));
 
-	ft_build_pcc_header(&g_phy_pcc_tx_constructor_buf, ctx, full_mac_pdu_to_send,
-			    full_mac_pdu_len, target_receiver_short_id, is_beacon, mu_code,
-			    feedback, op_type);
+	dect_mac_phy_ctrl_build_pcc_header(&g_phy_pcc_tx_constructor_buf, ctx,
+					   full_mac_pdu_len, target_receiver_short_id, is_beacon, mu_code,
+					   feedback, op_type);
 
 	struct nrf_modem_dect_phy_tx_params tx_params = {
 		.start_time = phy_op_target_start_time,
@@ -525,6 +530,11 @@ pending_op_type_t dect_mac_phy_ctrl_handle_op_complete(const struct nrf_modem_de
                 event->handle, dect_pending_op_to_str(completed_type),
                 event->err, nrf_modem_dect_phy_err_to_str(event->err));
 
+		/* Handle critical PHY errors that require halting the stack */
+		if (event->err == NRF_MODEM_DECT_PHY_ERR_TEMP_HIGH) {
+			dect_mac_enter_error_state("PHY reports TEMP_HIGH - thermal shutdown");
+		}
+
 		if (ctx->state != MAC_STATE_PT_WAIT_ASSOC_RESP){
 			dect_mac_phy_if_deregister_op_handle(event->handle);
 		}
@@ -661,6 +671,71 @@ void dect_mac_phy_ctrl_calculate_pcc_params(size_t mac_pdc_payload_len_bytes,
 	LOG_DBG("PCC_CALC: Payload %zuB, mu_c %u, beta_c %u, MCS %u -> %u subslots (PCC len_f 0x%X, type %u)",
 		mac_pdc_payload_len_bytes, mu_code, beta_code, selected_mcs, num_subslots_needed,
 		*out_packet_length_field, *out_packet_length_type_field);
+}
+
+uint16_t dect_mac_phy_ctrl_get_transmitter_id(const union nrf_modem_dect_phy_hdr *hdr, uint8_t phy_type)
+{
+	if (phy_type == 0) { /* Type 1 / Beacon */
+		return (uint16_t)((hdr->hdr_type_1.transmitter_id_hi << 8) | hdr->hdr_type_1.transmitter_id_lo);
+	} else { /* Type 2 / Unicast */
+		return (uint16_t)((hdr->hdr_type_2.transmitter_id_hi << 8) | hdr->hdr_type_2.transmitter_id_lo);
+	}
+}
+
+uint16_t dect_mac_phy_ctrl_get_receiver_id(const union nrf_modem_dect_phy_hdr *hdr, uint8_t phy_type)
+{
+	if (phy_type == 0) {
+		return 0xFFFF; /* Broadcast/None specifically for Type 1 in our usage */
+	} else {
+		return (uint16_t)((hdr->hdr_type_2.receiver_id_hi << 8) | hdr->hdr_type_2.receiver_id_lo);
+	}
+}
+
+uint16_t dect_mac_phy_ctrl_get_packet_length_bytes(const union nrf_modem_dect_phy_hdr *hdr, uint8_t phy_type, uint8_t mu, uint8_t beta)
+{
+	uint8_t pkt_len_field;
+	uint8_t pkt_len_type;
+	uint8_t mcs;
+
+	if (phy_type == 0) {
+		pkt_len_field = hdr->hdr_type_1.packet_length;
+		pkt_len_type = hdr->hdr_type_1.packet_length_type;
+		mcs = hdr->hdr_type_1.df_mcs;
+	} else {
+		pkt_len_field = hdr->hdr_type_2.packet_length;
+		pkt_len_type = hdr->hdr_type_2.packet_length_type;
+		mcs = hdr->hdr_type_2.df_mcs;
+	}
+
+	uint8_t num_subslots = pkt_len_field + 1;
+
+	if (pkt_len_type == 1) {
+		num_subslots *= get_subslots_per_etsi_slot_for_mu(mu);
+	}
+
+	if (num_subslots == 0 || num_subslots > TBS_MAX_SUB_SLOTS_J) {
+		return 0;
+	}
+
+	const uint32_t (*selected_tbs_table)[TBS_MAX_SUB_SLOTS_J];
+
+	if (beta == 0) { /* beta = 1 */
+		switch (mu) {
+		case 0: selected_tbs_table = tbs_single_slot_mu1_beta1; break;
+		case 1: selected_tbs_table = tbs_single_slot_mu2_beta1; break;
+		case 2: selected_tbs_table = tbs_single_slot_mu4_beta1; break;
+		default: return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	if (mcs > TBS_MAX_MCS_INDEX) {
+		return 0;
+	}
+
+	/* TBS tables store bits. Divide by 8 for bytes. */
+	return (uint16_t)(selected_tbs_table[mcs][num_subslots - 1] / 8);
 }
 
 int dect_mac_phy_ctrl_deactivate(void)

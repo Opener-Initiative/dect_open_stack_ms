@@ -35,6 +35,12 @@
 
 LOG_MODULE_REGISTER(dect_mac_sm_ft, CONFIG_DECT_MAC_SM_FT_LOG_LEVEL);
 
+/* Q7.1 RSSI format: Stores value as 0.5 dBm units. 
+ * Value = dBm * 2. 
+ */
+#define DBM_TO_Q7_1(dbm) ((int16_t)((dbm) * 2))
+#define Q7_1_TO_DBM(q71) ((int16_t)((q71) / 2))
+
 // --- Static Globals for this Module ---
 // static struct nrf_modem_dect_phy_pcc_event ft_last_relevant_pcc;
 // static bool ft_last_relevant_pcc_is_valid = false;
@@ -63,6 +69,7 @@ static void ft_add_group_res_alloc_to_beacon(dect_mac_context_t *ctx, uint8_t *b
 static void ft_send_reconfig_response_action(uint32_t pt_long_id, uint16_t pt_short_id);
 static void ft_send_association_response_action(int peer_slot_idx, const dect_mac_assoc_resp_ie_t *resp_fields, const dect_mac_rd_capability_ie_t *ft_cap_fields,const dect_mac_resource_alloc_ie_fields_t *res_alloc_fields);
 static void ft_send_association_release_action(uint32_t pt_long_id, uint16_t pt_short_id, const dect_mac_assoc_release_ie_t *release_fields);
+static int  ft_parse_dcs_channel_list(const char *chan_list_str, uint32_t *out_channels, int max_channels);
 uint64_t calculate_target_modem_time(dect_mac_context_t *ctx, uint64_t sfn_zero_anchor_time, uint8_t sfn_of_anchor_relevance, uint8_t target_sfn_val, uint16_t target_subslot_idx, uint8_t link_mu_code, uint8_t link_beta_code);
 void ft_service_schedules(void);
 
@@ -103,52 +110,19 @@ void dect_mac_sm_ft_start_operation(void)
 
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
+	/* Hard reset of the context before starting FT operations */
+	dect_mac_reset_context(ctx);
+
 	dect_mac_change_state(MAC_STATE_FT_SCANNING);
 
 	ctx->role_ctx.ft.dcs_current_channel_scan_index = 0;
 	ctx->role_ctx.ft.dcs_scan_complete = false;
-	ctx->role_ctx.ft.dcs_num_valid_candidate_channels = 0;
-	for (int i = 0; i < CONFIG_DECT_MAC_DCS_NUM_CHANNELS_TO_SCAN; i++) {
-		ctx->role_ctx.ft.dcs_candidate_channels[i] = 0;
-		ctx->role_ctx.ft.dcs_candidate_rssi_avg[i] = NRF_MODEM_DECT_PHY_RSSI_NOT_MEASURED;
-		ctx->role_ctx.ft.dcs_candidate_busy_percent[i] = 101;
-	}
 
 	if (CONFIG_DECT_MAC_DCS_NUM_CHANNELS_TO_SCAN > 0) {
-		const char *chan_list_str = CONFIG_DECT_MAC_DCS_CHANNEL_LIST;
-		char *next_chan_str;
-		char *search_start = (char *)chan_list_str;
-		int parsed_count = 0;
-
-		while (parsed_count < CONFIG_DECT_MAC_DCS_NUM_CHANNELS_TO_SCAN && *search_start != '\0') {
-			while (*search_start != '\0' && (*search_start == ',' || *search_start == ' ')) {
-				search_start++;
-			}
-			if (*search_start == '\0') {
-				break;
-			}
-
-			long chan_val = strtol(search_start, &next_chan_str, 10);
-
-			if (search_start == next_chan_str) {
-				LOG_WRN("FT_DCS_INIT: Invalid character in Kconfig channel list. Stopping parse.");
-				break;
-			}
-
-			if (chan_val >= 0 && chan_val <= 8191) { /* Valid 13-bit range */
-				ctx->role_ctx.ft.dcs_candidate_channels[parsed_count] = (uint16_t)chan_val;
-				LOG_DBG("FT_DCS_INIT: Added candidate channel number %u to scan list (idx %d).",
-					(uint16_t)chan_val, parsed_count);
-				parsed_count++;
-			} else {
-				LOG_WRN("FT_DCS_INIT: Parsed channel number %ld from Kconfig list is out of plausible range. Skipping.",
-					chan_val);
-			}
-			search_start = next_chan_str;
-		}
-		ctx->role_ctx.ft.dcs_num_valid_candidate_channels = parsed_count;
-		LOG_INF("FT_DCS_INIT: Parsed %u valid candidate channels from Kconfig for DCS.",
-			parsed_count);
+		ctx->role_ctx.ft.dcs_num_valid_candidate_channels = 
+			ft_parse_dcs_channel_list(CONFIG_DECT_MAC_DCS_CHANNEL_LIST, 
+						  ctx->role_ctx.ft.dcs_candidate_channels, 
+						  CONFIG_DECT_MAC_DCS_NUM_CHANNELS_TO_SCAN);
 	}
 
 	if (ctx->role_ctx.ft.dcs_num_valid_candidate_channels == 0) {
@@ -216,6 +190,11 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
 				if (true){
                 // if (completed_op != PENDING_OP_NONE && completed_op !=  PENDING_OP_NONE) {
                     ft_handle_phy_op_complete_ft(&msg->data.op_complete, completed_op);
+                    
+                    if (completed_op == PENDING_OP_FT_ASSOC_RESP) {
+                         printk("[FT_SM] FT_ASSOC_RESP TX Complete. Opening RACH window.\n");
+                         ft_schedule_rach_listen_action();
+                    }
                 } else {
                      LOG_DBG("FT SM: OP_COMPLETE for handle %u (err %d), but no matching/active MAC pending_op_type.",
                             msg->data.op_complete.handle, msg->data.op_complete.err);
@@ -295,6 +274,20 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
                 (ctx->state == MAC_STATE_FT_SCANNING && ctx->pending_op_type == PENDING_OP_NONE) ) {
 				printk("[FT_SM_DBG] Handling TMR_BEACON in FT_BEACONING state. dect_mac_sm_ft_beacon_timer_expired_action invoked\n");
                 dect_mac_sm_ft_beacon_timer_expired_action();
+            }
+            break;
+        case MAC_EVENT_TIMER_EXPIRED_LINK_SUPERVISION:
+            {
+                int peer_idx = msg->data.timer_data.id;
+                if (peer_idx >= 0 && peer_idx < MAX_PEERS_PER_FT) {
+                    LOG_WRN("FT SM: Supervision timer expired for peer slot %d. Disconnecting.", peer_idx);
+                    /* Invalidate the peer context */
+                    ctx->role_ctx.ft.connected_pts[peer_idx].is_valid = false;
+                    /* Clean up schedule if necessary */
+                    ctx->role_ctx.ft.peer_schedules[peer_idx].is_active = false;
+                } else {
+                     LOG_ERR("FT SM: Supervision timeout for invalid peer index %d", peer_idx);
+                }
             }
             break;
         case MAC_EVENT_TIMER_EXPIRED_HARQ:
@@ -852,9 +845,7 @@ static void ft_select_operating_carrier_and_start_beaconing(
 		}
 		return;
 	}
-	ARG_UNUSED(optional_last_rssi_event_data);
 
-	int16_t best_rssi_found = INT16_MAX;
 	int selected_idx = -1;
 
 	LOG_INF("FT_DCS_SEL: Evaluating %u scanned channels. Busy <= %d%%, Noisy < %ddBm.",
@@ -862,41 +853,51 @@ static void ft_select_operating_carrier_and_start_beaconing(
 		CONFIG_DECT_MAC_DCS_ACCEPTABLE_BUSY_PERCENT,
 		CONFIG_DECT_MAC_DCS_NOISY_THRESHOLD_DBM);
 
-	/* First pass: Find the quietest channel among the "good" ones */
+	/* Scoring Phase: Find the best channel based on a weighted sum of RSSI and Busy % */
+	int32_t best_score = INT32_MAX;
+
 	for (int i = 0; i < ctx->role_ctx.ft.dcs_num_valid_candidate_channels; i++) {
-		if (ctx->role_ctx.ft.dcs_candidate_rssi_avg[i] ==
-			    NRF_MODEM_DECT_PHY_RSSI_NOT_MEASURED ||
+		if (ctx->role_ctx.ft.dcs_candidate_rssi_avg[i] == NRF_MODEM_DECT_PHY_RSSI_NOT_MEASURED ||
 		    ctx->role_ctx.ft.dcs_candidate_busy_percent[i] > 100) {
 			continue;
 		}
 
-		LOG_INF("  Candidate %d: C%u, AvgRSSI: %d dBm(Q7.1) , Busy: %u%%", i,
+		/* Score = (AvgRSSI_Q7_1) + (BusyPercent * 4)
+		 * RSSI Q7.1 is noisy if high (e.g., -60dBm = -120), quiet if low (-100dBm = -200).
+		 * Busy % is noisy if high (50% = 50).
+		 * We want the SMALLEST score.
+		 */
+		int32_t current_score = (int32_t)ctx->role_ctx.ft.dcs_candidate_rssi_avg[i] +
+					((int32_t)ctx->role_ctx.ft.dcs_candidate_busy_percent[i] * 4);
+
+		LOG_INF("  Candidate %d: C%u, AvgRSSI: %d dBm(Q7.1), Busy: %u%%, Score: %d", i,
 			ctx->role_ctx.ft.dcs_candidate_channels[i],
 			ctx->role_ctx.ft.dcs_candidate_rssi_avg[i],
-			ctx->role_ctx.ft.dcs_candidate_busy_percent[i]);
+			ctx->role_ctx.ft.dcs_candidate_busy_percent[i],
+			current_score);
 
-		if (ctx->role_ctx.ft.dcs_candidate_busy_percent[i] <=
-			    CONFIG_DECT_MAC_DCS_ACCEPTABLE_BUSY_PERCENT &&
-		    ctx->role_ctx.ft.dcs_candidate_rssi_avg[i] <
-			    (CONFIG_DECT_MAC_DCS_NOISY_THRESHOLD_DBM * 2)) {
-			if (ctx->role_ctx.ft.dcs_candidate_rssi_avg[i] < best_rssi_found) {
-				best_rssi_found = ctx->role_ctx.ft.dcs_candidate_rssi_avg[i];
+		/* Strict Filter: Must be below thresholds to be considered "ideal" in first pass */
+		bool is_acceptable = (ctx->role_ctx.ft.dcs_candidate_busy_percent[i] <= CONFIG_DECT_MAC_DCS_ACCEPTABLE_BUSY_PERCENT) &&
+				     (ctx->role_ctx.ft.dcs_candidate_rssi_avg[i] <= DBM_TO_Q7_1(CONFIG_DECT_MAC_DCS_NOISY_THRESHOLD_DBM));
+
+		if (is_acceptable) {
+			if (current_score < best_score) {
+				best_score = current_score;
 				selected_idx = i;
 			}
 		}
 	}
 
-	/* Second pass (fallback): If no "good" channels, find the least busy one */
+	/* Fallback: If no "acceptable" channels, find the one with the global best score */
 	if (selected_idx == -1) {
-		LOG_WRN("FT_DCS_SEL: No ideal channels found. Falling back to least busy channel.");
-		uint8_t least_busy_percent = 101;
-
+		LOG_WRN("FT_DCS_SEL: No channel met both noise and busy thresholds. Selecting global best score.");
+		best_score = INT32_MAX;
 		for (int i = 0; i < ctx->role_ctx.ft.dcs_num_valid_candidate_channels; i++) {
-			if (ctx->role_ctx.ft.dcs_candidate_busy_percent[i] <= 100) {
-				if (ctx->role_ctx.ft.dcs_candidate_busy_percent[i] <
-				    least_busy_percent) {
-					least_busy_percent =
-						ctx->role_ctx.ft.dcs_candidate_busy_percent[i];
+			if (ctx->role_ctx.ft.dcs_candidate_rssi_avg[i] != NRF_MODEM_DECT_PHY_RSSI_NOT_MEASURED) {
+				int32_t current_score = (int32_t)ctx->role_ctx.ft.dcs_candidate_rssi_avg[i] +
+							((int32_t)ctx->role_ctx.ft.dcs_candidate_busy_percent[i] * 4);
+				if (current_score < best_score) {
+					best_score = current_score;
 					selected_idx = i;
 				}
 			}
@@ -905,16 +906,12 @@ static void ft_select_operating_carrier_and_start_beaconing(
 
 	if (selected_idx != -1) {
 		ctx->role_ctx.ft.operating_carrier = ctx->role_ctx.ft.dcs_candidate_channels[selected_idx];
-		// ctx->role_ctx.ft.operating_carrier = dect_mac_freq_to_channel_num(ctx->role_ctx.ft.dcs_candidate_channels[selected_idx]);		
-		LOG_INF("FT_DCS_SEL: Best carrier selected: C%u (idx %d) with Avg RSSI %d dBm (Q7.1), Busy %u%%.",
-			ctx->role_ctx.ft.operating_carrier, selected_idx,
-			ctx->role_ctx.ft.dcs_candidate_rssi_avg[selected_idx],
-			ctx->role_ctx.ft.dcs_candidate_busy_percent[selected_idx]);
+		LOG_INF("FT_DCS_SEL: selected C%u (idx %d) Score: %d",
+			ctx->role_ctx.ft.operating_carrier, selected_idx, best_score);
 	} else {
-		LOG_ERR("FT_DCS_SEL: No scannable channels found any usable signal. Defaulting to channel %u.",
+		LOG_ERR("FT_DCS_SEL: No usable scan results. Defaulting to carrier %u.",
 			CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL);
-		ctx->role_ctx.ft.operating_carrier =
-			CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL;
+		ctx->role_ctx.ft.operating_carrier = CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL;
 	}
 
 	ctx->role_ctx.ft.advertised_rach_params.rach_operating_channel =
@@ -1517,6 +1514,30 @@ printk("[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_ty
 #endif /* #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
 }
 
+static void ft_link_supervision_timeout_handler(struct k_timer *timer_id) {
+    dect_mac_peer_info_t *peer = CONTAINER_OF(timer_id, dect_mac_peer_info_t, link_supervision_timer);
+    dect_mac_context_t *ctx = dect_mac_get_active_context();
+
+    if (!ctx || ctx->role != MAC_ROLE_FT) return;
+
+    // Calculate peer index by pointer arithmetic
+    int peer_idx = peer - ctx->role_ctx.ft.connected_pts;
+    if (peer_idx < 0 || peer_idx >= MAX_PEERS_PER_FT) {
+        LOG_ERR("FT_SM: Supervision timeout for invalid peer pointer/index %d", peer_idx);
+        return;
+    }
+
+    struct dect_mac_event_msg msg = {
+        .ctx = ctx,
+        .type = MAC_EVENT_TIMER_EXPIRED_LINK_SUPERVISION,
+        .data.timer_data.id = peer_idx,
+        .modem_time_of_event = 0 // Not relevant for timer
+    };
+
+    // We can't check return value easily in void callback but k_msgq_put is best effort here
+    k_msgq_put(&mac_event_msgq, &msg, K_NO_WAIT);
+}
+
 static int  ft_find_and_init_peer_slot(uint32_t pt_long_id, uint16_t pt_short_id, int16_t rssi) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
     // Check if PT with this Long ID already exists
@@ -1552,7 +1573,15 @@ static int  ft_find_and_init_peer_slot(uint32_t pt_long_id, uint16_t pt_short_id
             ctx->role_ctx.ft.connected_pts[i].num_pending_feedback_items = 0;
             memset(ctx->role_ctx.ft.connected_pts[i].pending_feedback_to_send, 0, sizeof(ctx->role_ctx.ft.connected_pts[i].pending_feedback_to_send));
             memset(&ctx->role_ctx.ft.peer_schedules[i], 0, sizeof(dect_mac_schedule_t));
+            memset(&ctx->role_ctx.ft.peer_schedules[i], 0, sizeof(dect_mac_schedule_t));
             ctx->role_ctx.ft.peer_schedules[i].is_active = false;
+            
+            /* Initialize and start Link Supervision Timer */
+            k_timer_init(&ctx->role_ctx.ft.connected_pts[i].link_supervision_timer, ft_link_supervision_timeout_handler, NULL);
+            uint32_t sup_timeout = ctx->config.keep_alive_period_ms * 3;
+            if (sup_timeout < 1000) sup_timeout = 5000; // Minimum safety net
+            k_timer_start(&ctx->role_ctx.ft.connected_pts[i].link_supervision_timer, K_MSEC(sup_timeout), K_NO_WAIT);
+
             LOG_INF("FT SM: PT 0x%08X (S:0x%04X) assigned to new peer slot %d.", pt_long_id, pt_short_id, i);
             return i;
         }
@@ -1989,9 +2018,7 @@ static void ft_handle_phy_pdc_ft(const struct nrf_modem_dect_phy_pdc_event *pdc_
 	if (assoc_pcc_event->phy_type == 1) { /* Unicast/Data */
 		printk("FT_SM_PDC: PDC for Unicast/Data PCC phy_type %d. \n",
 			assoc_pcc_event->phy_type);
-		pt_sender_short_id_from_pcc =
-			(uint16_t)((assoc_pcc_event->hdr.hdr_type_2.transmitter_id_hi << 8) |
-				   assoc_pcc_event->hdr.hdr_type_2.transmitter_id_lo);
+		pt_sender_short_id_from_pcc = dect_mac_phy_ctrl_get_transmitter_id((const union nrf_modem_dect_phy_hdr *)&assoc_pcc_event->hdr, assoc_pcc_event->phy_type);
 	} else {
 		printk("FT_SM_PDC: PDC for non-unicast PCC phy_type %d. Discarding. \n",
 			assoc_pcc_event->phy_type);
@@ -2020,6 +2047,14 @@ static void ft_handle_phy_pdc_ft(const struct nrf_modem_dect_phy_pdc_event *pdc_
 			LOG_WRN("FT_SM_PDC: Discarding Unicast PDU addressed to another FT (0x%08X).", receiver_long_id);
 			transaction->is_valid = false;
 			return;
+		}
+
+		/* Validate Sender Long ID matches the peer context found by Short ID */
+		if (pt_peer_ctx && pt_peer_ctx->is_valid && pt_peer_ctx->long_rd_id == sender_long_id_final) {
+			/* Authentic Packet from known peer - Restart Supervision Timer */
+			uint32_t sup_timeout = ctx->config.keep_alive_period_ms * 3;
+			if (sup_timeout < 1000) sup_timeout = 5000;
+			k_timer_start(&pt_peer_ctx->link_supervision_timer, K_MSEC(sup_timeout), K_NO_WAIT);
 		}
 
 		uint8_t *sdu_area_after_common_hdr = common_hdr_start_in_payload + sizeof(dect_mac_unicast_header_t);
@@ -2253,6 +2288,13 @@ static void ft_handle_phy_pdc_ft(const struct nrf_modem_dect_phy_pdc_event *pdc_
 			sdu_area_for_data_path =
 				sdu_area_after_common_hdr + cleartext_sec_ie_mux_len;
 			sdu_area_len_for_data_path = payload_to_decrypt_len - 5;
+
+			/* Authentic Packet (MIC OK) - Restart Supervision Timer */
+			if (pt_peer_ctx && pt_peer_ctx->is_valid) {
+				uint32_t sup_timeout = ctx->config.keep_alive_period_ms * 3;
+				if (sup_timeout < 1000) sup_timeout = 5000;
+				k_timer_start(&pt_peer_ctx->link_supervision_timer, K_MSEC(sup_timeout), K_NO_WAIT);
+			}
 		}
 	}
 process_feedback_ft_pdc_secure_rx_path:; /* Label must have a statement */
@@ -2674,10 +2716,16 @@ static void ft_send_association_response_action(
 		ft_cap_fields, res_alloc_fields);
 
 	if (resp_ies_len < 0) {
-		printk("[FT_ASSOC_RESP_ACTION] Failed to build SDU area content: %d", resp_ies_len);
-		// LOG_ERR("FT_ASSOC_RESP: Failed to build SDU area content: %d", resp_ies_len);
+		LOG_ERR("[FT_ASSOC_RESP_ACTION] Failed to build SDU area content: %d", resp_ies_len);
 		return;
 	}
+
+	if (sdu_area_len_built_bytes + resp_ies_len > sizeof(sdu_area_buf)) {
+		LOG_ERR("[FT_ASSOC_RESP_ACTION] SDU area overflow: %d > %zu", 
+			sdu_area_len_built_bytes + resp_ies_len, sizeof(sdu_area_buf));
+		return;
+	}
+
 	sdu_area_len_built_bytes += resp_ies_len;
 		printk("[FT_ASSOC_RESP_ACTION] SDU Area Built. Total len: %d. Hexdump:\n", sdu_area_len_built_bytes);
 	for (int i = 0; i < sdu_area_len_built_bytes; i++) {
@@ -2780,8 +2828,10 @@ static void ft_send_association_response_action(
 	       dect_pending_op_to_str(ctx->pending_op_type));
 		   
 	if (ret == 0) {
-		/* The PHY control layer does not register the handle, the SM must do it */
-		dect_mac_phy_if_register_op_handle(phy_op_handle, ctx);
+		/* The PHY control layer already registers the handle in dect_mac_phy_ctrl_start_tx_assembled.
+		 * Redundant registration removed to prevent handle map depletion.
+		 */
+		// dect_mac_phy_if_register_op_handle(phy_op_handle, ctx);
 
 		LOG_INF("FT_SM: Association Response (%s) TX scheduled to PT 0x%04X (Hdl %u). Secure: %s",
 			resp_fields->ack_nack ? "ACCEPT" : "REJECT", pt_peer_ctx->short_rd_id, phy_op_handle,
@@ -2789,21 +2839,10 @@ static void ft_send_association_response_action(
 		if (resp_fields->ack_nack) {
 			pt_peer_ctx->is_fully_identified = true;
 
-			/* Schedule a new RX operation to listen for the release message */
-			uint32_t phy_rx_op_handle;
-			dect_mac_rand_get((uint8_t *)&phy_rx_op_handle, sizeof(phy_rx_op_handle));
-			dect_mac_phy_ctrl_start_rx(
-				ctx->role_ctx.ft.operating_carrier,
-				0, /* Continuous RX */
-				NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS,
-				phy_rx_op_handle,
-				ctx->own_short_rd_id,
-				PENDING_OP_FT_DATA_RX);
-			/* After sending a response, schedule the next RACH listen window.
-			 * This replaces the incorrect continuous RX.
+			/* CRITICAL FIX: Do NOT schedule the next RX immediately. 
+			 * We must wait for the TX operation (PENDING_OP_FT_ASSOC_RESP) to complete.
+			 * The subsequent RACH listen will be triggered in MAC_EVENT_PHY_OP_COMPLETE.
 			 */
-			printk("======================================FT==================================================\n\n\n\n\n\n\n");
-			ft_schedule_rach_listen_action();	
 		}
 	} else {
 		// 4. Free the buffer without needing a cast
@@ -3060,8 +3099,7 @@ static void ft_send_reject_response_action(uint32_t pt_long_id, uint16_t pt_shor
 					   const dect_mac_assoc_resp_ie_t *reject_fields)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
-	uint8_t sdu_area_buf[4]; /* Max size for a reject IE is 2 bytes + MUX header */
-	uint8_t final_pdu_buf[64]; /* Buffer for the full MAC PDU */
+	uint8_t sdu_area_buf[32]; /* Sufficient for reject IE + MUX header */
 	int ret;
 
 	int sdu_area_len = build_assoc_resp_sdu_area_content(
@@ -3085,9 +3123,15 @@ static void ft_send_reject_response_action(uint32_t pt_long_id, uint16_t pt_shor
 	common_hdr.transmitter_long_rd_id_be = sys_cpu_to_be32(ctx->own_long_rd_id);
 	common_hdr.receiver_long_rd_id_be = sys_cpu_to_be32(pt_long_id);
 
+	mac_sdu_t *pdu_sdu = dect_mac_buffer_alloc(K_NO_WAIT);
+	if (!pdu_sdu) {
+		LOG_ERR("FT_REJECT_SEND: Failed to alloc PDU buffer from pool.");
+		return;
+	}
+
 	uint16_t pdu_len;
 
-	ret = dect_mac_phy_ctrl_assemble_final_pdu(final_pdu_buf, sizeof(final_pdu_buf),
+	ret = dect_mac_phy_ctrl_assemble_final_pdu(pdu_sdu->data, CONFIG_DECT_MAC_PDU_MAX_SIZE,
 						   hdr_type_octet_byte, &common_hdr, sizeof(common_hdr),
 						   sdu_area_buf, (size_t)sdu_area_len, &pdu_len);
 
@@ -3097,15 +3141,17 @@ static void ft_send_reject_response_action(uint32_t pt_long_id, uint16_t pt_shor
 		dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
 
 		ret = dect_mac_phy_ctrl_start_tx_assembled(
-			ctx->role_ctx.ft.operating_carrier, final_pdu_buf, pdu_len, pt_short_id,
+			ctx->role_ctx.ft.operating_carrier, pdu_sdu->data, pdu_len, pt_short_id,
 			false, phy_op_handle, PENDING_OP_FT_ASSOC_RESP, true, 0,
 			ctx->own_phy_params.mu, NULL);
 
-		if (ret == 0) {
-			/* TODO: Something maybe */
-		} else{
-			dect_mac_buffer_free((mac_sdu_t *)final_pdu_buf);
+		if (ret != 0) {
+			LOG_ERR("FT_REJECT_SEND: Start TX failed: %d", ret);
+			dect_mac_buffer_free(pdu_sdu);
 		}
+	} else {
+		LOG_ERR("FT_REJECT_SEND: PDU assembly failed: %d", ret);
+		dect_mac_buffer_free(pdu_sdu);
 	}
 }
 /**/
@@ -3156,7 +3202,49 @@ static void ft_send_reconfig_response_action(uint32_t pt_long_id, uint16_t pt_sh
 		phy_op_handle, PENDING_OP_FT_DATA_TX_HARQ0, true, 0,
 		ctx->own_phy_params.mu, NULL);
 
-	if (ret != 0) {
-		dect_mac_buffer_free(pdu_sdu);
+	        if (ret != 0) {
+                dect_mac_buffer_free(pdu_sdu);
+        }
+}
+
+static int ft_parse_dcs_channel_list(const char *chan_list_str, uint32_t *out_channels, int max_channels)
+{
+	if (!chan_list_str || !out_channels || max_channels <= 0) {
+		return 0;
 	}
+
+	char *search_start = (char *)chan_list_str;
+	char *next_chan_str;
+	int parsed_count = 0;
+
+	while (parsed_count < max_channels && *search_start != '\0') {
+		/* Skip delimiters */
+		while (*search_start != '\0' && (*search_start == ',' || *search_start == ' ' || *search_start == '\t')) {
+			search_start++;
+		}
+
+		if (*search_start == '\0') {
+			break;
+		}
+
+		long chan_val = strtol(search_start, &next_chan_str, 10);
+
+		if (search_start == next_chan_str) {
+			LOG_WRN("FT_DCS_INIT: Invalid character in channel list '%c'. Skipping rest.", *search_start);
+			break;
+		}
+
+		if (chan_val >= 0 && chan_val <= 8191) {
+			out_channels[parsed_count] = (uint32_t)chan_val;
+			LOG_DBG("FT_DCS_INIT: Added C%u to scan list (idx %d).", (uint32_t)chan_val, parsed_count);
+			parsed_count++;
+		} else {
+			LOG_WRN("FT_DCS_INIT: Channel %ld out of range. Skipping.", chan_val);
+		}
+
+		search_start = next_chan_str;
+	}
+
+	LOG_INF("FT_DCS_INIT: Parsed %d valid channels for DCS.", parsed_count);
+	return parsed_count;
 }
