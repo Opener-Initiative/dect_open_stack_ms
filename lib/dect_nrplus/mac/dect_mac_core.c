@@ -107,6 +107,7 @@ void dect_mac_reset_context(dect_mac_context_t *ctx)
 		k_timer_stop(&ctx->role_ctx.pt.mobility_scan_timer);
 		k_timer_stop(&ctx->role_ctx.pt.paging_cycle_timer);
 		k_timer_stop(&ctx->role_ctx.pt.reject_timer);
+		k_timer_stop(&ctx->role_ctx.pt.auth_timeout_timer);
 		
 		/* Reset PT contexts */
 		memset(&ctx->role_ctx.pt.target_ft, 0, sizeof(dect_mac_peer_info_t));
@@ -147,10 +148,9 @@ void dect_mac_reset_context(dect_mac_context_t *ctx)
 void dect_mac_core_clear_pending_op(void)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
+	if (!ctx) return;
     
-
-	if (ctx) {
-		k_spinlock_key_t key = k_spin_lock(&ctx->lock);
+	k_spinlock_key_t key = k_spin_lock(&ctx->lock);
 		printk("[CORE] Clearing pending_op: %d\n", ctx->pending_op_type);
 		if (ctx->pending_op_type != PENDING_OP_NONE) {
 			LOG_DBG("MAC_CORE: Clearing pending op (was Type: %s, Hdl: %u)",
@@ -160,7 +160,6 @@ void dect_mac_core_clear_pending_op(void)
 			ctx->pending_op_handle = 0;
 		}
 		k_spin_unlock(&ctx->lock, key);
-	}
 }
 
 
@@ -233,6 +232,19 @@ static void pt_beacon_listen_timer_expiry_fn(struct k_timer *timer_id)
 
 	if (k_msgq_put(&mac_event_msgq, &msg, K_NO_WAIT) != 0) {
 		LOG_ERR("PT_BEACON_LSN_TMR: Failed to queue expiry event.");
+	}
+}
+
+static void pt_auth_timeout_timer_expiry_fn(struct k_timer *timer_id)
+{
+	struct dect_mac_context *ctx = timer_id->user_data;
+	struct dect_mac_event_msg msg = {
+		.ctx = ctx,
+		.type = MAC_EVENT_TIMER_EXPIRED_AUTH_TIMEOUT
+	};
+
+	if (k_msgq_put(&mac_event_msgq, &msg, K_NO_WAIT) != 0) {
+		LOG_ERR("PT_AUTH_TMO_TMR: Failed to queue expiry event.");
 	}
 }
 
@@ -413,6 +425,8 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
         k_timer_stop(&ctx->role_ctx.pt.keep_alive_timer); /* Stop any keep alive timers */
         k_timer_stop(&ctx->role_ctx.pt.mobility_scan_timer); /* Stop any mobility scan timers */
         k_timer_init(&ctx->role_ctx.pt.reject_timer, NULL, NULL); /* Expiry is checked by status */
+        k_timer_init(&ctx->role_ctx.pt.auth_timeout_timer, pt_auth_timeout_timer_expiry_fn, NULL);
+        ctx->role_ctx.pt.auth_timeout_timer.user_data = ctx;
 
         // k_fifo_init(&ctx->role_ctx.pt.handover_tx_holding_fifo);
         sys_dlist_init(&ctx->role_ctx.pt.handover_tx_holding_dlist);

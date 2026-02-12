@@ -230,3 +230,15 @@ static int security_cmac_kdf(const uint8_t *key, const char *label, uint32_t id_
 }
 
 #endif /* IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
+
+/* This function is intentionally outside the security Kconfig guard so it is
+ * always available for any byte-comparison that must be constant-time. */
+bool dect_mac_security_timing_safe_equal(const uint8_t *a, const uint8_t *b, size_t len)
+{
+	volatile uint8_t diff = 0;
+
+	for (size_t i = 0; i < len; i++) {
+		diff |= a[i] ^ b[i];
+	}
+	return diff == 0;
+}

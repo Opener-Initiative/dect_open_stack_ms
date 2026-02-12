@@ -422,6 +422,7 @@ typedef struct {
     struct k_timer keep_alive_timer;
     struct k_timer mobility_scan_timer;
     struct k_timer paging_cycle_timer;
+    struct k_timer auth_timeout_timer; /* Timeout for auth handshake (challenge/success) */
     dect_ft_rach_params_t current_ft_rach_params; // Parsed from associated/target FT's beacon
     uint8_t current_assoc_retries;
     dect_mac_schedule_t dl_schedule; // Schedule for downlink data from FT

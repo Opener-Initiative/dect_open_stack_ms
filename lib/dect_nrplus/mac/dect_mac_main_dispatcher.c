@@ -99,6 +99,7 @@ static void handle_state_exit_cleanup(dect_mac_context_t *ctx, dect_mac_state_t 
 
 void dect_mac_change_state(dect_mac_state_t new_state) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
+	if (!ctx) return;
 
     printk("[DISPATCH] dect_mac_change_state ctx->state:%d != new_state:%d \n", ctx->state, new_state);
 
@@ -138,6 +139,7 @@ void dect_mac_change_state(dect_mac_state_t new_state) {
 void dect_mac_enter_error_state(const char *reason)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
+	if (!ctx) return;
 
 	LOG_ERR("Entering MAC_STATE_ERROR. Reason: %s. Halting MAC operations.", reason);
 
@@ -352,6 +354,7 @@ void dect_mac_event_dispatch(const struct dect_mac_event_msg *msg)
         case MAC_EVENT_TIMER_EXPIRED_KEEPALIVE:
         case MAC_EVENT_TIMER_EXPIRED_RACH_BACKOFF:
         case MAC_EVENT_TIMER_EXPIRED_RACH_RESP_WINDOW:
+        case MAC_EVENT_TIMER_EXPIRED_AUTH_TIMEOUT:
             LOG_DBG("DISPATCH: Timer/Cmd event %s. Forwarding to SM.", dect_mac_event_to_str(msg->type));
             break;
 
@@ -452,6 +455,7 @@ const char* dect_mac_event_to_str(dect_mac_event_type_t event_type) {
         [MAC_EVENT_TIMER_EXPIRED_BEACON]       = "TMR_BEACON",
         [MAC_EVENT_TIMER_EXPIRED_HARQ]         = "TMR_HARQ",
         [MAC_EVENT_TIMER_EXPIRED_LINK_SUPERVISION] = "TMR_LINK_SUPERVISION",
+        [MAC_EVENT_TIMER_EXPIRED_AUTH_TIMEOUT]      = "TMR_AUTH_TIMEOUT",
         [MAC_EVENT_CMD_ENTER_PAGING_MODE]      = "CMD_ENTER_PAGING",
         [MAC_EVENT_CMD_RELEASE_LINK]           = "CMD_RELEASE_LINK",        
     };

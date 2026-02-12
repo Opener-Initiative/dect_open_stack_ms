@@ -127,6 +127,7 @@ typedef enum {
     MAC_EVENT_TIMER_EXPIRED_BEACON,             // FT periodic Beacon transmission timer
     MAC_EVENT_TIMER_EXPIRED_HARQ,               // Data Path HARQ retransmission/ACK timeout timer
     MAC_EVENT_TIMER_EXPIRED_LINK_SUPERVISION,   // FT Peer Link Supervision timer expired
+    MAC_EVENT_TIMER_EXPIRED_AUTH_TIMEOUT,        // PT auth handshake timeout (no response from FT)
 
     /* Internal Command Events (e.g., from Application/DLC to MAC control plane) */
     MAC_EVENT_CMD_ENTER_PAGING_MODE,    // PT command from App/DLC (TODO)

@@ -619,6 +619,10 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 		case MAC_EVENT_TIMER_EXPIRED_RACH_RESP_WINDOW:
 			pt_rach_response_window_timer_expired_action();
 			break;
+		case MAC_EVENT_TIMER_EXPIRED_AUTH_TIMEOUT:
+			LOG_ERR("PT_SM: Auth handshake timed out in state %s. Aborting.", dect_mac_state_to_str(ctx->state));
+			dect_mac_sm_pt_start_operation(); /* Restart scan/association */
+			break;
 		default:
 			break; /* Ignore other events */
 		}
@@ -1847,6 +1851,9 @@ static void pt_send_auth_initiate_action(void)
 
 	dect_mac_change_state(MAC_STATE_PT_WAIT_AUTH_CHALLENGE);
 
+	/* Start auth timeout timer (e.g., 2 seconds) */
+	k_timer_start(&ctx->role_ctx.pt.auth_timeout_timer, K_SECONDS(2), K_NO_WAIT);
+
 	uint8_t sdu_area_buf[32];
 	int sdu_area_len = build_auth_initiate_ie_muxed(
 		sdu_area_buf, sizeof(sdu_area_buf), ctx->role_ctx.pt.target_ft.pt_nonce);
@@ -1872,7 +1879,7 @@ static void pt_send_auth_initiate_action(void)
 
 	mac_sdu_t *pdu_sdu = dect_mac_buffer_alloc(K_NO_WAIT);
 	if (!pdu_sdu) {
-		LOG_ERR("FT_AUTH_CHAL: Failed to alloc PDU buffer.");
+		LOG_ERR("PT_AUTH_INIT: Failed to alloc PDU buffer.");
 		return;
 	}
 
@@ -2605,7 +2612,8 @@ static void pt_send_auth_response_action(void)
 
 	mac_sdu_t *pdu_sdu = dect_mac_buffer_alloc(K_NO_WAIT);
 	if (!pdu_sdu) {
-		LOG_ERR("FT_AUTH_CHAL: Failed to alloc PDU buffer.");
+		LOG_ERR("PT_AUTH_RESP: Failed to alloc PDU buffer.");
+		dect_mac_sm_pt_start_operation();
 		return;
 	}
 
@@ -2630,7 +2638,8 @@ static void pt_send_auth_response_action(void)
 
 	if (ret == 0) {
 		dect_mac_change_state(MAC_STATE_PT_WAIT_AUTH_SUCCESS);
-		/* TODO: Start a response timer for the success message */
+		/* Restart auth timer for the next leg (Auth Success) */
+		k_timer_start(&ctx->role_ctx.pt.auth_timeout_timer, K_SECONDS(2), K_NO_WAIT);
 	} else {
 		/* TODO: Handle RACH busy/backoff */
 		dect_mac_buffer_free(pdu_sdu);
@@ -2668,10 +2677,11 @@ static void pt_process_auth_success(dect_mac_context_t *ctx, const uint8_t *ft_m
 		return;
 	}
 
-	// TODO: This needs to use a constant-time memory comparison function 
-	// if (!timing_safe_mem_equal(ft_mac, expected_ft_mac, DECT_MAC_AUTH_MAC_SIZE)) {
-	// if (!mbedtls_ct_memcmp(ft_mac, expected_ft_mac, DECT_MAC_AUTH_MAC_SIZE)) {
-	if (!memcmp(ft_mac, expected_ft_mac, DECT_MAC_AUTH_MAC_SIZE)) {
+	/* Stop the auth timer now that we have a response */
+	k_timer_stop(&ctx->role_ctx.pt.auth_timeout_timer);
+
+	// Use constant-time comparison
+	if (!dect_mac_security_timing_safe_equal(ft_mac, expected_ft_mac, DECT_MAC_AUTH_MAC_SIZE)) {
 		LOG_ERR("PT_AUTH_SUCC: FT MAC verification FAILED! Aborting association.");
 		dect_mac_sm_pt_start_operation();
 		return;

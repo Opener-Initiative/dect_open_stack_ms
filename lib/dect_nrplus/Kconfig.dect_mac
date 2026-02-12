@@ -7,11 +7,11 @@ menuconfig DECT_MAC_LAYER
     default y
     # default y if DECT_NRPLUS_STACK
     # depends on DECT_NRPLUS_STACK || ZTEST
-	# help
-	#   Enable the DECT NR+ Medium Access Control (MAC) layer.
-	#   This layer is responsible for managing radio resources, device association,
-	#   data transmission scheduling, and basic link security as per ETSI TS 103 636-4.
-	#   It interacts with the nRF Modem DECT PHY library.
+	help
+	  Enable the DECT NR+ Medium Access Control (MAC) layer.
+	  This layer is responsible for managing radio resources, device association,
+	  data transmission scheduling, and basic link security as per ETSI TS 103 636-4.
+	  It interacts with the nRF Modem DECT PHY library.
 
 if DECT_MAC_LAYER
 
@@ -29,8 +29,8 @@ config DECT_MAC_OWN_THREAD
 choice DECT_MAC_OPERATIONAL_ROLE
 	prompt "DECT MAC Operational Role"
 	default DECT_MAC_ROLE_IS_PT # Default to PT for typical end-device
-	# help
-	#   Select the primary operational role for this MAC instance.
+	help
+	  Select the primary operational role for this MAC instance.
 
 	config DECT_MAC_ROLE_IS_PT
 		bool "Portable Termination (PT)"
@@ -56,57 +56,57 @@ config DECT_MAC_ROLE_FT
 config DECT_MAC_THREAD_STACK_SIZE
 	int "MAC main processing thread stack size"
 	default 4096
-	# help
-	#   Stack size for the main DECT MAC processing thread. This thread handles
-	#   events from the PHY and timers, and executes state machine logic.
+	help
+	  Stack size for the main DECT MAC processing thread. This thread handles
+	  events from the PHY and timers, and executes state machine logic.
 
 config DECT_MAC_THREAD_PRIORITY
 	int "MAC main processing thread priority"
 	default 7 
-	# help
-	#   Priority for the main DECT MAC processing thread.
+	help
+	  Priority for the main DECT MAC processing thread.
 
 config DECT_MAC_THREAD_SERVICE_INTERVAL_MS
 	int "MAC thread periodic service interval (ms)"
 	default 50 # Reduced for potentially faster scheduling/TX service
-	# help
-	#   Timeout for k_msgq_get in the MAC thread. Allows periodic servicing
-	#   of TX queues and scheduled operations even if no external events.
-	#   Shorter interval is more responsive but uses more CPU when idle.
+	help
+	  Timeout for k_msgq_get in the MAC thread. Allows periodic servicing
+	  of TX queues and scheduled operations even if no external events.
+	  Shorter interval is more responsive but uses more CPU when idle.
 
 config DECT_MAC_NETWORK_ID_MS24_PREFIX
 	hex "Network ID - Most Significant 24 bits Prefix"
 	default 0xDECC00
-	# help
-	#   The fixed 24-bit prefix for the DECT NR+ Network ID.
-	#   The least significant 8 bits are derived locally (e.g., from Long RD ID).
-	#   Ensure this prefix does not conflict with other networks.
-	#   Value 0x000000 is invalid per ETSI.
+	help
+	  The fixed 24-bit prefix for the DECT NR+ Network ID.
+	  The least significant 8 bits are derived locally (e.g., from Long RD ID).
+	  Ensure this prefix does not conflict with other networks.
+	  Value 0x000000 is invalid per ETSI.
 
 config DECT_MAC_PROVISIONED_LONG_RD_ID
 	hex "Provisioned Long RD ID (32-bit)"
 	default 0x0
-	# help
-	#   The pre-provisioned 32-bit Long Radio Device ID.
-	#   If set to 0 or 0xFFFFFFFF, the MAC core will attempt to derive one
-	#   from the hardware ID (e.g., using hw_id_get()).
+	help
+	  The pre-provisioned 32-bit Long Radio Device ID.
+	  If set to 0 or 0xFFFFFFFF, the MAC core will attempt to derive one
+	  from the hardware ID (e.g., using hw_id_get()).
 
 config DECT_MAC_OWN_MU_CODE
     int "Own Default Mu (Subcarrier Scaling) Code (0-3)"
     default 0 # Code 0 => mu = 2^0 = 1 (e.g. 27kHz for base ETSI band)
     range 0 3 # Corresponds to mu values 1, 2, 4, 8 for DECT NR+
-    # help
-    #   Code for this device's primary/default operational subcarrier scaling factor mu.
-    #   Actual mu = 2^code. (Refer to ETSI TS 103 636-3 Annex B & Table 4.3-1).
-    #   DECT NR+ typically uses mu codes 0, 1, 2, 3 for mu values 1, 2, 4, 8 respectively.
+    help
+      Code for this device's primary/default operational subcarrier scaling factor mu.
+      Actual mu = 2^code. (Refer to ETSI TS 103 636-3 Annex B & Table 4.3-1).
+      DECT NR+ typically uses mu codes 0, 1, 2, 3 for mu values 1, 2, 4, 8 respectively.
 
 config DECT_MAC_OWN_BETA_CODE
     int "Own Default Beta (FFT Scaling) Code (0-15)"
     default 0 # Code 0 => beta = 1 (code + 1)
     range 0 15 # Corresponds to beta values 1 to 16
-    # help
-    #   Code for this device's primary/default FFT scaling factor beta.
-    #   Actual beta = code + 1. (Refer to ETSI TS 103 636-3 Annex B & Table 4.3-1).
+    help
+      Code for this device's primary/default FFT scaling factor beta.
+      Actual beta = code + 1. (Refer to ETSI TS 103 636-3 Annex B & Table 4.3-1).
 
 config DECT_MAC_NVS_ZMS_BLOCK_SIZE
     int "ZMS Block Size for DECT NVS"
@@ -140,35 +140,35 @@ if DECT_MAC_SECURITY_ENABLE
     config DECT_MAC_MASTER_PSK_HEX
         string "Master Pre-Shared Key (32 hex chars for 16 bytes)"
         default "000102030405060708090A0B0C0D0E0F" 
-        # help
-        #   The 16-byte master Pre-Shared Key (PSK) as a 32-character hexadecimal string.
-        #   This key is used for the simplified PSK-based key derivation.
-        #   IMPORTANT: For production, this key must be securely provisioned.
+        help
+          The 16-byte master Pre-Shared Key (PSK) as a 32-character hexadecimal string.
+          This key is used for the simplified PSK-based key derivation.
+          IMPORTANT: For production, this key must be securely provisioned.
 
     config DECT_MAC_HPC_RX_WINDOW_SIZE
         int "HPC Receive Window Size (Anti-Replay)"
         default 64
         range 16 256
-        # help
-        #   Hyper Packet Counter (HPC) receive window size. Defines how many
-        #   HPC values "behind" the newest known valid peer HPC are considered
-        #   acceptable to accommodate packet reordering or minor desynchronization.
+        help
+          Hyper Packet Counter (HPC) receive window size. Defines how many
+          HPC values "behind" the newest known valid peer HPC are considered
+          acceptable to accommodate packet reordering or minor desynchronization.
 
     config DECT_MAC_HPC_RX_FORWARD_WINDOW_MAX_ADVANCE
         int "HPC Receive Forward Window Maximum Advance"
         default 1024
         # range 128 8192
-        # help
-        #   Maximum allowable jump "ahead" for a received HPC value (in a MAC Sec Info IE)
-        #   compared to the newest known valid peer HPC.
+        help
+          Maximum allowable jump "ahead" for a received HPC value (in a MAC Sec Info IE)
+          compared to the newest known valid peer HPC.
 
     config DECT_MAC_MAX_MIC_FAILURES_BEFORE_HPC_RESYNC
         int "Max MIC Failures Before Requesting HPC Resynchronization"
         default 3
         range 1 10
-        # help
-        #   Number of consecutive Message Integrity Code (MIC) failures from a peer
-        #   before this device requests an HPC resynchronization from that peer.
+        help
+          Number of consecutive Message Integrity Code (MIC) failures from a peer
+          before this device requests an HPC resynchronization from that peer.
 
 endif # DECT_MAC_SECURITY_ENABLE
 
@@ -180,36 +180,36 @@ endif # DECT_MAC_SECURITY_ENABLE
     config DECT_MAC_PT_KEEP_ALIVE_MS
         int "PT Keep-Alive Interval (ms)"
         default 20000 # 20 seconds
-        # help
-        #   Interval at which the PT sends a Keep-Alive message to the FT
-        #   when associated and idle, to maintain the association.
+        help
+          Interval at which the PT sends a Keep-Alive message to the FT
+          when associated and idle, to maintain the association.
 
     config DECT_MAC_PT_MOBILITY_ENABLE
         bool "Enable PT Mobility Scanning"
         default y
-        # help
-        #   Enable the PT to periodically scan for alternative FTs for mobility purposes.
+        help
+          Enable the PT to periodically scan for alternative FTs for mobility purposes.
 
     config DECT_MAC_PT_MOBILITY_SCAN_MS
         int "PT Mobility Scan Interval (ms)"
         default 60000 # 60 seconds
         depends on DECT_MAC_PT_MOBILITY_ENABLE
-        # help
-        #   Interval at which an associated PT performs a background scan for other FTs.
+        help
+          Interval at which an associated PT performs a background scan for other FTs.
 
     config DECT_MAC_PT_PAGING_CYCLE_MS
         int "PT Paging Cycle Listen Interval (ms)"
         default 1280 # Example: 1.28 seconds (ETSI DRF=8)
-        # help
-        #   The interval at which the PT, when in paging mode, wakes up to listen
-        #   for page messages from the FT.
+        help
+          The interval at which the PT, when in paging mode, wakes up to listen
+          for page messages from the FT.
 
     config DECT_MAC_PT_CAN_BE_FT
         bool "PT is also FT Mode Capable"
         default n
-        # help
-        #   If this PT device can also operate as an FT and wants to signal
-        #   this capability and its preferred FT parameters in its Association Request.
+        help
+          If this PT device can also operate as an FT and wants to signal
+          this capability and its preferred FT parameters in its Association Request.
 
     if DECT_MAC_PT_CAN_BE_FT
         config DECT_MAC_PT_FT_MODE_SIGNAL_PERIODS
@@ -464,9 +464,9 @@ config DECT_MAC_DEFAULT_DATA_MCS
 config DECT_MAC_SCHEDULE_PROCESSING_DELAY_US
     int "PT Schedule Processing Delay (us)"
     default 5000
-    # help
-    #   Estimated time for PT to process a received schedule and be ready for
-    #   the first occurrence if SFN is not present in Resource Allocation IE.
+    help
+      Estimated time for PT to process a received schedule and be ready for
+      the first occurrence if SFN is not present in Resource Allocation IE.
 
 
 menu "MAC Radio Device Capabilities"
@@ -541,8 +541,8 @@ config DECT_MAC_SHELL_ENABLE
     bool "Enable DECT MAC Debug Shell Commands"
     default y if SHELL && DEBUG # More restrictive default
     depends on SHELL
-    # help
-    #   Enable a set of shell commands for debugging and testing the DECT MAC layer.
+    help
+      Enable a set of shell commands for debugging and testing the DECT MAC layer.
 
 # ... (other log levels and buffer sizes remain as previously defined) ...
 

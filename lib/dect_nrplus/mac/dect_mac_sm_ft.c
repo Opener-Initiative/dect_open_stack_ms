@@ -208,62 +208,44 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
             ft_handle_phy_pdc_ft(&msg->data.pdc);
             break;
         case MAC_EVENT_PHY_PCC_ERROR:
-             LOG_WRN("FT SM: Received PCC_ERROR for handle %u (TID %u).", msg->data.pcc_crc_err.handle, msg->data.pcc_crc_err.transaction_id);
-			/* TODO: Invalidate matching transaction from cache on PCC error */
-			 //  if (ft_last_relevant_pcc_is_valid && ft_last_relevant_pcc.transaction_id == msg->data.pcc_crc_err.transaction_id) {
-            //     ft_last_relevant_pcc_is_valid = false;
-            //  }
+            LOG_WRN("FT SM: Received PCC_ERROR for handle %u (TID %u).", msg->data.pcc_crc_err.handle, msg->data.pcc_crc_err.transaction_id);
+            /* Invalidate matching transaction from cache on PCC CRC error.
+             * A corrupt PCC means any subsequent PDC for this TID is unreliable. */
+            {
+                dect_mac_context_t *err_ctx = dect_mac_get_active_context();
+                if (err_ctx) {
+                    for (int i = 0; i < MAX_PENDING_PCC_TRANSACTIONS; i++) {
+                        if (err_ctx->pcc_transaction_cache[i].is_valid &&
+                            err_ctx->pcc_transaction_cache[i].transaction_id == msg->data.pcc_crc_err.transaction_id) {
+                            LOG_INF("FT SM: Invalidating PCC cache[%d] for TID %u due to CRC error.", i,
+                                    msg->data.pcc_crc_err.transaction_id);
+                            err_ctx->pcc_transaction_cache[i].is_valid = false;
+                            k_timer_stop(&err_ctx->pcc_transaction_cache[i].timeout_timer);
+                            break;
+                        }
+                    }
+                }
+            }
             break;
         case MAC_EVENT_PHY_PDC_ERROR:
-			LOG_WRN("FT SM: Received PDC_ERROR for handle %u (TID %u).",
-				msg->data.pdc_crc_err.handle, msg->data.pdc_crc_err.transaction_id);
-
-			/* TODO: Invalidate matching transaction from cache and generate NACK on PDC error */				
-			// if (ft_last_relevant_pcc_is_valid &&
-			//     ft_last_relevant_pcc.transaction_id ==
-			// 	    msg->data.pdc_crc_err.transaction_id) {
-			// 	/* Ensure the stored PCC was for a unicast packet (Type 2), which contains HARQ info */
-			// 	if (ft_last_relevant_pcc.phy_type != 1) {
-			// 		LOG_WRN("FT_SM_PDC_ERR: PDC error for TID %u, but stored PCC was not Type 2. Cannot generate NACK.",
-			// 			msg->data.pdc_crc_err.transaction_id);
-			// 		ft_last_relevant_pcc_is_valid = false;
-			// 		break;
-			// 	}
-
-			// 	uint16_t pt_short_id = sys_be16_to_cpu(
-			// 		(uint16_t)((ft_last_relevant_pcc.hdr.hdr_type_2
-			// 				    .transmitter_id_hi
-			// 			    << 8) |
-			// 			   ft_last_relevant_pcc.hdr.hdr_type_2
-			// 				   .transmitter_id_lo));
-			// 	int peer_idx = dect_mac_core_get_peer_slot_idx(pt_short_id);
-
-			// 	if (peer_idx != -1 &&
-			// 	    ctx->role_ctx.ft.connected_pts[peer_idx].is_secure) {
-			// 		uint8_t harq_proc_in_pt_tx =
-			// 			ft_last_relevant_pcc.hdr.hdr_type_2
-			// 				.df_harq_process_num;
-			// 		dect_mac_peer_info_t *pt_ctx_peer =
-			// 			&ctx->role_ctx.ft.connected_pts[peer_idx];
-			// 		if (pt_ctx_peer->num_pending_feedback_items < 2) {
-			// 			int fb_idx = pt_ctx_peer->num_pending_feedback_items++;
-
-			// 			pt_ctx_peer->pending_feedback_to_send[fb_idx]
-			// 				.valid = true;
-			// 			pt_ctx_peer->pending_feedback_to_send[fb_idx]
-			// 				.is_ack = false;
-			// 			pt_ctx_peer->pending_feedback_to_send[fb_idx]
-			// 				.harq_process_num_for_peer =
-			// 				harq_proc_in_pt_tx;
-			// 			LOG_WRN("FT_SM_HARQ_RX: Stored NACK for PT 0x%04X's HARQ_Proc %u due to PDC_ERROR.",
-			// 				pt_short_id, harq_proc_in_pt_tx);
-			// 		} else {
-			// 			LOG_WRN("FT_SM_PDC_ERR: Feedback buffer full for PT 0x%04X",
-			// 				pt_short_id);
-			// 		}
-			// 	}
-			// 	ft_last_relevant_pcc_is_valid = false;
-			// }
+            LOG_WRN("FT SM: Received PDC_ERROR for handle %u (TID %u).",
+                msg->data.pdc_crc_err.handle, msg->data.pdc_crc_err.transaction_id);
+            /* Invalidate matching PCC cache entry — the PDC payload is lost. */
+            {
+                dect_mac_context_t *err_ctx = dect_mac_get_active_context();
+                if (err_ctx) {
+                    for (int i = 0; i < MAX_PENDING_PCC_TRANSACTIONS; i++) {
+                        if (err_ctx->pcc_transaction_cache[i].is_valid &&
+                            err_ctx->pcc_transaction_cache[i].transaction_id == msg->data.pdc_crc_err.transaction_id) {
+                            LOG_INF("FT SM: Invalidating PCC cache[%d] for TID %u due to PDC CRC error.", i,
+                                    msg->data.pdc_crc_err.transaction_id);
+                            err_ctx->pcc_transaction_cache[i].is_valid = false;
+                            k_timer_stop(&err_ctx->pcc_transaction_cache[i].timeout_timer);
+                            break;
+                        }
+                    }
+                }
+            }
             break;
         case MAC_EVENT_PHY_RSSI_RESULT:
             ft_handle_phy_rssi_ft(&msg->data.rssi);
@@ -595,16 +577,9 @@ static void ft_send_auth_success_action(int peer_slot_idx, const uint8_t *pt_mac
 	}
 
 #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)
-	// TODO:
-	// psa_key_id_t mac_key_id; // Your MAC key ID
-	// psa_algorithm_t mac_alg; // Your MAC algorithm (e.g., PSA_ALG_HMAC(PSA_ALG_SHA_256))
-	// // Perform the timing-safe MAC verification
-	// status = psa_mac_verify(mac_key_id, mac_alg, (const uint8_t *)ft_mac, DECT_MAC_AUTH_MAC_SIZE,
-	// 						(const uint8_t *)expected_ft_mac, DECT_MAC_AUTH_MAC_SIZE);
-
-	if (memcmp(pt_mac, expected_pt_mac, DECT_MAC_AUTH_MAC_SIZE) != 0) {
+	if (!dect_mac_security_timing_safe_equal(pt_mac, expected_pt_mac, DECT_MAC_AUTH_MAC_SIZE)) {
 #else
-	if (memcmp(pt_mac, expected_pt_mac, DECT_MAC_AUTH_MAC_SIZE) != 0) {
+	if (!dect_mac_security_timing_safe_equal(pt_mac, expected_pt_mac, DECT_MAC_AUTH_MAC_SIZE)) {
 #endif /* IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
 
 		LOG_ERR("FT_AUTH_SUCC: PT MAC verification failed! Disconnecting PT 0x%04X.",

@@ -7,11 +7,11 @@ menuconfig DECT_CVG_LAYER
 	default n
 	default y if DECT_DLC_LAYER
 	# depends on DECT_DLC_LAYER || ZTEST
-	# help
-	#   Enable the DECT NR+ Convergence (CVG) layer.
-	#   This layer is responsible for end-to-end services like
-	#   segmentation/reassembly, flow control, and ARQ.
-	#   It sits between the application/L2 and the DLC layer.
+	help
+	  Enable the DECT NR+ Convergence (CVG) layer.
+	  This layer is responsible for end-to-end services like
+	  segmentation/reassembly, flow control, and ARQ.
+	  It sits between the application/L2 and the DLC layer.
 
 # if DECT_CVG_LAYER
 
@@ -38,50 +38,50 @@ config DECT_STACK_HAS_APP_THREADS
 config DECT_CVG_TX_THREAD_STACK_SIZE
 	int "CVG TX thread stack size"
 	default 2048
-	# help
-	#   Stack size for the CVG layer's TX thread. This thread
-	#   takes data from the application, builds CVG PDUs, and
-	#   passes them to the DLC layer.
+	help
+	  Stack size for the CVG layer's TX thread. This thread
+	  takes data from the application, builds CVG PDUs, and
+	  passes them to the DLC layer.
 
 config DECT_CVG_TX_THREAD_PRIORITY
 	int "CVG TX thread priority"
 	default 5
-	# help
-	#   Priority for the CVG TX thread.
+	help
+	  Priority for the CVG TX thread.
 
 config DECT_CVG_RX_THREAD_STACK_SIZE
 	int "CVG RX thread stack size"
 	default 2048
-	# help
-	#   Stack size for the CVG layer's RX thread. This thread
-	#   receives data from the DLC layer, performs reassembly,
-	#   and passes complete SDUs up to the application.
+	help
+	  Stack size for the CVG layer's RX thread. This thread
+	  receives data from the DLC layer, performs reassembly,
+	  and passes complete SDUs up to the application.
 
 config DECT_CVG_RX_THREAD_PRIORITY
 	int "CVG RX thread priority"
 	default 5
-	# help
-	#   Priority for the CVG RX thread.
+	help
+	  Priority for the CVG RX thread.
 
 config DECT_CVG_TX_SERVICE_THREAD_STACK_SIZE
 	int "CVG TX service thread stack size"
 	default 2048
-	# help
-	#   Stack size for the CVG layer's TX service thread, which
-	#   handles background tasks like ARQ retransmissions.
+	help
+	  Stack size for the CVG layer's TX service thread, which
+	  handles background tasks like ARQ retransmissions.
 
 config DECT_CVG_TX_SERVICE_THREAD_PRIORITY
 	int "CVG TX service thread priority"
 	default 5
-	# help
-	#   Priority for the CVG TX service thread.
+	help
+	  Priority for the CVG TX service thread.
 
 config DECT_CVG_LOG_LEVEL
 	int "DECT NR+ CVG layer log level"
 	default 3
 	range 0 4
 	depends on LOG
-	# help
-	#   Log level for the DECT NR+ CVG layer.
+	help
+	  Log level for the DECT NR+ CVG layer.
 
 # endif # DECT_CVG_LAYER

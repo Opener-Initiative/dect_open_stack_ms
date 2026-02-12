@@ -130,5 +130,19 @@ int security_generate_auth_mac(const uint8_t *auth_key, uint32_t pt_nonce, uint3
 int security_derive_session_keys(const uint8_t *auth_key, uint32_t id_local, uint32_t id_peer,
 				 uint8_t *out_session_integrity_key,
 				 uint8_t *out_session_cipher_key);
-                 
+
+/**
+ * @brief Performs a constant-time comparison of two byte arrays.
+ *
+ * This function compares two buffers in a way that does not leak information about
+ * their contents via timing side-channels. It always examines every byte, regardless
+ * of where the first difference occurs. This is critical for authentication MAC verification.
+ *
+ * @param a Pointer to the first buffer.
+ * @param b Pointer to the second buffer.
+ * @param len Number of bytes to compare.
+ * @return true if the buffers are equal, false otherwise.
+ */
+bool dect_mac_security_timing_safe_equal(const uint8_t *a, const uint8_t *b, size_t len);
+
 #endif /* DECT_MAC_SECURITY_H__ */
