@@ -75,5 +75,8 @@ void dect_mac_sm_ft_beacon_timer_expired_action(void);
 // void dect_mac_sm_ft_handle_auth_pdu(uint16_t pt_short_id, const uint8_t *pdu_data, size_t pdu_len);
 void dect_mac_sm_ft_handle_auth_pdu(uint16_t pt_short_id, uint32_t pt_long_id, const uint8_t *pdu_data, size_t pdu_len);
 
+#if IS_ENABLED(CONFIG_ZTEST)
+int ft_find_and_init_peer_slot(uint32_t pt_long_id, uint16_t pt_short_id, int16_t rssi);
+#endif
 
 #endif /* DECT_MAC_SM_FT_H__ */

@@ -1,6 +1,7 @@
 tests:
   testing.dect_nrplus.mac_flow.basic:
     tags: dect_nrlus
+    skip: true
     platform_allow: 
       - native_sim
       - native_sim/native

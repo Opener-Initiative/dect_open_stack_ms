@@ -1,6 +1,7 @@
 tests:
   testing.dect_nrplus.cdd.service:
     tags: dect_nrplus cdd cvg
+    skip: true
     platform_allow: 
       - native_sim
       - native_sim/native

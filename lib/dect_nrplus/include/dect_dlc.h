@@ -12,11 +12,12 @@
 #include <mac/dect_mac_sm.h>   // For dect_mac_role_t (used by dect_stack_init)
 #include <mac/dect_mac_security.h>
 #include <mac/dect_mac.h>
+#include <net_platform_time.h> /**< For net_tick_t */
 
 /* DList for data from DLC to the App/CVG layer. Made extern for test access. */
 #if IS_ENABLED(CONFIG_ZTEST)
 /* Expose thread IDs for test control */
-extern sys_dlist_t g_dlc_to_app_rx_dlist;;
+// extern sys_dlist_t g_dlc_to_app_rx_dlist;;
 extern k_tid_t g_dlc_tx_service_thread_id;
 extern k_tid_t g_dlc_rx_thread_id;
 #endif /* IS_ENABLED(CONFIG_ZTEST) */
@@ -288,13 +289,16 @@ typedef struct {
  * DLC service type that was applicable to its reception/processing by the DLC.
  */
 typedef struct {
-    // void *fifo_reserved; /* For k_fifo internal use */
-    // Replaced fifo_reserved with a dlist node
-    sys_dnode_t node;     
-    // mac_sdu_t *sdu_buf;  /* Buffer containing the CVG PDU (DLC SDU payload) */
-    void *sdu_buf; /* Generic pointer to a slab-allocated buffer */
-    bool is_app_sdu; /* Flag to indicate if sdu_buf is a dlc_app_sdu_t or mac_sdu_t */
-    dlc_service_type_t dlc_service_type; /* The DLC service type of this SDU */
+	void *fifo_reserved; /* For k_queue internal use */
+	/* mac_sdu_t *sdu_buf;  Buffer containing the CVG PDU (DLC SDU payload) */
+	void *sdu_buf; /* Generic pointer to a slab-allocated buffer */
+	bool is_app_sdu; /* Flag to indicate if sdu_buf is a dlc_app_sdu_t or mac_sdu_t */
+	dlc_service_type_t dlc_service_type; /* The DLC service type of this SDU */
+
+	/* Scheduler Metadata */
+	net_tick_t entry_timestamp; /**< Time when packet entered the queue */
+	uint8_t priority;           /**< Priority level */
+	void *origin_queue;         /**< Pointer to the source k_queue */
 } dlc_rx_delivery_item_t;
 
 
@@ -321,6 +325,7 @@ int dect_dlc_init(void);
  * @param dest_long_id, The Destination adress long ID.
  * @param dlc_sdu_payload Pointer to the application data payload (e.g., a CVG PDU).
  * @param dlc_sdu_payload_len Length of the data payload.
+ * @param flow_id The ETSI Flow ID (0-7) for QoS.
  * @return 0 on success (data queued to MAC).
  * @retval -EINVAL If service type is invalid, data is NULL, or length is invalid.
  * @retval -ENOMEM If a MAC SDU buffer cannot be allocated for transmission.
@@ -328,7 +333,8 @@ int dect_dlc_init(void);
  *                   or if segmentation is required but fails (e.g., too many segments).
  */
 int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
-		  const uint8_t *dlc_sdu_payload, size_t dlc_sdu_payload_len);
+		  const uint8_t *dlc_sdu_payload, size_t dlc_sdu_payload_len,
+		  uint8_t flow_id);
 
 
 /**
@@ -402,12 +408,12 @@ typedef void (*dlc_tx_status_cb_t)(uint16_t dlc_sn, bool success);
 /**
  * @brief [TEST ONLY] Sets a spy callback for the dlc_send_data function.
  */
-void dlc_test_set_send_spy(int (*handler)(dlc_service_type_t, uint32_t, const uint8_t *, size_t));
+void dlc_test_set_send_spy(int (*handler)(dlc_service_type_t, uint32_t, const uint8_t *, size_t, uint8_t));
 
 /**
  * @brief [TEST ONLY] Sets a spy callback for the dlc_receive_data function.
  */
-void dlc_test_set_receive_spy(int (*handler)(dlc_service_type_t *, uint8_t *, size_t *, k_timeout_t));
+void dlc_test_set_receive_spy(int (*handler)(dlc_service_type_t *, uint32_t *, uint8_t *, size_t *, k_timeout_t));
 #endif /* IS_ENABLED(CONFIG_DECT_DLC_API_MOCK) */
 
 

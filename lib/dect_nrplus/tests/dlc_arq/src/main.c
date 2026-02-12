@@ -68,7 +68,7 @@ ZTEST(dect_dlc_arq, test_arq_aa_success_on_first_try)
 	printk("\n\n\n--- RUNNING TEST: %s ---\n", __func__);
 	dect_mac_test_set_active_context(&g_mac_ctx);
 	uint8_t sdu[] = {0xDE, 0xAD, 0xBE, 0xEF};
-	dlc_send_data(DLC_SERVICE_TYPE_2_ARQ, 0x11223344, sdu, sizeof(sdu));
+	dlc_send_data(DLC_SERVICE_TYPE_2_ARQ, 0x11223344, sdu, sizeof(sdu), MAC_FLOW_RELIABLE_DATA);
 
 	zassert_equal(g_capture_count, 1, "Packet was not sent to MAC");
 	const dect_dlc_header_type123_basic_t *hdr = (const void *)g_captured_pdus[0].data;
@@ -90,7 +90,7 @@ ZTEST(dect_dlc_arq, test_arq_nack_and_retry_success)
 	printk("\n\n\n--- RUNNING TEST: %s ---\n", __func__);
 
 	uint8_t sdu[] = {0xFE, 0xED, 0xFA, 0xCE};
-	dlc_send_data(DLC_SERVICE_TYPE_2_ARQ, 0x11223344, sdu, sizeof(sdu));
+	dlc_send_data(DLC_SERVICE_TYPE_2_ARQ, 0x11223344, sdu, sizeof(sdu), MAC_FLOW_RELIABLE_DATA);
 	zassert_equal(g_capture_count, 1, "Packet was not sent initially");
 	const dect_dlc_header_type123_basic_t *hdr = (const void *)g_captured_pdus[0].data;
 	uint16_t sn = dlc_hdr_t123_basic_get_sn(hdr);
@@ -114,7 +114,7 @@ ZTEST(dect_dlc_arq, test_arq_failure_after_max_retries)
 	printk("\n\n\n--- RUNNING TEST: %s ---\n", __func__);
 
 	uint8_t sdu[] = {0xC0, 0xDE};
-	dlc_send_data(DLC_SERVICE_TYPE_2_ARQ, 0x11223344, sdu, sizeof(sdu));
+	dlc_send_data(DLC_SERVICE_TYPE_2_ARQ, 0x11223344, sdu, sizeof(sdu), MAC_FLOW_RELIABLE_DATA);
 	zassert_equal(g_capture_count, 1, "Packet was not sent initially");
 
 	printk("Yielding to allow DLC thread to start the reassembly timer...\n");
@@ -141,7 +141,7 @@ ZTEST(dect_dlc_arq, test_arq_sdu_lifetime_expiry)
 	printk("\n\n\n--- RUNNING TEST: %s ---\n", __func__);
 
 	uint8_t sdu[] = {0xBA, 0xAD};
-	dlc_send_data(DLC_SERVICE_TYPE_2_ARQ, 0x11223344, sdu, sizeof(sdu));
+	dlc_send_data(DLC_SERVICE_TYPE_2_ARQ, 0x11223344, sdu, sizeof(sdu), MAC_FLOW_RELIABLE_DATA);
 	zassert_equal(g_capture_count, 1, "Packet was not sent initially");
 	const dect_dlc_header_type123_basic_t *hdr = (const void *)g_captured_pdus[0].data;
 	uint16_t sn = dlc_hdr_t123_basic_get_sn(hdr);
@@ -263,9 +263,16 @@ ZTEST(dect_dlc_arq, test_routing_duplicate_rejection)
 	/* 4. Verify the packet was only processed once (and not forwarded as it's for us) */
 	zassert_equal(g_capture_count, 0, "Packet was forwarded, but should have been for local delivery");
 	/* We also need to check that it was delivered to the app only once */
-	sys_dnode_t *node = sys_dlist_get(&g_dlc_to_app_rx_dlist);
-	zassert_not_null(node, "Packet was not delivered to app");
-	zassert_true(sys_dlist_is_empty(&g_dlc_to_app_rx_dlist), "Duplicate packet was delivered to app");
+	uint8_t rx_buf[128];
+	size_t rx_len = sizeof(rx_buf);
+	dlc_service_type_t rx_svc;
+	uint32_t src_addr;
+	int ret = dlc_receive_data(&rx_svc, &src_addr, rx_buf, &rx_len, K_NO_WAIT);
+	zassert_ok(ret, "Packet was not delivered to app");
+
+	rx_len = sizeof(rx_buf);
+	ret = dlc_receive_data(&rx_svc, &src_addr, rx_buf, &rx_len, K_NO_WAIT);
+	zassert_not_equal(ret, 0, "Duplicate packet was delivered to app");
 }
 
 ZTEST(dect_dlc_arq, test_routing_hop_limit_expiry)
@@ -336,8 +343,13 @@ ZTEST(dect_dlc_arq, test_control_route_error_ie)
 	/* 3. Let the DLC thread run */
 	k_sleep(K_MSEC(250));
 
-	/* 4. Verify the packet was NOT delivered to the application */
-	zassert_true(sys_dlist_is_empty(&g_dlc_to_app_rx_dlist), "Control IE was incorrectly delivered to app");
+	/* 4. Verify that it was NOT delivered to the application (filtered out) */
+	uint8_t rx_buf[128];
+	size_t rx_len = sizeof(rx_buf);
+	dlc_service_type_t rx_svc;
+	uint32_t src_addr;
+	int ret = dlc_receive_data(&rx_svc, &src_addr, rx_buf, &rx_len, K_NO_WAIT);
+	zassert_not_equal(ret, 0, "Control IE was incorrectly delivered to app");
 }
 
 

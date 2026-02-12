@@ -7,8 +7,9 @@
 
 static int g_mock_dlc_send_count;
 int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
-		  const uint8_t *dlc_sdu_payload, size_t dlc_sdu_payload_len)
+		  const uint8_t *dlc_sdu_payload, size_t dlc_sdu_payload_len, uint8_t flow_id)
 {
+	ARG_UNUSED(flow_id);
 	g_mock_dlc_send_count++;
 	return 0;
 }
@@ -26,7 +27,7 @@ ZTEST(cvg_advanced_tests, test_cvg_flow_control_window)
 	int ret;
 
 	/* Configure a flow with a small window */
-	dect_cvg_configure_flow(CVG_SERVICE_TYPE_4_FC_ARQ, 2, 5000);
+	dect_cvg_configure_flow(CVG_SERVICE_TYPE_4_FC_ARQ, CVG_QOS_DATA_HIGH, 2, 5000);
 
 	/* Send two packets, which should succeed and fill the window */
 	ret = dect_cvg_send(1, 0x1234, payload, sizeof(payload));

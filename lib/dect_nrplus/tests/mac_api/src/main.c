@@ -10,6 +10,8 @@
 #include <mac/dect_mac_main_dispatcher.h>
 
 #include <mac/dect_mac_pdu.h>
+#include <mac/dect_mac_phy_if.h>
+#include <mocks/mock_nrf_modem_dect_phy.h>
 
 /* Test Harness State & Mocks */
 static struct {
@@ -20,6 +22,15 @@ static struct {
 
 K_MSGQ_DEFINE(mac_event_msgq, sizeof(struct dect_mac_event_msg), 32, 4);
 dect_mac_context_t *get_mac_context(void) { return g_harness.current_ctx; }
+
+struct mac_integration_fixture {
+	struct dect_mac_context *ctx;
+};
+
+static void teardown(void *data)
+{
+	ARG_UNUSED(data);
+}
 
 /* Test Fixture */
 static void *setup(void)
@@ -93,19 +104,20 @@ ZTEST_F(mac_integration_fixture, test_mic_failure_and_hpc_resync)
 
 	/* 2. Simulate PT receiving 3 packets with bad MICs */
 	g_harness.current_ctx = &g_harness.pt_ctx;
-	for (int i = 0; i < CONFIG_DECT_MAC_MAX_MIC_FAILURES_BEFORE_HPC_RESYNC; i++) {
+	for (int i = 0; i < MAX_MIC_FAILURES_BEFORE_HPC_RESYNC; i++) {
 		/* This requires a mock function to simulate a bad MIC check */
 		/* For now, we manually increment the counter */
 		g_harness.pt_ctx.role_ctx.pt.associated_ft.consecutive_mic_failures++;
 	}
 	
 	/* Manually trigger the check that would happen on the next bad MIC */
-	if (g_harness.pt_ctx.role_ctx.pt.associated_ft.consecutive_mic_failures >= CONFIG_DECT_MAC_MAX_MIC_FAILURES_BEFORE_HPC_RESYNC) {
+	if (g_harness.pt_ctx.role_ctx.pt.associated_ft.consecutive_mic_failures >= MAX_MIC_FAILURES_BEFORE_HPC_RESYNC) {
 		g_harness.pt_ctx.role_ctx.pt.associated_ft.self_needs_to_request_hpc_from_peer = true;
 	}
 
 	/* 3. Verify the PT now wants to send a resync request */
 	zassert_true(g_harness.pt_ctx.role_ctx.pt.associated_ft.self_needs_to_request_hpc_from_peer);
+	(void)run_mac_thread_for;
 }
 
 ZTEST_SUITE(mac_integration_tests, NULL, setup, before, NULL, teardown);

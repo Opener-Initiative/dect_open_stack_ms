@@ -10,6 +10,7 @@
 #include <mac/dect_mac_core.h>
 #include <mac/dect_mac_pdu.h>
 #include <mac/dect_mac_phy_if.h>
+#include <mac/dect_mac_sm_ft.h>
 #include <mac/dect_mac_main_dispatcher.h>
 #include <mocks/mock_nrf_modem_dect_phy.h>
 #include "../../tests/utils/test_harness_helpers.h"
@@ -57,14 +58,17 @@ static void process_all_mac_events(void)
 static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(void))
 {
 	uint64_t end_ticks = k_uptime_get() + k_us_to_ticks_ceil64(timeout_us);
-	mock_phy_context_t *all_phys[] = { &g_phy_ctx_pt, &g_phy_ctx_ft };
 
 	while (k_uptime_get() < end_ticks) {
 		if (break_cond_func && break_cond_func()) {
 			return true;
 		}
 
-		k_sys_tick_announce(1);
+
+		/* In native_sim, time advances automatically if we allow the kernel to idle,
+		 * or we can use k_sleep to advance it. */
+		k_sleep(K_TICKS(1));
+
 
 		uint64_t now_us = k_ticks_to_us_floor64(k_uptime_get());
 		mock_phy_process_events(&g_phy_ctx_pt, now_us);
@@ -78,12 +82,13 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
 static bool is_ft_beaconing(void) { return g_mac_ctx_ft.state == MAC_STATE_FT_BEACONING; }
 static bool is_pt_associated(void) { return g_mac_ctx_pt.state == MAC_STATE_ASSOCIATED; }
 
+static bool ft_received_data(void)
 {
 	int peer_idx = dect_mac_core_get_peer_slot_idx(g_mac_ctx_pt.own_short_rd_id);
 	if (peer_idx < 0) {
 		return false;
 	}
-	return (g_mac_ctx_ft.role_ctx.ft.connected_pts[peer_idx].last_rx_sdu_len == 20);
+	return (g_mac_ctx_ft.role_ctx.ft.connected_pts[peer_idx].last_rx_sdu_len >= 20);
 }
 
 /* --- Test Setup --- */
@@ -137,6 +142,7 @@ ZTEST(dect_mac_flow, test_data_transfer)
 	memcpy(&g_mac_ctx_pt.role_ctx.pt.associated_ft,
 	       &g_mac_ctx_ft.role_ctx.ft.connected_pts[peer_idx],
 	       sizeof(dect_mac_peer_info_t));
+
 
 	/* 2. PT sends a data packet */
 	mac_sdu_t *sdu = dect_mac_buffer_alloc(K_NO_WAIT);

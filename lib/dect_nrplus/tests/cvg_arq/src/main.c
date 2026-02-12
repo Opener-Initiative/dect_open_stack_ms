@@ -175,8 +175,10 @@ static dect_mac_context_t g_mac_ctx;
 /* --- Mock Implementations of DLC API --- */
 
 static int mock_dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
-			      const uint8_t *dlc_sdu_payload, size_t dlc_sdu_payload_len)
+			      const uint8_t *dlc_sdu_payload, size_t dlc_sdu_payload_len, uint8_t flow_id)
 {
+    ARG_UNUSED(flow_id);
+
 	g_dlc_tx_capture_count++;
 	g_dlc_tx_capture_dest_id = dest_long_id;
 	g_dlc_tx_capture_len = dlc_sdu_payload_len;
@@ -184,9 +186,14 @@ static int mock_dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 	return 0;
 }
 
-static int mock_dlc_receive_data(dlc_service_type_t *service_type_out, uint8_t *app_level_payload_buf,
+static int mock_dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr_out,
+				uint8_t *app_level_payload_buf,
 				 size_t *app_level_payload_len_inout, k_timeout_t timeout)
 {
+    if (source_addr_out) {
+        *source_addr_out = 0x12345678; /* Dummy source addr for test */
+    }
+
 	/* This mock simulates the real function's blocking behavior */
 	if (!g_dlc_rx_data_available) {
 		/* If K_FOREVER, we can't simulate this in a simple test, but for any
@@ -228,7 +235,7 @@ static void cvg_arq_before(void *fixture)
 	dlc_test_set_receive_spy(mock_dlc_receive_data);
 
 	/* Configure a flow for testing */
-	dect_cvg_configure_flow(CVG_SERVICE_TYPE_4_FC_ARQ, CVG_TEST_WINDOW_SIZE, CVG_TEST_LIFETIME_MS);
+	dect_cvg_configure_flow(CVG_SERVICE_TYPE_4_FC_ARQ, CVG_QOS_DATA_HIGH, CVG_TEST_WINDOW_SIZE, CVG_TEST_LIFETIME_MS);
 
 	/* Start the necessary threads */
 	printk("[TEST_SETUP_DBG] About to call k_thread_start on CVG threads...\n");

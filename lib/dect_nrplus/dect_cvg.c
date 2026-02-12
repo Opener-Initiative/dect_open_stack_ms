@@ -95,6 +95,7 @@ typedef struct {
 
 typedef struct {
     cvg_service_type_t service_type;
+    cvg_qos_t configured_qos; /**< Configured QoS/Flow ID */
     bool is_configured;
     uint32_t configured_lifetime_ms;
     bool security_enabled;
@@ -348,7 +349,8 @@ static int send_cvg_arq_feedback(uint32_t dest_long_id, bool ack, uint8_t feedba
 	LOG_DBG("CVG_ARQ_TX: Sending %s for SN %u (fb_info %u) to 0x%08X.", ack ? "ACK" : "NACK",
 		sn, feedback_info_code, dest_long_id);
 
-	return dlc_send_data(DLC_SERVICE_TYPE_0_TRANSPARENT, dest_long_id, pdu_buf, pdu_len);
+	return dlc_send_data(DLC_SERVICE_TYPE_0_TRANSPARENT, dest_long_id, pdu_buf, pdu_len,
+			     (uint8_t)CVG_QOS_CONTROL);
 }
 #if !defined(CONFIG_ZTEST)
 #endif
@@ -626,7 +628,7 @@ static void cvg_tx_thread_entry(void *p1, void *p2, void *p3)
 		pdu_len += pdu_offset;
 
 		err = dlc_send_data(DLC_SERVICE_TYPE_3_SEGMENTATION_ARQ, tx_item->dest_long_id,
-				    cvg_pdu_buf, pdu_len);
+				    cvg_pdu_buf, pdu_len, (uint8_t)flow->configured_qos);
 printk("2    oooooooooooooooooooooooooooooooooooooooooooooooooo\n");
 free_and_continue:
 		if (err != 0) {
@@ -1084,7 +1086,7 @@ int dect_cvg_init(void)
 
 
 
-int dect_cvg_configure_flow(cvg_service_type_t service, uint16_t max_window_size, uint32_t lifetime_ms)
+int dect_cvg_configure_flow(cvg_service_type_t service, cvg_qos_t qos, uint16_t max_window_size, uint32_t lifetime_ms)
 {
     if (service >= CVG_SERVICE_TYPE_3_FC && max_window_size == 0) {
         LOG_ERR("CVG_CFG: Max window size cannot be 0 for a flow-controlled service.");
@@ -1095,6 +1097,7 @@ int dect_cvg_configure_flow(cvg_service_type_t service, uint16_t max_window_size
 				lifetime_ms);
 
     g_default_cvg_flow_ctx.service_type = service;
+    g_default_cvg_flow_ctx.configured_qos = qos;
     g_default_cvg_flow_ctx.max_window_size = max_window_size;
     g_default_cvg_flow_ctx.configured_lifetime_ms = lifetime_ms;
     g_default_cvg_flow_ctx.is_configured = true;
@@ -1271,7 +1274,8 @@ int dect_cvg_request_tx_services(uint32_t dest_id, cvg_service_type_t service,
 	LOG_INF("CVG_CFG: Sending TX Services Request -> Svc:%d, Win:%u, Life:%ums (code %u)",
 		service, max_window_size, lifetime_ms, cfg_ie->lifetime);
 
-	return dlc_send_data(DLC_SERVICE_TYPE_0_TRANSPARENT, dest_id, pdu_buf, sizeof(pdu_buf));
+	return dlc_send_data(DLC_SERVICE_TYPE_0_TRANSPARENT, dest_id, pdu_buf, sizeof(pdu_buf),
+			     (uint8_t)CVG_QOS_CONTROL);
 }
 
 int dect_cvg_set_security_params(const uint8_t *integrity_key, const uint8_t *cipher_key)

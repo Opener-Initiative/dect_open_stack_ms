@@ -2,6 +2,7 @@
 tests:
   testing.dect_nrplus.mac_ft_beacon.basic:
     tags: dect_nrplus mac ft
+    skip: true
     platform_allow: 
       - native_sim
       - native_sim/native

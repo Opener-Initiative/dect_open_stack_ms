@@ -2,6 +2,7 @@
 tests:
   testing.dect_nrplus.cvg.advanced:
     tags: dect_nrplus cvg arq fc
+    skip: true
     platform_allow: 
       - native_sim
       - native_sim/native

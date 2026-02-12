@@ -17,6 +17,8 @@ choice DECT_CRYPTO_BACKEND
 
 config DECT_CRYPTO_PSA
 	bool "PSA Crypto API"
+	select MBEDTLS
+	select MBEDTLS_PSA_CRYPTO_C
 	select PSA_CRYPTO_INIT
 	select PSA_WANT_ALG_CTR
 	select PSA_WANT_ALG_CMAC

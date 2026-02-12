@@ -33,8 +33,8 @@ LOG_MODULE_REGISTER(dect_dlc, CONFIG_DECT_DLC_LOG_LEVEL);
 
 #if IS_ENABLED(CONFIG_DECT_DLC_API_MOCK)
 /* --- Internal function pointers for test spy --- */
-static int (*g_dlc_send_spy_cb)(dlc_service_type_t, uint32_t, const uint8_t *, size_t) = NULL;
-static int (*g_dlc_receive_spy_cb)(dlc_service_type_t *, uint8_t *, size_t *, k_timeout_t) = NULL;
+static int (*g_dlc_send_spy_cb)(dlc_service_type_t, uint32_t, const uint8_t *, size_t, uint8_t) = NULL;
+static int (*g_dlc_receive_spy_cb)(dlc_service_type_t *, uint32_t *, uint8_t *, size_t *, k_timeout_t) = NULL;
 #endif /* IS_ENABLED(CONFIG_DECT_DLC_API_MOCK) */
 
 
@@ -75,6 +75,7 @@ typedef struct {
 	dlc_app_sdu_t *sdu_payload; // This holds the *full* original DLC SDU for re-TX
     struct k_timer retransmit_attempt_timer;
     struct k_timer lifetime_timer;
+    uint8_t flow_id; /**< Stored Flow ID for retransmission */
 } dlc_retransmission_job_t;
 
 static dlc_retransmission_job_t retransmission_jobs[MAX_DLC_RETRANSMISSION_JOBS];
@@ -106,15 +107,31 @@ typedef struct {
 
 static dlc_reassembly_session_t reassembly_sessions[MAX_DLC_REASSEMBLY_SESSIONS];
 
-sys_dlist_t g_dlc_to_app_rx_dlist;
+/* DLC Scheduler Context */
+#define DLC_LANE_COUNT 4
+#define DLC_LANE_CONTROL 0
+#define DLC_LANE_HIGH    1
+#define DLC_LANE_MED     2
+#define DLC_LANE_LOW     3
+
+#define DLC_SCHED_STARVATION_THRESHOLD_LOW_MS  500
+#define DLC_SCHED_STARVATION_THRESHOLD_MED_MS  200
+#define DLC_SCHED_STARVATION_THRESHOLD_HIGH_MS 50
+
+typedef struct {
+    struct k_queue queues[DLC_LANE_COUNT];
+    int64_t last_service_time[DLC_LANE_COUNT];
+} dlc_scheduler_t;
+
+static dlc_scheduler_t g_dlc_scheduler;
 
 /* DList for data from MAC to the DLC layer. */
 sys_dlist_t g_dlc_internal_mac_rx_dlist;
 
 K_FIFO_DEFINE(g_dlc_retransmit_signal_fifo);
-K_MEM_SLAB_DEFINE(g_dlc_rx_delivery_item_slab, sizeof(dlc_rx_delivery_item_t), 8, 4);
+K_MEM_SLAB_DEFINE(g_dlc_rx_delivery_item_slab, sizeof(dlc_rx_delivery_item_t), 32, 4); /* Increased slab size for queues */
 
-K_SEM_DEFINE(g_dlc_rx_sem, 0, K_SEM_MAX_LIMIT);
+/* Removed g_dlc_rx_sem as k_queue handles blocking */
 
 /* --- FORWARD DECLARATIONS FOR STATIC FUNCTIONS --- */
 static void dlc_reassembly_timeout_handler(struct k_timer *timer_id);
@@ -125,13 +142,15 @@ static void dlc_rx_thread_entry(void *p1, void *p2, void *p3);
 static void dlc_tx_status_cb_handler(uint16_t dlc_sn, bool success);
 static int queue_dlc_pdu_to_mac(uint32_t dest_long_id, const uint8_t *dlc_header,
 				size_t dlc_header_len, const uint8_t *payload_segment,
-				size_t payload_segment_len, bool report_status, uint16_t dlc_sn);
+				size_t payload_segment_len, bool report_status, uint16_t dlc_sn,
+				uint8_t flow_id);
 static int dlc_send_segmented(dlc_service_type_t service, uint32_t dest_long_id,
 			      const uint8_t *dlc_sdu_hdr, size_t dlc_sdu_hdr_len,
 			      const uint8_t *dlc_sdu_payload, size_t dlc_sdu_payload_len,
-			      uint16_t dlc_sn);				  
+			      uint16_t dlc_sn, uint8_t flow_id);				  
 static int dlc_resend_sdu_with_original_sn(dlc_retransmission_job_t *job);
 static dlc_reassembly_session_t* find_or_alloc_reassembly_session(uint16_t sequence_number, dlc_service_type_t service);
+static int dlc_sched_drop_oldest(void);
 
 
 
@@ -392,14 +411,15 @@ static void dlc_tx_status_cb_handler(uint16_t dlc_sn, bool success)
 
 
 int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
-		  const uint8_t *cvg_pdu_payload, size_t cvg_pdu_len)
+		  const uint8_t *cvg_pdu_payload, size_t cvg_pdu_len, uint8_t flow_id)
 {
-	printk("[DLC_SEND_DBG] dlc_send_data received payload at %p (len %zu):\n", (void *)cvg_pdu_payload, cvg_pdu_len);
+	printk("[DLC_SEND_DBG] dlc_send_data received payload at %p (len %zu), flow_id %u:\n",
+	       (void *)cvg_pdu_payload, cvg_pdu_len, flow_id);
 
 #if IS_ENABLED(CONFIG_DECT_DLC_API_MOCK)
 	if (g_dlc_send_spy_cb) {
 		printk("[DLC_SEND_DBG] Calling g_dlc_send_spy_cb \n");
-		return g_dlc_send_spy_cb(service, dest_long_id, cvg_pdu_payload, cvg_pdu_len);
+		return g_dlc_send_spy_cb(service, dest_long_id, cvg_pdu_payload, cvg_pdu_len, flow_id);
 	}
 #endif
 
@@ -478,10 +498,11 @@ int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 		arq_job->retries = 0;
 		arq_job->service = service;
 		arq_job->dest_long_id = dest_long_id;
+		arq_job->flow_id = flow_id;
 		k_timer_start(&arq_job->lifetime_timer, K_MSEC(g_tx_sdu_lifetime_ms), K_NO_WAIT);
 	}
 printk("[DLC_SEND_DBG] Calling dlc_send_segmented...\n");
-	return dlc_send_segmented(service, dest_long_id, rh_buf, rh_len, cvg_pdu_payload, cvg_pdu_len, current_dlc_sn);
+	return dlc_send_segmented(service, dest_long_id, rh_buf, rh_len, cvg_pdu_payload, cvg_pdu_len, current_dlc_sn, flow_id);
 }
 
 
@@ -496,7 +517,7 @@ int dlc_forward_pdu(const uint8_t *dlc_pdu, size_t dlc_pdu_len)
 	}
 
 	return queue_dlc_pdu_to_mac(dect_mac_get_associated_ft_long_id(), NULL, 0, dlc_pdu,
-				    dlc_pdu_len, false, 0);
+				    dlc_pdu_len, false, 0, MAC_FLOW_HIGH_PRIORITY); // Default to High Priority for forwarded PDUs
 }
 
 
@@ -888,9 +909,11 @@ printk("remaining_payload_len:%u \n", remaining_payload_len);
                             dlc_hdr_t123_basic_set(&fwd_dlc_hdr,
                                            DLC_IE_TYPE_DATA_TYPE_123_WITH_ROUTING,
                                            DLC_SI_COMPLETE_SDU, sn);
+                            /* Forward using the Flow ID from the incoming packet if present, else default */
+                            uint8_t fwd_flow_id = mac_sdu->flow_id_present ? mac_sdu->flow_id : MAC_FLOW_HIGH_PRIORITY;
                             queue_dlc_pdu_to_mac(0, (const uint8_t *)&fwd_dlc_hdr, sizeof(fwd_dlc_hdr),
                                        fwd_sdu_payload_buf, new_rh_len + current_msg_payload_len,
-                                       false, 0);
+                                       false, 0, fwd_flow_id);
                         }					
                     }
                     goto advance_to_next_message; // Forwarded, now move to the next message in the payload
@@ -906,20 +929,58 @@ printk("remaining_payload_len:%u \n", remaining_payload_len);
                  * We cannot pass the original buffer up to the application.
                  */
                 dlc_rx_delivery_item_t *item = NULL;
-                if (k_mem_slab_alloc(&g_dlc_rx_delivery_item_slab, (void **)&item,
-                             K_NO_WAIT) == 0) {
+                int alloc_ret = k_mem_slab_alloc(&g_dlc_rx_delivery_item_slab, (void **)&item, K_NO_WAIT);
+                
+                if (alloc_ret != 0) {
+                    /* Slab full, try to drop oldest and retry once */
+                    if (dlc_sched_drop_oldest() == 0) {
+                        alloc_ret = k_mem_slab_alloc(&g_dlc_rx_delivery_item_slab, (void **)&item, K_NO_WAIT);
+                    }
+                }
+
+                if (alloc_ret == 0) {
                     dlc_app_sdu_t *app_sdu = NULL;
                     printk("[DLC_RX_DBG] Message for local device. Allocating from app slab.\n");
-                    if (k_mem_slab_alloc(&g_dlc_app_sdu_slab, (void **)&app_sdu, K_NO_WAIT) == 0) {
+                    int sdu_alloc_ret = k_mem_slab_alloc(&g_dlc_app_sdu_slab, (void **)&app_sdu, K_NO_WAIT);
+                    
+                    if (sdu_alloc_ret != 0) {
+                        /* SDU slab full, try to drop oldest and retry once */
+                        if (dlc_sched_drop_oldest() == 0) {
+                            sdu_alloc_ret = k_mem_slab_alloc(&g_dlc_app_sdu_slab, (void **)&app_sdu, K_NO_WAIT);
+                        }
+                    }
+
+                    if (sdu_alloc_ret == 0) {
                         memcpy(app_sdu->data, current_msg_payload_ptr, current_msg_payload_len);
                         app_sdu->len = current_msg_payload_len;
                         item->sdu_buf = app_sdu;
                         item->is_app_sdu = true;
 
                         item->dlc_service_type = DLC_SERVICE_TYPE_1_SEGMENTATION;
-                        sys_dlist_append(&g_dlc_to_app_rx_dlist, &item->node);
-                        k_sem_give(&g_dlc_rx_sem);
-                        printk("[DLC_RX_DBG] Packet with SN %u queued to application.\n", sn);
+
+                        
+                        /* --- DLC CLASSIFIER --- */
+                        /* Extract Flow ID from logic. Since we stripped headers, we must rely on mac_sdu metadata if valid */
+                        /* But mac_sdu might have multiple PDUs. We need to be careful. */
+                        /* Actually, dlc_rx_thread_entry iterates over ONE mac_sdu. All PDUs in it *should* share the MAC header Flow ID. */
+                        /* However, flow_id is per MAC SDU. */
+                        uint8_t flow = mac_sdu->flow_id_present ? mac_sdu->flow_id : MAC_FLOW_HIGH_PRIORITY;
+                        
+                        /* Map Flow to Lane */
+                        int lane = DLC_LANE_LOW;
+                        if (flow == MAC_FLOW_HIGH_PRIORITY) lane = DLC_LANE_HIGH;
+                        else if (flow == MAC_FLOW_RELIABLE_DATA) lane = DLC_LANE_MED;
+                        else if (flow == MAC_FLOW_BEST_EFFORT) lane = DLC_LANE_LOW;
+                        /* Control/Signaling override if needed? For now, map simple. */
+                        
+                        /* Enqueue to Scheduler */
+                        item->priority = lane;
+                        item->entry_timestamp = net_get_os_tick();
+                        item->origin_queue = &g_dlc_scheduler.queues[lane];
+                        
+                        k_queue_append(&g_dlc_scheduler.queues[lane], item);
+                        
+                        printk("[DLC_SCHED_DBG] Packet (SN %u, Flow %u) enqueued to Lane %d.\n", sn, flow, lane);
                     } else {
                         LOG_ERR("Failed to allocate from app_sdu_slab");
                         k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)item);
@@ -1011,19 +1072,19 @@ static int dlc_resend_sdu_with_original_sn(dlc_retransmission_job_t *job)
 	size_t sdu_payload_len = job->sdu_payload->len - rh_len;
 
 	return dlc_send_segmented(job->service, job->dest_long_id, sdu_hdr, rh_len, sdu_payload,
-				    sdu_payload_len, job->sequence_number);
+				    sdu_payload_len, job->sequence_number, job->flow_id);
 }
 
 
 
 
 #if IS_ENABLED(CONFIG_DECT_DLC_API_MOCK)
-void dlc_test_set_send_spy(int (*handler)(dlc_service_type_t, uint32_t, const uint8_t *, size_t))
+void dlc_test_set_send_spy(int (*handler)(dlc_service_type_t, uint32_t, const uint8_t *, size_t, uint8_t))
 {
 	g_dlc_send_spy_cb = handler;
 }
 
-void dlc_test_set_receive_spy(int (*handler)(dlc_service_type_t *, uint8_t *, size_t *, k_timeout_t))
+void dlc_test_set_receive_spy(int (*handler)(dlc_service_type_t *, uint32_t *, uint8_t *, size_t *, k_timeout_t))
 {
 	g_dlc_receive_spy_cb = handler;
 }
@@ -1034,17 +1095,23 @@ void dlc_test_set_receive_spy(int (*handler)(dlc_service_type_t *, uint8_t *, si
 
 int dect_dlc_init(void)
 {
-	printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_to_app_rx_dlist BEFORE init & start: %p\n",
-	       (void *)&g_dlc_to_app_rx_dlist);
+	// printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_to_app_rx_dlist BEFORE init & start: %p\n",
+	//        (void *)&g_dlc_to_app_rx_dlist);
 	printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_dlist BEFORE init: %p\n",
 	       (void *)&g_dlc_internal_mac_rx_dlist);
 
 	printk("[DLC_INIT_DBG] Entered dect_dlc_init.\n");
-	sys_dlist_init(&g_dlc_to_app_rx_dlist);
+	// sys_dlist_init(&g_dlc_to_app_rx_dlist);
+    /* Initialize Scheduler Queues */
+    for (int i = 0; i < DLC_LANE_COUNT; i++) {
+        k_queue_init(&g_dlc_scheduler.queues[i]);
+        g_dlc_scheduler.last_service_time[i] = k_uptime_ticks();
+    }
+
 	sys_dlist_init(&g_dlc_internal_mac_rx_dlist);
 
-	printk("[INIT_DLIST_DBG] DLC's APP RX dlist (g_dlc_to_app_rx_dlist) is at address: %p\n",
-	       (void *)&g_dlc_to_app_rx_dlist);
+	/* printk("[INIT_DLIST_DBG] DLC's APP RX dlist (g_dlc_to_app_rx_dlist) is at address: %p\n",
+	       (void *)&g_dlc_to_app_rx_dlist); */
 	printk("[INIT_DLIST_DBG] DLC's internal RX dlist (g_dlc_internal_mac_rx_dlist) is at address: %p\n",
 	       (void *)&g_dlc_internal_mac_rx_dlist);
 
@@ -1091,8 +1158,8 @@ int dect_dlc_init(void)
 		return err;
 	}
 
-	printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_to_app_rx_dlist AFTER init & start: %p\n",
-	       (void *)&g_dlc_to_app_rx_dlist);
+	// printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_to_app_rx_dlist AFTER init & start: %p\n",
+	//        (void *)&g_dlc_to_app_rx_dlist);
 	printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_dlist AFTER init & start: %p\n",
 	       (void *)&g_dlc_internal_mac_rx_dlist);
 
@@ -1113,7 +1180,8 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 #if IS_ENABLED(CONFIG_DECT_DLC_API_MOCK)
 	if (g_dlc_receive_spy_cb) {
 		printk("[DLC_RECV_DBG] Calling g_dlc_receive_spy_cb...\n");
-		return g_dlc_receive_spy_cb(service_type_out, app_level_payload_buf, app_level_payload_len_inout, timeout);
+		return g_dlc_receive_spy_cb(service_type_out, source_addr_out, app_level_payload_buf,
+					    app_level_payload_len_inout, timeout);
 	}
 #endif
 
@@ -1123,25 +1191,68 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 		return -EINVAL;
 	}
 
-	int64_t start_time = k_uptime_get();
-	sys_dnode_t *node = NULL;
-
-	do {
-		node = sys_dlist_get(&g_dlc_to_app_rx_dlist);
-		if (node) {
-			break;
-		}
-		if (K_TIMEOUT_EQ(timeout, K_NO_WAIT)) {
-			return -EAGAIN;
-		}
-		k_sleep(K_MSEC(10)); /* Polling interval */
-	} while (k_uptime_delta(&start_time) < k_ticks_to_ms_floor64(timeout.ticks));
-
-	if (!node) {
-		return -EAGAIN; /* Timeout */
+	if (!service_type_out || !app_level_payload_buf || !app_level_payload_len_inout ||
+	    (*app_level_payload_len_inout == 0)) {
+		printk("[DLC_RECV_DBG] Invalid args.\n");
+		return -EINVAL;
 	}
 
-	dlc_rx_delivery_item_t *delivery_item = CONTAINER_OF(node, dlc_rx_delivery_item_t, node);
+    /* Initialize Poll Events for 4 queues */
+    struct k_poll_event events[DLC_LANE_COUNT];
+    for (int i = 0; i < DLC_LANE_COUNT; i++) {
+        k_poll_event_init(&events[i], K_POLL_TYPE_FIFO_DATA_AVAILABLE, K_POLL_MODE_NOTIFY_ONLY, &g_dlc_scheduler.queues[i]);
+    }
+
+	// int64_t start_time = k_uptime_get();
+    
+    /* Wait for data on ANY queue */
+    int ret = k_poll(events, DLC_LANE_COUNT, timeout);
+    if (ret != 0) {
+        return ret; // -EAGAIN on timeout
+    }
+
+    /* --- DISPATCHER: Audit-then-Select Logic --- */
+    int selected_lane = -1;
+    int64_t now = k_uptime_ticks();
+
+    /* 1. Audit for Starvation (Check lower priority lanes first) */
+    /* Check Low Starvation */
+    if (!k_queue_is_empty(&g_dlc_scheduler.queues[DLC_LANE_LOW])) {
+        int64_t wait_time = k_ticks_to_ms_floor64(now - g_dlc_scheduler.last_service_time[DLC_LANE_LOW]);
+        if (wait_time > DLC_SCHED_STARVATION_THRESHOLD_LOW_MS) {
+            selected_lane = DLC_LANE_LOW;
+            printk("[DLC_SCHED_WARN] Starvation detected on Low Lane (Wait %lld ms). Promoting.\n", wait_time);
+        }
+    }
+    /* Check Med Starvation (overrides Low if also starving? Or strict priority among starving?) */
+    /* Let's say if Med is starving, it's more important than Low starving. */
+    if (!k_queue_is_empty(&g_dlc_scheduler.queues[DLC_LANE_MED])) {
+        int64_t wait_time = k_ticks_to_ms_floor64(now - g_dlc_scheduler.last_service_time[DLC_LANE_MED]);
+        if (wait_time > DLC_SCHED_STARVATION_THRESHOLD_MED_MS) {
+            selected_lane = DLC_LANE_MED;
+        }
+    }
+
+    /* 2. Strict Priority Selection (if no starvation selected) */
+    if (selected_lane == -1) {
+        if (!k_queue_is_empty(&g_dlc_scheduler.queues[DLC_LANE_CONTROL])) selected_lane = DLC_LANE_CONTROL;
+        else if (!k_queue_is_empty(&g_dlc_scheduler.queues[DLC_LANE_HIGH])) selected_lane = DLC_LANE_HIGH;
+        else if (!k_queue_is_empty(&g_dlc_scheduler.queues[DLC_LANE_MED])) selected_lane = DLC_LANE_MED;
+        else if (!k_queue_is_empty(&g_dlc_scheduler.queues[DLC_LANE_LOW])) selected_lane = DLC_LANE_LOW;
+    }
+
+    if (selected_lane == -1) {
+        /* Should not happen if k_poll returned 0, but race condition possible? */
+        return -EAGAIN; 
+    }
+
+    /* 3. Dequeue */
+    dlc_rx_delivery_item_t *delivery_item = k_queue_get(&g_dlc_scheduler.queues[selected_lane], K_NO_WAIT);
+    if (!delivery_item) return -EAGAIN;
+
+    /* Update Service Time */
+    g_dlc_scheduler.last_service_time[selected_lane] = now;
+
 
 	if (!delivery_item->sdu_buf) {
 		LOG_ERR("No delivery_item->sdu_buf");
@@ -1149,15 +1260,15 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 		return -EFAULT;
 	}
 
-	printk("[DLC_RECV_DBG] delivery_item->is_app_sdu:%s *app_level_payload_len_inout:%d \n", delivery_item->is_app_sdu? "Yes":"No", *app_level_payload_len_inout);
+	printk("[DLC_RECV_DBG] delivery_item->is_app_sdu:%s *app_level_payload_len_inout:%zu \n", delivery_item->is_app_sdu? "Yes":"No", *app_level_payload_len_inout);
 	if (delivery_item->is_app_sdu) {
 		printk("[DLC_RECV_DBG] Processing APP SDU buffer\n");
 		dlc_app_sdu_t *sdu_buf = delivery_item->sdu_buf;
 		
 		if (*app_level_payload_len_inout < sdu_buf->len) {
-			/* Buffer too small - put item back in list and return error */
-			// *app_level_payload_len_inout = sdu_buf->len;
-			// sys_dlist_prepend(&g_dlc_to_app_rx_dlist, &delivery_item->node);
+			/* Buffer too small - put item back (prepend) and return error */
+            /* NOTE: Prepending to k_queue puts it at head */
+            k_queue_prepend(&g_dlc_scheduler.queues[selected_lane], delivery_item);
 			return -EMSGSIZE;
 		}
 		
@@ -1168,6 +1279,7 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 		       (void *)sdu_buf);
 		k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)sdu_buf);
 	} else {
+        /* Legacy path fallback, usually unused now */
 		printk("[DLC_RECV_DBG] Processing MAC SDU buffer\n");
 		mac_sdu_t *sdu_buf = delivery_item->sdu_buf;
 		
@@ -1177,7 +1289,7 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 
 		if (*app_level_payload_len_inout < payload_len) {
 			*app_level_payload_len_inout = payload_len;
-			sys_dlist_prepend(&g_dlc_to_app_rx_dlist, &delivery_item->node);
+            k_queue_prepend(&g_dlc_scheduler.queues[selected_lane], delivery_item);
 			return -EMSGSIZE;
 		}
 		
@@ -1190,7 +1302,8 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 
 	
 	*service_type_out = delivery_item->dlc_service_type;
-	// k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)delivery_item);
+    /* Free the delivery item wrapper */
+	k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)delivery_item);
 printk("[DLC_RECV_DBG] EXITTING dlc_receive_data...\n");
 	return 0;
 }
@@ -1288,7 +1401,8 @@ static void dlc_tx_sdu_lifetime_expiry_handler(struct k_timer *timer_id)
  */
 static int queue_dlc_pdu_to_mac(uint32_t dest_long_id, const uint8_t *dlc_header,
 				size_t dlc_header_len, const uint8_t *payload_segment,
-				size_t payload_segment_len, bool report_status, uint16_t dlc_sn)
+				size_t payload_segment_len, bool report_status, uint16_t dlc_sn,
+				uint8_t flow_id)
 {
 	int err;
 
@@ -1325,8 +1439,10 @@ static int queue_dlc_pdu_to_mac(uint32_t dest_long_id, const uint8_t *dlc_header
 	if (report_status) {
 		mac_sdu->dlc_sn_for_status = dlc_sn;
 	}
-// printk("dect_mac_get_role: %s \n", dect_mac_get_role()? "PT":"FT" );
 	/* 4. Call the appropriate MAC API based on role */
+	mac_sdu->flow_id = flow_id;
+	mac_sdu->flow_id_present = true;
+
 	if (dect_mac_get_role() == MAC_ROLE_PT) {
 		/* PT sends to its associated FT */
 		
@@ -1380,7 +1496,7 @@ static int queue_dlc_pdu_to_mac(uint32_t dest_long_id, const uint8_t *dlc_header
 static int dlc_send_segmented(dlc_service_type_t service, uint32_t dest_long_id,
 			      const uint8_t *dlc_sdu_hdr, size_t dlc_sdu_hdr_len,
 			      const uint8_t *dlc_sdu_payload, size_t dlc_sdu_payload_len,
-			      uint16_t dlc_sn)
+			      uint16_t dlc_sn, uint8_t flow_id)
 {
 	int err = 0;
 	bool needs_dlc_arq = (service == DLC_SERVICE_TYPE_2_ARQ ||
@@ -1405,7 +1521,7 @@ static int dlc_send_segmented(dlc_service_type_t service, uint32_t dest_long_id,
 
 		err = queue_dlc_pdu_to_mac(dest_long_id, (const uint8_t *)&dlc_hdr,
 					   sizeof(dlc_hdr), mac_pdu->data, mac_pdu->len,
-					   needs_dlc_arq, dlc_sn);
+					   needs_dlc_arq, dlc_sn, flow_id);
 		dect_mac_buffer_free(mac_pdu);
 	} else {
 		/* SDU is too large, segmentation is required */
@@ -1453,7 +1569,7 @@ static int dlc_send_segmented(dlc_service_type_t service, uint32_t dest_long_id,
 			bool report_this_segment = needs_dlc_arq && (si == DLC_SI_LAST_SEGMENT);
 			err = queue_dlc_pdu_to_mac(dest_long_id, dlc_hdr_buf, dlc_hdr_len,
 						   mac_pdu->data, mac_pdu->len,
-						   report_this_segment, dlc_sn);
+						   report_this_segment, dlc_sn, flow_id);
 			dect_mac_buffer_free(mac_pdu);
 
 			if (err != 0) {
@@ -1465,3 +1581,34 @@ static int dlc_send_segmented(dlc_service_type_t service, uint32_t dest_long_id,
 	}
 	return err;
 }
+
+/**
+ * @brief Scavenger logic to drop the oldest packet in the delivery queues.
+ * 
+ * Searches for the oldest packet (starting from lowest priority lane) and 
+ * discards it to reclaim memory slabs.
+ * 
+ * @return 0 if an item was dropped, -ENODATA if no items could be found.
+ */
+static int dlc_sched_drop_oldest(void)
+{
+    /* Search from Low Priority to High Priority */
+    for (int lane = DLC_LANE_LOW; lane >= DLC_LANE_CONTROL; lane--) {
+        dlc_rx_delivery_item_t *dropped = k_queue_get(&g_dlc_scheduler.queues[lane], K_NO_WAIT);
+        if (dropped) {
+            LOG_WRN("DLC_SCHED_DROP: Dropped oldest item from Lane %d due to buffer pressure.", lane);
+            
+            if (dropped->sdu_buf) {
+                if (dropped->is_app_sdu) {
+                    k_mem_slab_free(&g_dlc_app_sdu_slab, &dropped->sdu_buf);
+                } else {
+                    dect_mac_buffer_free(dropped->sdu_buf);
+                }
+            }
+            k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)dropped);
+            return 0;
+        }
+    }
+    return -ENODATA;
+}
+

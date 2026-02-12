@@ -48,6 +48,21 @@ typedef enum {
     CVG_SERVICE_TYPE_COUNT
 } cvg_service_type_t;
 
+/**
+ * @brief CVG QoS Levels.
+ * Maps application intent to ETSI Flow IDs (0-7).
+ */
+typedef enum {
+    CVG_QOS_CONTROL    = 0, // Flow ID 0: Highest Priority (Signaling)
+    CVG_QOS_VOICE      = 1, // Flow ID 1: Very High
+    CVG_QOS_REALTIME   = 2, // Flow ID 2: High
+    CVG_QOS_DATA_HIGH  = 3, // Flow ID 3: Medium (Default)
+    CVG_QOS_DATA_NORM  = 4, // Flow ID 4: Low
+    CVG_QOS_BACKGROUND = 5, // Flow ID 5: Very Low
+    CVG_QOS_MINIMAL    = 6, // Flow ID 6: Lowest
+    CVG_QOS_FLOW_7     = 7  // Flow ID 7
+} cvg_qos_t;
+
 
 /**
  * @name CVG Header Structures and Helpers
@@ -280,11 +295,12 @@ int dect_cvg_init(void);
  * be called before sending data on that flow.
  *
  * @param service The CVG service type to configure.
+ * @param qos The QoS level for this flow.
  * @param max_window_size The maximum number of unacknowledged SDUs for FC services.
  * @param lifetime_ms The SDU lifetime in milliseconds for services that use it.
  * @return 0 on success, or a negative error code.
  */
-int dect_cvg_configure_flow(cvg_service_type_t service, uint16_t max_window_size, uint32_t lifetime_ms);
+int dect_cvg_configure_flow(cvg_service_type_t service, cvg_qos_t qos, uint16_t max_window_size, uint32_t lifetime_ms);
 
 /**
  * @brief Sends a TX Services Configuration request to the peer.

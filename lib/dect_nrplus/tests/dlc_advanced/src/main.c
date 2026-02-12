@@ -21,7 +21,7 @@ static void *setup(void)
 ZTEST(dlc_advanced_tests, test_dlc_arq_retransmission)
 {
 	uint8_t payload[] = "reliable data";
-	int ret = dlc_send_data(DLC_SERVICE_TYPE_2_ARQ, 0x1234, payload, sizeof(payload));
+	int ret = dlc_send_data(DLC_SERVICE_TYPE_2_ARQ, 0x1234, payload, sizeof(payload), MAC_FLOW_RELIABLE_DATA);
 	zassert_ok(ret, "dlc_send_data for ARQ failed");
 
 	/* Simulate MAC layer permanent failure */
@@ -40,7 +40,7 @@ ZTEST(dlc_advanced_tests, test_dlc_sdu_lifetime_expiry)
 {
 	uint8_t payload[] = "expiring data";
 	// g_tx_sdu_lifetime_ms = 10; /* Set a short lifetime for the test */
-	int ret = dlc_send_data(DLC_SERVICE_TYPE_2_ARQ, 0x1234, payload, sizeof(payload));
+	int ret = dlc_send_data(DLC_SERVICE_TYPE_2_ARQ, 0x1234, payload, sizeof(payload), MAC_FLOW_RELIABLE_DATA);
 	zassert_ok(ret, "dlc_send_data for ARQ failed");
 
 	/* Wait for the lifetime timer to expire */

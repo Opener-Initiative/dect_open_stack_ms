@@ -1,17 +1,26 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/ztest.h>
+#include <nrf_modem_dect_phy.h>
+#include "dect_mac_sm.h"
+#include "dect_mac_phy_if.h"
 #include "dect_mac_core.h"
 #include "dect_mac_context.h"
 #include "dect_mac_sm_pt.h"
 #include "dect_mac_sm_ft.h"
+#include <mac/dect_mac_main_dispatcher.h>
 #include "mock_nrf_modem_dect_phy.h"
 
-static struct {
+extern void mock_phy_reset(void);
+extern void dect_mac_phy_if_event_handler(const struct nrf_modem_dect_phy_event *event);
+
+struct mac_error_tests_fixture {
 	dect_mac_context_t ft_ctx;
 	dect_mac_context_t pt_ctx;
 	dect_mac_context_t *current_ctx;
-} g_harness;
+};
+
+static struct mac_error_tests_fixture g_harness;
 
 dect_mac_context_t *get_mac_context(void) { return g_harness.current_ctx; }
 K_MSGQ_DEFINE(mac_event_msgq, sizeof(struct dect_mac_event_msg), 16, 4);

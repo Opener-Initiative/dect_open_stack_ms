@@ -57,7 +57,7 @@ static void ft_schedule_rach_listen_action(void);
 static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data, size_t mac_sdu_area_len,
                                                uint16_t pt_tx_short_rd_id, uint32_t pt_tx_long_rd_id, int16_t rssi_from_pcc);
 
-static int  ft_find_and_init_peer_slot(uint32_t pt_long_id, uint16_t pt_short_id, int16_t rssi);
+int  ft_find_and_init_peer_slot(uint32_t pt_long_id, uint16_t pt_short_id, int16_t rssi);
 /***************************************  UNUSED WARNING ***************************************/
 #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)
 // static void ft_update_pt_schedule_and_signal(int peer_slot_idx, const dect_mac_resource_alloc_ie_fields_t *new_schedule_fields);
@@ -1513,7 +1513,11 @@ static void ft_link_supervision_timeout_handler(struct k_timer *timer_id) {
     k_msgq_put(&mac_event_msgq, &msg, K_NO_WAIT);
 }
 
+#if IS_ENABLED(CONFIG_ZTEST)
+int  ft_find_and_init_peer_slot(uint32_t pt_long_id, uint16_t pt_short_id, int16_t rssi) {
+#else
 static int  ft_find_and_init_peer_slot(uint32_t pt_long_id, uint16_t pt_short_id, int16_t rssi) {
+#endif
     dect_mac_context_t *ctx = dect_mac_get_active_context();
     // Check if PT with this Long ID already exists
     for (int i = 0; i < MAX_PEERS_PER_FT; i++) {

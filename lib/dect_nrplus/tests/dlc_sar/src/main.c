@@ -285,7 +285,7 @@ ZTEST(dect_dlc_sar, test_tx_segmentation)
 		large_sdu[i] = (uint8_t)i;
 	}
 
-	dlc_send_data(DLC_SERVICE_TYPE_1_SEGMENTATION, 0x11223344, large_sdu, sizeof(large_sdu));
+	dlc_send_data(DLC_SERVICE_TYPE_1_SEGMENTATION, 0x11223344, large_sdu, sizeof(large_sdu), MAC_FLOW_RELIABLE_DATA);
 printk("xxxxxxxxxxxxxxxxxx\n");
 	zassert_true(g_capture_count > 1, "SDU was not segmented (capture_count=%d)", g_capture_count);
 printk("xxxxxxxxxxxxxxxxxx\n");

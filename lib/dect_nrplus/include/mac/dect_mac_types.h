@@ -39,6 +39,10 @@ typedef struct mac_sdu {
 	uint16_t target_peer_short_rd_id;
 	bool dlc_status_report_required;
 	uint16_t dlc_sn_for_status;
+	
+	/* QoS Metadata */
+	uint8_t flow_id;       /**< ETSI Flow ID (0-7) */
+	bool flow_id_present;  /**< Indicates if flow_id is valid */
 } mac_sdu_t;
 
 /** @brief Defines the QoS-aware data flows available to the application. */

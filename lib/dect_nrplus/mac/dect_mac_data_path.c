@@ -724,11 +724,30 @@ static int send_data_mac_sdu_via_phy_internal(dect_mac_context_t* ctx,
         len_of_muxed_sec_ie_for_crypto_calc = ie_len;
     }
 
-    /* Build user data information element */
+    /* Build user data information element - Determine IE Type based on Flow ID */
+    uint8_t target_ie_type = IE_TYPE_USER_DATA_FLOW_1; // Default to reliable/high priority flow if mapping fails
+    
+    switch (flow_id) {
+        case MAC_FLOW_HIGH_PRIORITY:
+            target_ie_type = IE_TYPE_USER_DATA_FLOW_1;
+            break;
+        case MAC_FLOW_RELIABLE_DATA:
+            target_ie_type = IE_TYPE_USER_DATA_FLOW_2;
+            break;
+        case MAC_FLOW_BEST_EFFORT:
+            target_ie_type = IE_TYPE_USER_DATA_FLOW_3;
+            break;
+        default:
+            LOG_WRN("DATA_TX_INT: Unknown flow_id %d. Defaulting to Flow 1 (IE Type %d).", 
+                    flow_id, IE_TYPE_USER_DATA_FLOW_1);
+            target_ie_type = IE_TYPE_USER_DATA_FLOW_1;
+            break;
+    }
+
     int ie_len = build_user_data_ie_muxed(sdu_area_buf + current_sdu_area_len,
                                       sizeof(sdu_area_buf) - current_sdu_area_len,
                                       mac_sdu_dlc_pdu->data, mac_sdu_dlc_pdu->len,
-                                      IE_TYPE_USER_DATA_FLOW_1);
+                                      target_ie_type);
     if (ie_len < 0) {
         ret = ie_len;
         LOG_ERR("DATA_TX_INT: Build User Data IE failed: %d", ret);
@@ -1222,6 +1241,20 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
 		if (ie_type_from_mux >= 1 && ie_type_from_mux <= 6) {        
             printk("RX_SDU_HANDLER: Higher layer flow detected (ID %d), checking DLC queue...\n", ie_type_from_mux);
             
+            dect_mac_context_t *ctx = dect_mac_get_active_context();
+            dect_mac_peer_info_t *peer = NULL;
+            if (ctx->role == MAC_ROLE_FT) {
+                int peer_idx = dect_mac_core_get_peer_slot_idx(dect_mac_core_get_short_id_for_long_id(transmitter_long_rd_id));
+                if (peer_idx >= 0) {
+                    peer = &ctx->role_ctx.ft.connected_pts[peer_idx];
+                }
+            } else {
+                peer = &ctx->role_ctx.pt.associated_ft;
+            }
+            if (peer && peer->is_valid) {
+                 peer->last_rx_sdu_len = dlc_pdu_len_from_mux;
+            }
+            
             if (g_dlc_rx_sdu_dlist_ptr != NULL) {
                 printk("RX_SDU_HANDLER: Allocating MAC SDU buffer...\n");
                 mac_sdu_t *sdu_for_dlc = dect_mac_buffer_alloc(K_NO_WAIT);
@@ -1235,8 +1268,33 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
                                dlc_pdu_len_from_mux);
                         sdu_for_dlc->len = dlc_pdu_len_from_mux;
                         
-                        printk("RX_SDU_HANDLER: Appending SDU to g_dlc_rx_sdu_dlist_ptr - IE type: 0x%X, length: %u, data ptr: %p, node ptr: %p\n",
-                               ie_type_from_mux, sdu_for_dlc->len, sdu_for_dlc->data, &sdu_for_dlc->node);
+                        /* Extract Flow ID from IE Type */
+                        uint8_t extracted_flow_id;
+                        switch (ie_type_from_mux) {
+                            case IE_TYPE_HIGHER_LAYER_SIG_FLOW_1:
+                            case IE_TYPE_HIGHER_LAYER_SIG_FLOW_2:
+                            case IE_TYPE_USER_DATA_FLOW_1:
+                                extracted_flow_id = MAC_FLOW_HIGH_PRIORITY; /* Map Flow 1 to High Priority */
+                                break;
+                            case IE_TYPE_USER_DATA_FLOW_2:
+                                extracted_flow_id = MAC_FLOW_RELIABLE_DATA; /* Map Flow 2 to Reliable */
+                                break;
+                            case IE_TYPE_USER_DATA_FLOW_3:
+                                extracted_flow_id = MAC_FLOW_BEST_EFFORT;   /* Map Flow 3 to Best Effort */
+                                break;
+                            case IE_TYPE_USER_DATA_FLOW_4:
+                                extracted_flow_id = MAC_FLOW_BEST_EFFORT;   /* Map Flow 4 to Best Effort (overflow) */
+                                break;
+                            default:
+                                extracted_flow_id = MAC_FLOW_HIGH_PRIORITY; /* Default safe fallback */
+                                break;
+                        }
+
+                        sdu_for_dlc->flow_id = extracted_flow_id;
+                        sdu_for_dlc->flow_id_present = true;
+
+                        printk("RX_SDU_HANDLER: Appending SDU to g_dlc_rx_sdu_dlist_ptr - IE type: 0x%X (Flow %d), length: %u, data ptr: %p, node ptr: %p\n",
+                               ie_type_from_mux, extracted_flow_id, sdu_for_dlc->len, sdu_for_dlc->data, &sdu_for_dlc->node);
                         
                         sys_dlist_append(g_dlc_rx_sdu_dlist_ptr, &sdu_for_dlc->node);
                         

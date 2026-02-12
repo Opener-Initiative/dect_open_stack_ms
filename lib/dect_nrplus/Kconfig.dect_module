@@ -10,6 +10,7 @@ menuconfig DECT_NRPLUS_STACK
 	bool "DECT NR+ Protocol Stack Library"
 	select PM_DEVICE
 	select PRINTK
+	select POLL
 	select CBPRINTF_FP_SUPPORT
 	help
 	  Enable the full DECT NR+ protocol stack, including the MAC, DLC,

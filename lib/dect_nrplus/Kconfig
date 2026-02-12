@@ -11,3 +11,4 @@
 
 # Source the main menu and options for the DECT NR+ stack.
 source "../nrf/lib/dect_nrplus/Kconfig.dect_module"
+source "../nrf/lib/dect_nrplus/Kconfig.dect_nrplus"
