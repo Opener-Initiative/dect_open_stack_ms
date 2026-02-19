@@ -2,7 +2,7 @@
 tests:
   testing.dect_nrplus.dlc.advanced:
     tags: dect_nrplus dlc arq
-    skip: true
+    # skip: true
     platform_allow: 
       - native_sim
       - native_sim/native

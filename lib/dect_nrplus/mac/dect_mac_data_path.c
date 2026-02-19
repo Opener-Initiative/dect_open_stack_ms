@@ -4,7 +4,7 @@
 #include <string.h>
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/util.h>
-#include <zephyr/sys/dlist.h>
+#include <zephyr/kernel.h>
 #include <zephyr/random/random.h>
 
 #if IS_ENABLED(CONFIG_ZTEST)
@@ -35,7 +35,7 @@ LOG_MODULE_REGISTER(dect_mac_data_path, CONFIG_DECT_MAC_DATA_PATH_LOG_LEVEL);
 
 // Declare the pointer as external. The linker will resolve this to the
 // variable defined in dect_mac_api.c.
-extern sys_dlist_t *g_dlc_rx_sdu_dlist_ptr;
+extern struct k_queue *g_dlc_rx_sdu_queue_ptr;
 
 // Function pointer to the DLC's callback for reporting final TX status.
 static dlc_tx_status_cb_t g_dlc_status_callback = NULL;
@@ -50,7 +50,7 @@ static dlc_tx_status_cb_t g_dlc_status_callback = NULL;
  *
  * @param cb The DLC's callback handler function.
  */
-void dect_mac_data_path_register_dlc_callback(dlc_tx_status_cb_t cb)
+__weak void dect_mac_data_path_register_dlc_callback(dlc_tx_status_cb_t cb)
 {
 	g_dlc_status_callback = cb;
 	if (cb) {
@@ -186,8 +186,8 @@ bool does_sdu_fit_schedule(dect_mac_context_t *ctx, mac_sdu_t *sdu,
 
 
 // External FIFOs and slab (defined in dect_mac_api.c)
-extern struct k_fifo * const mac_tx_fifos[]; // Generic TX FIFOs (used by PT for UL)
-extern struct k_fifo *g_dlc_rx_sdu_fifo_ptr; // Pointer to DLC's RX FIFO
+extern struct k_queue * const mac_tx_queues[];
+extern struct k_queue *g_dlc_rx_sdu_queue_ptr;
 extern struct k_mem_slab g_mac_sdu_slab;     // For SDU buffers used by MAC API and internal PDU construction
 extern struct k_msgq mac_event_msgq;         // For HARQ timer expiry events
 
@@ -1076,14 +1076,14 @@ for (int i = 0; i < MAX_HARQ_PROCESSES; i++) {
 			if (!ctx->role_ctx.ft.connected_pts[i].is_valid) {
 				continue;
 			}
-			dect_mac_peer_tx_dlist_set_t *dlists =
-				&ctx->role_ctx.ft.peer_tx_data_dlists[i];
-			sys_dlist_t *dlist_array[] = { &dlists->high_priority_dlist,
-						       &dlists->reliable_data_dlist,
-						       &dlists->best_effort_dlist };
+			dect_mac_peer_tx_queue_set_t *queues =
+				&ctx->role_ctx.ft.peer_tx_data_queues[i];
+			struct k_queue *queue_array[] = { &queues->high_priority_queue,
+						       &queues->reliable_data_queue,
+						       &queues->best_effort_queue };
 
 			for (int j = 0; j < MAC_FLOW_COUNT; j++) {
-				if (!sys_dlist_is_empty(dlist_array[j])) {
+				if (!k_queue_is_empty(queue_array[j])) {
 					uint64_t start_time;
 					uint16_t carrier;
 					dect_mac_schedule_t schedule;
@@ -1096,8 +1096,7 @@ for (int i = 0; i < MAX_HARQ_PROCESSES; i++) {
         printk(" &start_time:%lluus &carrier:%d &schedule:%lluu \n", start_time, carrier, schedule.schedule_init_modem_time);
 
                     if (opportunity_found) {
-						sys_dnode_t *node = sys_dlist_get(dlist_array[j]);
-						mac_sdu_t *sdu = CONTAINER_OF(node, mac_sdu_t, node);
+						mac_sdu_t *sdu = k_queue_get(queue_array[j], K_NO_WAIT);
 						// if (does_sdu_fit_schedule(ctx, sdu, &schedule, i)) {
                         bool fits = does_sdu_fit_schedule(ctx, sdu, &schedule, i);
                         printk("[SCHED_FIT_DBG] FT Checking if SDU (len %u) fits schedule. Result: %s\n",
@@ -1108,18 +1107,15 @@ for (int i = 0; i < MAX_HARQ_PROCESSES; i++) {
 								sdu, (mac_flow_id_t)j, i, carrier,
 								start_time, NULL);
 							if (ret == -EBUSY) {
-								sys_dlist_prepend(dlist_array[j],
-										  &sdu->node);
+								k_queue_prepend(queue_array[j], sdu);
 							}
 							return;
 						} else {
-							sys_dlist_prepend(dlist_array[j],
-									  &sdu->node);
+							k_queue_prepend(queue_array[j], sdu);
 						}
 					}
 				}
                 else{
-                    // printk("[SCHED_FIT_DBG] FT (!sys_dlist_is_empty(dlist_array[%d])) \n", j);
                 }
 			}
 		}
@@ -1137,10 +1133,9 @@ for (int i = 0; i < MAX_HARQ_PROCESSES; i++) {
 
 		if (opportunity_found) {
 			for (int j = 0; j < MAC_FLOW_COUNT; j++) {
-				if (!sys_dlist_is_empty(mac_tx_dlists[j])) {
-                    printk("  - PT Role: sys_dlist_is NOT empty(mac_tx_dlists[%d])...\n",j);
-					sys_dnode_t *node = sys_dlist_get(mac_tx_dlists[j]);
-					mac_sdu_t *sdu = CONTAINER_OF(node, mac_sdu_t, node);
+				if (!k_queue_is_empty(mac_tx_queues[j])) {
+                    printk("  - PT Role: k_queue is NOT empty(mac_tx_queues[%d])...\n",j);
+					mac_sdu_t *sdu = k_queue_get(mac_tx_queues[j], K_NO_WAIT);
 					// if (does_sdu_fit_schedule(ctx, sdu, &schedule, -1)) {
                     bool fits = does_sdu_fit_schedule(ctx, sdu, &schedule, -1);
 					printk("[SCHED_FIT_DBG] PT Checking if SDU (len %u) fits schedule. Result: %s\n",
@@ -1151,18 +1146,15 @@ for (int i = 0; i < MAX_HARQ_PROCESSES; i++) {
 							sdu, (mac_flow_id_t)j, -1, carrier,
 							start_time, NULL);
 						if (ret == -EBUSY) {
-							sys_dlist_prepend(mac_tx_dlists[j],
-									  &sdu->node);
+							k_queue_prepend(mac_tx_queues[j], sdu);
 						}
 						return;
 					} else {
 						LOG_WRN("FT_SCHED_TX: SDU (len %u) for PT %d does not fit schedule. Re-queueing.",
 							sdu->len, -1);
-						sys_dlist_prepend(mac_tx_dlists[j],
-								  &sdu->node);
+						k_queue_prepend(mac_tx_queues[j], sdu);
 					}
 				} else {
-                    // printk("  - PT Role: sys_dlist_is_empty(mac_tx_dlists[%d])...\n",j);
                 }
 			}
 		} 
@@ -1255,7 +1247,7 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
                  peer->last_rx_sdu_len = dlc_pdu_len_from_mux;
             }
             
-            if (g_dlc_rx_sdu_dlist_ptr != NULL) {
+            if (g_dlc_rx_sdu_queue_ptr != NULL) {
                 printk("RX_SDU_HANDLER: Allocating MAC SDU buffer...\n");
                 mac_sdu_t *sdu_for_dlc = dect_mac_buffer_alloc(K_NO_WAIT);
                 
@@ -1293,15 +1285,15 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
                         sdu_for_dlc->flow_id = extracted_flow_id;
                         sdu_for_dlc->flow_id_present = true;
 
-                        printk("RX_SDU_HANDLER: Appending SDU to g_dlc_rx_sdu_dlist_ptr - IE type: 0x%X (Flow %d), length: %u, data ptr: %p, node ptr: %p\n",
-                               ie_type_from_mux, extracted_flow_id, sdu_for_dlc->len, sdu_for_dlc->data, &sdu_for_dlc->node);
+                        printk("RX_SDU_HANDLER: Appending SDU to g_dlc_rx_sdu_queue_ptr - IE type: 0x%X (Flow %d), length: %u, data ptr: %p\n",
+                               ie_type_from_mux, extracted_flow_id, sdu_for_dlc->len, sdu_for_dlc->data);
                         
-                        sys_dlist_append(g_dlc_rx_sdu_dlist_ptr, &sdu_for_dlc->node);
+                        k_queue_append(g_dlc_rx_sdu_queue_ptr, sdu_for_dlc);
                         
-                        printk("[DLIST_DBG] After append, g_dlc_rx_sdu_dlist_ptr is %s.\n",
-				                sys_dlist_is_empty(g_dlc_rx_sdu_dlist_ptr) ? "EMPTY" : "NOT EMPTY");
+                        printk("[QUEUE_DBG] After append, g_dlc_rx_sdu_queue_ptr is %s.\n",
+				                k_queue_is_empty(g_dlc_rx_sdu_queue_ptr) ? "EMPTY" : "NOT EMPTY");
                         printk("RX_SDU_HANDLER: Successfully added SDU to dlist. Dlist ptr: %p\n", 
-                                g_dlc_rx_sdu_dlist_ptr);
+                                g_dlc_rx_sdu_queue_ptr);
                         
                         // Log first few bytes for verification
                         if (dlc_pdu_len_from_mux > 0) {
@@ -1323,7 +1315,7 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
                 }
             } else {
                 LOG_ERR("RX_SDU_HANDLER: DLC RX queue is NULL! DLC PDU dropped.");
-                printk("RX_SDU_HANDLER: g_dlc_rx_sdu_dlist_ptr is NULL, cannot append SDU\n");
+                printk("RX_SDU_HANDLER: g_dlc_rx_sdu_queue_ptr is NULL, cannot append SDU\n");
             }
 		} else {
 			LOG_DBG("RX_SDU_HANDLER: Skipping non-UserData MUX IE type 0x%X.",

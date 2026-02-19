@@ -2,7 +2,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <string.h>
-#include <zephyr/sys/dlist.h>
+#include <zephyr/kernel.h>
 
 #include <mac/dect_mac.h>
 #include <mac/dect_mac_sm.h>
@@ -20,18 +20,18 @@ LOG_MODULE_REGISTER(dect_mac_api, CONFIG_DECT_MAC_API_LOG_LEVEL);
 // Define the memory slab for mac_sdu_t buffers
 K_MEM_SLAB_DEFINE(g_mac_sdu_slab, sizeof(mac_sdu_t), MAX_MAC_SDU_BUFFERS_CONFIG, 4);
 
-sys_dlist_t *g_dlc_rx_sdu_dlist_ptr = NULL;
+struct k_queue *g_dlc_rx_sdu_queue_ptr = NULL;
 
 
 // Define the list structures
-sys_dlist_t g_mac_tx_dlist_high_priority;
-sys_dlist_t g_mac_tx_dlist_reliable_data;
-sys_dlist_t g_mac_tx_dlist_best_effort;
+struct k_queue g_mac_tx_queue_high_priority;
+struct k_queue g_mac_tx_queue_reliable_data;
+struct k_queue g_mac_tx_queue_best_effort;
 
-sys_dlist_t * const mac_tx_dlists[MAC_FLOW_COUNT] = {
-    &g_mac_tx_dlist_high_priority,
-    &g_mac_tx_dlist_reliable_data,
-    &g_mac_tx_dlist_best_effort
+struct k_queue * const mac_tx_queues[MAC_FLOW_COUNT] = {
+    &g_mac_tx_queue_high_priority,
+    &g_mac_tx_queue_reliable_data,
+    &g_mac_tx_queue_best_effort
 };
 
 // External message queue for sending commands to the MAC thread
@@ -39,24 +39,24 @@ sys_dlist_t * const mac_tx_dlists[MAC_FLOW_COUNT] = {
 extern struct k_msgq mac_event_msgq;
 
 
-int dect_mac_api_init(sys_dlist_t *rx_dlist_from_dlc)
+int dect_mac_api_init(struct k_queue *rx_queue_from_dlc)
 {
-	if (!rx_dlist_from_dlc) {
-		LOG_WRN("DLC RX dlist is NULL. MAC will not be able to deliver received data.");
+	if (!rx_queue_from_dlc) {
+		LOG_WRN("DLC RX queue is NULL. MAC will not be able to deliver received data.");
 	}
 
-    g_dlc_rx_sdu_dlist_ptr = rx_dlist_from_dlc;
+    g_dlc_rx_sdu_queue_ptr = rx_queue_from_dlc;
 
-	printk("[INIT_DLIST_DBG] MAC API received dlist pointer. g_dlc_rx_sdu_dlist_ptr is now: %p\n",
-	       (void *)g_dlc_rx_sdu_dlist_ptr);
+	printk("[INIT_QUEUE_DBG] MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: %p\n",
+	       (void *)g_dlc_rx_sdu_queue_ptr);
 
 		   
-	/* Initialize the MAC's own TX dlists */
-	sys_dlist_init(&g_mac_tx_dlist_high_priority);
-	sys_dlist_init(&g_mac_tx_dlist_reliable_data);
-	sys_dlist_init(&g_mac_tx_dlist_best_effort);
+	/* Initialize the MAC's own TX queues */
+	k_queue_init(&g_mac_tx_queue_high_priority);
+	k_queue_init(&g_mac_tx_queue_reliable_data);
+	k_queue_init(&g_mac_tx_queue_best_effort);
         
-    LOG_INF("MAC API Initialized. DLC RX dlist registered.");
+    LOG_INF("MAC API Initialized. DLC RX queue registered.");
     return 0;
 }
 
@@ -118,7 +118,7 @@ void dect_mac_api_buffer_free_internal(mac_sdu_t *sdu, const char *caller_func)
 }
 
 
-int dect_mac_api_send(mac_sdu_t *sdu, mac_flow_id_t flow)
+__weak int dect_mac_api_send(mac_sdu_t *sdu, mac_flow_id_t flow)
 {
 	printk("[API_SEND_DBG] REAL dect_mac_api_send() function was called.\n");
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
@@ -140,7 +140,7 @@ int dect_mac_api_send(mac_sdu_t *sdu, mac_flow_id_t flow)
 
 	if (ctx->state == MAC_STATE_PT_HANDOVER_ASSOCIATING) {
 		LOG_DBG("PT_SEND_API: Handover in progress. Buffering SDU (len %u) to holding queue.", sdu->len);
-		sys_dlist_append(&ctx->role_ctx.pt.handover_tx_holding_dlist, &sdu->node);
+		k_queue_append(&ctx->role_ctx.pt.handover_tx_holding_queue, sdu);
 		return 0;
 	}
 
@@ -154,11 +154,11 @@ int dect_mac_api_send(mac_sdu_t *sdu, mac_flow_id_t flow)
 	}
 
 	printk("PT_SEND_API: Queueing SDU (len %u) to generic MAC TX Flow %d (for associated FT)\n", sdu->len, flow);
-    // Add SDU to the appropriate TX dlist based on flow
-    sys_dlist_append(mac_tx_dlists[flow], &sdu->node);
+    // Add SDU to the appropriate TX queue based on flow
+    k_queue_append(mac_tx_queues[flow], sdu);
 
     printk("[DIAGNOSTIC_TRACE] Step 1: SDU (len %u) for flow %d queued. Queue is now empty: %s\n",
-	       sdu->len, flow, sys_dlist_is_empty(mac_tx_dlists[flow]) ? "yes" : "no");
+	       sdu->len, flow, k_queue_is_empty(mac_tx_queues[flow]) ? "yes" : "no");
            
 	return 0;
 }
@@ -213,8 +213,6 @@ int dect_mac_api_ft_send_to_pt(mac_sdu_t *sdu, mac_flow_id_t flow, uint16_t targ
     LOG_DBG("FT_SEND_API: Queueing SDU (len %u) to PT Slot %d (ShortID 0x%04X), Flow %d",
             sdu->len, target_peer_slot_idx, target_pt_short_rd_id, flow);
 
-    // // Use sys_dlist_append to add the SDU's node to the tail of the per-peer list.
-    // sys_dlist_append(target_dlist_ptr, &sdu->node);
 
 
     if (!sdu || flow >= MAC_FLOW_COUNT || sdu->len > CONFIG_DECT_MAC_SDU_MAX_SIZE || !target_pt_short_rd_id) {
@@ -223,23 +221,23 @@ int dect_mac_api_ft_send_to_pt(mac_sdu_t *sdu, mac_flow_id_t flow, uint16_t targ
     // Check if MAC is in FT role and PT is connected (implementation-specific)
     // Add SDU to TX dlist with target PT info
     sdu->target_peer_short_rd_id = target_pt_short_rd_id;
-	sys_dlist_t *target_dlist_ptr = NULL;
+	struct k_queue *target_queue_ptr = NULL;
 
 	switch (flow) {
 	case MAC_FLOW_HIGH_PRIORITY:
-		target_dlist_ptr =
-			&ctx->role_ctx.ft.peer_tx_data_dlists[target_peer_slot_idx]
-				 .high_priority_dlist;
+		target_queue_ptr =
+			&ctx->role_ctx.ft.peer_tx_data_queues[target_peer_slot_idx]
+				 .high_priority_queue;
 		break;
 	case MAC_FLOW_RELIABLE_DATA:
-		target_dlist_ptr =
-			&ctx->role_ctx.ft.peer_tx_data_dlists[target_peer_slot_idx]
-				 .reliable_data_dlist;
+		target_queue_ptr =
+			&ctx->role_ctx.ft.peer_tx_data_queues[target_peer_slot_idx]
+				 .reliable_data_queue;
 		break;
 	case MAC_FLOW_BEST_EFFORT:
-		target_dlist_ptr =
-			&ctx->role_ctx.ft.peer_tx_data_dlists[target_peer_slot_idx]
-				 .best_effort_dlist;
+		target_queue_ptr =
+			&ctx->role_ctx.ft.peer_tx_data_queues[target_peer_slot_idx]
+				 .best_effort_queue;
 		break;
 	default:
 		/* This case is already handled by the check at the top */
@@ -250,7 +248,7 @@ int dect_mac_api_ft_send_to_pt(mac_sdu_t *sdu, mac_flow_id_t flow, uint16_t targ
 	LOG_DBG("FT_SEND_API: Queueing SDU (len %u) to PT Slot %d (ShortID 0x%04X), Flow %d",
 		sdu->len, target_peer_slot_idx, target_pt_short_rd_id, flow);
 
-	sys_dlist_append(target_dlist_ptr, &sdu->node);    
+	k_queue_append(target_queue_ptr, sdu);    
 
     return 0;    
 }

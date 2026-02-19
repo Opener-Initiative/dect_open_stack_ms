@@ -429,7 +429,7 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
         ctx->role_ctx.pt.auth_timeout_timer.user_data = ctx;
 
         // k_fifo_init(&ctx->role_ctx.pt.handover_tx_holding_fifo);
-        sys_dlist_init(&ctx->role_ctx.pt.handover_tx_holding_dlist);
+        k_queue_init(&ctx->role_ctx.pt.handover_tx_holding_queue);
 
         // Initialize other PT specific fields if needed
     } else { // MAC_ROLE_FT
@@ -460,12 +460,12 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
 		for (int i = 0; i < MAX_PEERS_PER_FT; i++) {
             memset(&ctx->role_ctx.ft.connected_pts[i], 0,
 			       sizeof(dect_mac_peer_info_t));
-			sys_dlist_init(
-				&ctx->role_ctx.ft.peer_tx_data_dlists[i].high_priority_dlist);
-			sys_dlist_init(
-				&ctx->role_ctx.ft.peer_tx_data_dlists[i].reliable_data_dlist);
-			sys_dlist_init(
-				&ctx->role_ctx.ft.peer_tx_data_dlists[i].best_effort_dlist);
+			k_queue_init(
+				&ctx->role_ctx.ft.peer_tx_data_queues[i].high_priority_queue);
+			k_queue_init(
+				&ctx->role_ctx.ft.peer_tx_data_queues[i].reliable_data_queue);
+			k_queue_init(
+				&ctx->role_ctx.ft.peer_tx_data_queues[i].best_effort_queue);
 			ctx->role_ctx.ft.keys_provisioned_for_peer[i] = false;
 		}        
 		// /* Register the FT's scheduler function with the data path service */

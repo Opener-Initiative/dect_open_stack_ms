@@ -416,12 +416,6 @@ static void dect_mac_assoc_before(void *fixture)
     mock_phy_complete_reset(&g_phy_ctx_ft);
     
     /* Reinitialize mock PHY contexts */
-    // mock_phy_init_context(&g_phy_ctx_pt, &g_mac_ctx_pt, &g_phy_ctx_ft);
-    // mock_phy_init_context(&g_phy_ctx_ft, &g_mac_ctx_ft, &g_phy_ctx_pt);
-
-	// mock_phy_context_t *pt_peers[] = { &g_phy_ctx_ft };
-	// mock_phy_context_t *ft1_peers[] = { &g_phy_ctx_pt };
-
 	mock_phy_init_context(&g_phy_ctx_pt, &g_mac_ctx_pt, pt_peers, ARRAY_SIZE(pt_peers));
 	mock_phy_init_context(&g_phy_ctx_ft, &g_mac_ctx_ft, ft1_peers, ARRAY_SIZE(ft1_peers));    
     

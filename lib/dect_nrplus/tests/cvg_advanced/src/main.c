@@ -2,6 +2,8 @@
 /* This is a new file. It contains a Ztest suite for verifying advanced CVG features like Flow Control and ARQ. */
 #include <zephyr/kernel.h>
 #include <zephyr/ztest.h>
+#include <mac/dect_mac.h>
+#include <mac/dect_mac_core.h>
 #include "dect_cvg.h"
 #include "dect_dlc.h"
 
@@ -14,8 +16,12 @@ int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 	return 0;
 }
 
+static dect_mac_context_t g_mac_ctx;
+
 static void *setup(void)
 {
+	dect_mac_test_set_active_context(&g_mac_ctx);
+	dect_mac_core_init(MAC_ROLE_PT, 0x87654321);
 	g_mock_dlc_send_count = 0;
 	dect_cvg_init();
 	return NULL;

@@ -2,7 +2,7 @@
 #include <zephyr/ztest.h>
 #include <string.h>
 #include <dect_dlc.h>
-#include <zephyr/sys/dlist.h>
+#include <zephyr/kernel.h>
 #include <mac/dect_mac.h>
 #include <mac/dect_mac_core.h>
 #include <mac/dect_mac_data_path.h> /* Needed for the test getter */
@@ -16,6 +16,7 @@ static dlc_tx_status_cb_t g_dlc_status_cb;
 
 extern k_tid_t g_dlc_tx_service_thread_id;
 extern k_tid_t g_dlc_rx_thread_id;
+extern struct k_queue g_dlc_internal_mac_rx_queue;
 
 /* Test-specific spy function to intercept calls to dect_mac_send */
 static int test_send_spy_callback(mac_sdu_t *sdu, mac_flow_id_t flow)
@@ -199,7 +200,7 @@ ZTEST(dect_dlc_arq, test_routing_packet_forwarding)
 	memcpy(rx_sdu->data, &dlc_hdr, sizeof(dlc_hdr));
 	memcpy(rx_sdu->data + sizeof(dlc_hdr), dlc_sdu_buf, dlc_sdu_len);
 	rx_sdu->len = sizeof(dlc_hdr) + dlc_sdu_len;
-	sys_dlist_append(&g_dlc_internal_mac_rx_dlist, &rx_sdu->node);
+	k_queue_append(&g_dlc_internal_mac_rx_queue, rx_sdu);
 
 	/* 3. Let the DLC thread run */
 	printk("Yielding to allow DLC thread to start the reassembly timer...\n");
@@ -254,7 +255,7 @@ ZTEST(dect_dlc_arq, test_routing_duplicate_rejection)
 		memcpy(rx_sdu->data, &dlc_hdr, sizeof(dlc_hdr));
 		memcpy(rx_sdu->data + sizeof(dlc_hdr), dlc_sdu_buf, dlc_sdu_len);
 		rx_sdu->len = sizeof(dlc_hdr) + dlc_sdu_len;
-		sys_dlist_append(&g_dlc_internal_mac_rx_dlist, &rx_sdu->node);
+		k_queue_append(&g_dlc_internal_mac_rx_queue, rx_sdu);
 	}
 
 	/* 3. Let the DLC thread run */
@@ -305,7 +306,7 @@ ZTEST(dect_dlc_arq, test_routing_hop_limit_expiry)
 	memcpy(rx_sdu->data, &dlc_hdr, sizeof(dlc_hdr));
 	memcpy(rx_sdu->data + sizeof(dlc_hdr), dlc_sdu_buf, dlc_sdu_len);
 	rx_sdu->len = sizeof(dlc_hdr) + dlc_sdu_len;
-	sys_dlist_append(&g_dlc_internal_mac_rx_dlist, &rx_sdu->node);
+	k_queue_append(&g_dlc_internal_mac_rx_queue, rx_sdu);
 
 	/* 3. Let the DLC thread run */
 	k_sleep(K_MSEC(20));
@@ -338,7 +339,7 @@ ZTEST(dect_dlc_arq, test_control_route_error_ie)
 	memcpy(rx_sdu->data, &dlc_hdr, sizeof(dlc_hdr));
 	memcpy(rx_sdu->data + sizeof(dlc_hdr), pdu_buf, sdu_payload_len);
 	rx_sdu->len = sizeof(dlc_hdr) + sdu_payload_len;
-	sys_dlist_append(&g_dlc_internal_mac_rx_dlist, &rx_sdu->node);
+	k_queue_append(&g_dlc_internal_mac_rx_queue, rx_sdu);
 
 	/* 3. Let the DLC thread run */
 	k_sleep(K_MSEC(250));

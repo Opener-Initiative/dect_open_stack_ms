@@ -5,7 +5,7 @@
 #include <stdint.h>        // For uintxx_t types
 #include <stddef.h>        // For size_t
 #include <zephyr/sys/byteorder.h>
-#include <zephyr/sys/dlist.h>
+#include <zephyr/kernel.h>
 
 #include <mac/dect_mac_context.h>
 // #include "mac/dect_mac_sm.h"   // For dect_mac_role_t (used by dect_stack_init)
@@ -17,7 +17,6 @@
 /* DList for data from DLC to the App/CVG layer. Made extern for test access. */
 #if IS_ENABLED(CONFIG_ZTEST)
 /* Expose thread IDs for test control */
-// extern sys_dlist_t g_dlc_to_app_rx_dlist;;
 extern k_tid_t g_dlc_tx_service_thread_id;
 extern k_tid_t g_dlc_rx_thread_id;
 #endif /* IS_ENABLED(CONFIG_ZTEST) */
@@ -422,7 +421,7 @@ void dlc_test_set_receive_spy(int (*handler)(dlc_service_type_t *, uint32_t *, u
 
 
 /* DList for data from MAC to the DLC layer. Made extern for test access. */
-extern sys_dlist_t g_dlc_internal_mac_rx_dlist;
+extern struct k_queue g_dlc_internal_mac_rx_queue;
 
 /**
  * @brief [TEST ONLY] Serializes a DLC routing header structure into a byte buffer.

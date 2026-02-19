@@ -5,7 +5,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/util.h>
-#include <zephyr/sys/dlist.h>
+#include <zephyr/kernel.h>
 #include <zephyr/net/net_ip.h>
 
 #include <mac/dect_mac.h>
@@ -2987,11 +2987,11 @@ void ft_service_schedules(void)
 	if (next_op_is_tx) {
 		dect_mac_peer_info_t *pt_peer_ctx = &ctx->role_ctx.ft.connected_pts[next_op_peer_idx];
 		dect_mac_schedule_t *sched = &ctx->role_ctx.ft.peer_schedules[next_op_peer_idx];
-		dect_mac_peer_tx_dlist_set_t *peer_dlists =
-			&ctx->role_ctx.ft.peer_tx_data_dlists[next_op_peer_idx];
-		sys_dlist_t *dlist_array[] = { &peer_dlists->high_priority_dlist,
-					       &peer_dlists->reliable_data_dlist,
-					       &peer_dlists->best_effort_dlist };
+		dect_mac_peer_tx_queue_set_t *peer_dlists =
+			&ctx->role_ctx.ft.peer_tx_data_queues[next_op_peer_idx];
+		struct k_queue *queue_array[] = { &peer_dlists->high_priority_queue,
+					       &peer_dlists->reliable_data_queue,
+					       &peer_dlists->best_effort_queue };
 
 		union nrf_modem_dect_phy_feedback feedback_to_send = {0};
 		bool feedback_is_pending = false;
@@ -3005,9 +3005,8 @@ void ft_service_schedules(void)
 
 		/* Try to find a new SDU to send from the queues */
 		for (int j = 0; j < MAC_FLOW_COUNT; j++) {
-			sys_dnode_t *node = sys_dlist_get(dlist_array[j]);
-			if (node) {
-				mac_sdu_t *sdu = CONTAINER_OF(node, mac_sdu_t, node);
+			mac_sdu_t *sdu = k_queue_get(queue_array[j], K_NO_WAIT);
+			if (sdu) {
 				if (does_sdu_fit_schedule(ctx, sdu, sched, next_op_peer_idx)) {
 					/* Found an SDU that fits. Call the public data path API to send it. */
 					int ret = dect_mac_data_path_send_new_sdu(
@@ -3018,7 +3017,7 @@ void ft_service_schedules(void)
 					if (ret == -EBUSY) {
 						/* Data path had no free HARQ process. Re-queue and try later. */
 						LOG_WRN("FT_SCHED: No free HARQ process, re-queueing SDU.");
-						sys_dlist_prepend(dlist_array[j], &sdu->node);
+						k_queue_prepend(queue_array[j], sdu);
 					} else if (ret == 0 && feedback_is_pending) {
 						/* Successfully sent and piggybacked feedback */
 						memset(pt_peer_ctx->pending_feedback_to_send, 0, sizeof(pt_peer_ctx->pending_feedback_to_send));
@@ -3028,7 +3027,7 @@ void ft_service_schedules(void)
 				} else {
 					LOG_WRN("FT_SCHED_TX: SDU (len %u) for PT %d does not fit schedule. Re-queueing.",
 						sdu->len, next_op_peer_idx);
-					sys_dlist_prepend(dlist_array[j], &sdu->node);
+					k_queue_prepend(queue_array[j], sdu);
 				}
 			}
 		}

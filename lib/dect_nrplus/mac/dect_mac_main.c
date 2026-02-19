@@ -42,14 +42,6 @@ extern struct k_msgq mac_event_msgq;
 // This now needs to be visible to main for passing to dect_mac_api_init
 extern struct k_fifo g_dlc_internal_mac_rx_fifo;
 
-/**
- * @brief External declaration of the DLC's application-facing receive queue.
- *
- * This dlist is defined in dect_dlc.c and is used to pass completed SDUs
- * from the DLC layer up to the application/CVG layer. The main init function
- * needs access to it to pass it down to the MAC API.
- */
-extern sys_dlist_t g_dlc_to_app_rx_dlist;
 
 
 /**

@@ -11,8 +11,12 @@ static dlc_tx_status_cb_t g_dlc_status_cb;
 void dect_mac_data_path_register_dlc_callback(dlc_tx_status_cb_t cb) { g_dlc_status_cb = cb; }
 int dect_mac_api_send(mac_sdu_t *sdu, mac_flow_id_t flow) { dect_mac_api_buffer_free(sdu); return 0; }
 
+static dect_mac_context_t g_mac_ctx;
+
 static void *setup(void)
 {
+	dect_mac_test_set_active_context(&g_mac_ctx);
+	dect_mac_core_init(MAC_ROLE_PT, 0x12345678);
 	dect_mac_api_init(NULL);
 	dect_dlc_init();
 	return NULL;

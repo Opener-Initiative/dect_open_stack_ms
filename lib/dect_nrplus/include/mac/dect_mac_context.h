@@ -431,17 +431,17 @@ typedef struct {
     dect_mac_schedule_t group_schedule; // Inactive schedule pattern received for group assignment
     uint8_t initial_count_to_trigger; // From current FT's beacon, used to reset candidate counters
     // struct k_fifo handover_tx_holding_fifo; // OLD FIFO logic
-    sys_dlist_t handover_tx_holding_dlist;
+    struct k_queue handover_tx_holding_queue;
 	struct k_timer reject_timer;
 	bool release_pending;    
 } pt_context_t;
 
 
-typedef struct { // Helper struct for FT's per-peer TX dlists
-    sys_dlist_t high_priority_dlist;
-    sys_dlist_t reliable_data_dlist;
-    sys_dlist_t best_effort_dlist;
-} dect_mac_peer_tx_dlist_set_t;
+typedef struct { // Helper struct for FT's per-peer TX queues
+    struct k_queue high_priority_queue;
+    struct k_queue reliable_data_queue;
+    struct k_queue best_effort_queue;
+} dect_mac_peer_tx_queue_set_t;
 
 
 #ifdef CONFIG_DECT_MAC_DCS_NUM_CHANNELS_TO_SCAN
@@ -510,7 +510,7 @@ typedef struct {
 typedef struct {
     dect_mac_peer_info_t connected_pts[MAX_PEERS_PER_FT];
     dect_mac_schedule_t peer_schedules[MAX_PEERS_PER_FT];
-    dect_mac_peer_tx_dlist_set_t peer_tx_data_dlists[MAX_PEERS_PER_FT];
+    dect_mac_peer_tx_queue_set_t peer_tx_data_queues[MAX_PEERS_PER_FT];
 
     uint8_t sfn;
     uint8_t sfn_for_last_beacon_tx;

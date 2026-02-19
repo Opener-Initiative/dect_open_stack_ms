@@ -96,7 +96,6 @@ void dect_mac_thread_entry(void *p1, void *p2, void *p3)
 
 // #if IS_ENABLED(CONFIG_DECT_MAC_SEND_MOCK_API)
 // /* --- Internal function pointer for init spy --- */
-// static int (*g_init_spy_cb)(sys_dlist_t *rx_dlist, dlc_tx_status_cb_t status_cb) = NULL;
 // #endif /*  */
 
 
@@ -104,14 +103,14 @@ void dect_mac_thread_entry(void *p1, void *p2, void *p3)
 /* This is defined in dect_mac_phy_if.c */
 extern struct k_msgq mac_event_msgq;
 
-int dect_mac_init(sys_dlist_t *rx_dlist_from_dlc, dlc_tx_status_cb_t status_cb)
+int dect_mac_init(struct k_queue *rx_queue_from_dlc, dlc_tx_status_cb_t status_cb)
 {
 	// printk("[INIT_DBG] Entering dect_mac_init. Checking for spy callback...\n");
 // #if IS_ENABLED(CONFIG_DECT_MAC_SEND_MOCK_API)
 // printk("g_init_spy_cb is %s \n", g_init_spy_cb ? "OK":"NULL");
 // 	if (g_init_spy_cb) {
 // 		printk("[INIT_DBG] Spy callback for dect_mac_init is registered. Calling it.\n");
-// 		return g_init_spy_cb(rx_dlist_from_dlc, status_cb);
+// 		return g_init_spy_cb(rx_queue_from_dlc, status_cb);
 // 	}
 // #endif
 	
@@ -132,10 +131,10 @@ int dect_mac_init(sys_dlist_t *rx_dlist_from_dlc, dlc_tx_status_cb_t status_cb)
 		return err;
 	}
 
-	printk("[MAC_INIT_PROPAGATION_DBG] About to call dect_mac_api_init with dlist pointer: %p\n",
-	       (void *)rx_dlist_from_dlc);
+	printk("[MAC_INIT_PROPAGATION_DBG] About to call dect_mac_api_init with queue pointer: %p\n",
+	       (void *)rx_queue_from_dlc);
 
-	err = dect_mac_api_init(rx_dlist_from_dlc);
+	err = dect_mac_api_init(rx_queue_from_dlc);
 	if (err) {
 		LOG_ERR("MAC API init failed: %d", err);
 		return err;
@@ -225,13 +224,6 @@ void dect_mac_test_set_send_spy(int (*handler)(mac_sdu_t *sdu, mac_flow_id_t flo
 }
 #endif /* IS_ENABLED(CONFIG_DECT_MAC_SEND_MOCK_API) */
 
-// #if IS_ENABLED(CONFIG_DECT_MAC_SEND_MOCK_API)
-// void dect_mac_test_set_init_spy(int (*handler)(sys_dlist_t *rx_dlist, dlc_tx_status_cb_t status_cb))
-// {
-// 	printk("[SPY_DBG] dect_mac_test_set_init_spy called. Handler set to: %p\n", (void *)handler);
-// 	g_init_spy_cb = handler;
-// }
-// #endif /* IS_ENABLED(CONFIG_DECT_MAC_SEND_MOCK_API) */
 
 
 

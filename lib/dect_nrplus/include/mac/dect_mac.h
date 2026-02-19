@@ -22,11 +22,11 @@ enum nrf_modem_dect_phy_feedback_format {
 	NRF_MODEM_DECT_PHY_FEEDBACK_FORMAT_7 = 7,
 };
 
-/* Dlist declares*/
-extern sys_dlist_t g_mac_tx_dlist_high_priority;
-extern sys_dlist_t g_mac_tx_dlist_reliable_data;
-extern sys_dlist_t g_mac_tx_dlist_best_effort;
-extern sys_dlist_t * const mac_tx_dlists[MAC_FLOW_COUNT];
+/* Queue declares*/
+extern struct k_queue g_mac_tx_queue_high_priority;
+extern struct k_queue g_mac_tx_queue_reliable_data;
+extern struct k_queue g_mac_tx_queue_best_effort;
+extern struct k_queue * const mac_tx_queues[MAC_FLOW_COUNT];
 
 /**
  * @brief Initializes the entire DECT NR+ MAC layer.
@@ -34,14 +34,14 @@ extern sys_dlist_t * const mac_tx_dlists[MAC_FLOW_COUNT];
  * This is the single entry point for an upper layer (like DLC) to initialize
  * the MAC. It orchestrates the initialization of all MAC sub-modules.
  *
- * @param rx_dlist_from_dlc Pointer to the dlist owned by the upper layer (DLC)
+ * @param rx_queue_from_dlc Pointer to the k_queue owned by the upper layer (DLC)
  *                          where the MAC will place received data packets.
  * @param status_cb         Pointer to a callback function in the upper layer (DLC)
  *                          that the MAC will use to report the final status of
  *                          transmissions that require end-to-end acknowledgement.
  * @return 0 on success, or a negative error code on failure.
  */
-int dect_mac_init(sys_dlist_t *rx_dlist_from_dlc, dlc_tx_status_cb_t status_cb);
+int dect_mac_init(struct k_queue *rx_queue_from_dlc, dlc_tx_status_cb_t status_cb);
 
 /**
  * @brief Starts the MAC layer's operation.
@@ -223,7 +223,6 @@ void dect_mac_test_set_send_spy(int (*handler)(mac_sdu_t *sdu, mac_flow_id_t flo
 //  *
 //  * @param handler The function pointer to the spy function, or NULL to restore the real implementation.
 //  */
-// void dect_mac_test_set_init_spy(int (*handler)(sys_dlist_t *rx_dlist, dlc_tx_status_cb_t status_cb));
 // #endif /* IS_ENABLED(CONFIG_DECT_MAC_SEND_MOCK_API) */
 
 /**
@@ -237,24 +236,12 @@ void dect_mac_service(void);
  * @brief Initialize the MAC data plane API.
  *
  * This function must be called by the DLC layer once at startup. It provides
- * the MAC layer with the DLC's dlist for receiving MAC SDUs (DLC PDUs).
+ * the MAC layer with the DLC's queue for receiving MAC SDUs (DLC PDUs).
  *
- * @param rx_dlist_from_dlc A pointer to a sys_dlist_t initialized by the DLC.
+ * @param rx_queue_from_dlc A pointer to a struct k_queue initialized by the DLC.
  * @return 0 on success, negative error code on failure.
  */
-int dect_mac_api_init(sys_dlist_t *rx_dlist_from_dlc);
-
-
-/**
- * @brief Initialize the MAC data plane API.
- *
- * This function must be called by the DLC layer once at startup. It provides
- * the MAC layer with the DLC's dlist for receiving MAC SDUs (DLC PDUs).
- *
- * @param rx_dlist_from_dlc A pointer to a sys_dlist_t initialized by the DLC.
- * @return 0 on success, negative error code on failure.
- */
-int dect_mac_api_init(sys_dlist_t *rx_dlist_from_dlc);
+int dect_mac_api_init(struct k_queue *rx_queue_from_dlc);
 
 /**
  * @brief Allocate a buffer for a new MAC SDU (which will contain a DLC PDU).

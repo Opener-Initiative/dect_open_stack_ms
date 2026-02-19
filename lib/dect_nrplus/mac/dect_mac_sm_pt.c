@@ -199,15 +199,12 @@ bool pt_get_next_tx_opportunity(uint64_t *out_start_time, uint16_t *out_carrier,
 static void pt_requeue_held_packets(dect_mac_context_t *ctx)
 {
 	mac_sdu_t *sdu;
-	sys_dnode_t *node;
 	int count = 0;
 
-	while ((node = sys_dlist_get(&ctx->role_ctx.pt.handover_tx_holding_dlist)) != NULL) 
+	while ((sdu = k_queue_get(&ctx->role_ctx.pt.handover_tx_holding_queue, K_NO_WAIT)) != NULL) 
 	{
-		sdu = CONTAINER_OF(node, mac_sdu_t, node);
-		
         /* Prepend to the reliable queue to send them out first */
-		sys_dlist_prepend(mac_tx_dlists[MAC_FLOW_RELIABLE_DATA], &sdu->node);
+		k_queue_prepend(mac_tx_queues[MAC_FLOW_RELIABLE_DATA], sdu);
 		count++;
 	}
 
@@ -242,7 +239,7 @@ static void pt_revert_to_old_ft_after_handover_failure(void)
 			k_timer_stop(&harq_p->retransmission_timer);
 			if (harq_p->sdu) {
 				/* Prepend to the reliable queue to ensure it's sent first */
-				sys_dlist_prepend(mac_tx_dlists[MAC_FLOW_RELIABLE_DATA], &harq_p->sdu->node);
+				k_queue_prepend(mac_tx_queues[MAC_FLOW_RELIABLE_DATA], harq_p->sdu);
 								harq_p->sdu = NULL;
 			}
 			/* Reset the HARQ process */

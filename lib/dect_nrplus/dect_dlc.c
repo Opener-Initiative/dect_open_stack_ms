@@ -7,7 +7,7 @@
 #include <zephyr/random/random.h>
 // #include <hw_id.h>
 #include <string.h>
-#include <zephyr/sys/dlist.h>
+#include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
 
 
@@ -50,7 +50,7 @@ static int (*g_dlc_receive_spy_cb)(dlc_service_type_t *, uint32_t *, uint8_t *, 
 
 /* A buffer definition for delivering large, reassembled SDUs to the upper layer */
 typedef struct {
-	sys_dnode_t node; /* For dlist */
+	void *fifo_reserved; /* For k_queue internal use */
 	uint8_t data[CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE];
 	size_t len;
 } dlc_app_sdu_t;
@@ -66,6 +66,7 @@ static uint32_t g_rx_sdu_lifetime_ms = CONFIG_DECT_DLC_DEFAULT_SDU_LIFETIME_MS;
  * @brief Context for a DLC SDU that is awaiting acknowledgement (ARQ).
  */
 typedef struct {
+	void *fifo_reserved; /* For k_fifo internal use */
     bool is_active;
     uint16_t sequence_number;
     uint8_t retries;
@@ -125,8 +126,8 @@ typedef struct {
 
 static dlc_scheduler_t g_dlc_scheduler;
 
-/* DList for data from MAC to the DLC layer. */
-sys_dlist_t g_dlc_internal_mac_rx_dlist;
+/* Queue for data from MAC to the DLC layer. */
+struct k_queue g_dlc_internal_mac_rx_queue;
 
 K_FIFO_DEFINE(g_dlc_retransmit_signal_fifo);
 K_MEM_SLAB_DEFINE(g_dlc_rx_delivery_item_slab, sizeof(dlc_rx_delivery_item_t), 32, 4); /* Increased slab size for queues */
@@ -405,12 +406,12 @@ static void dlc_tx_status_cb_handler(uint16_t dlc_sn, bool success)
 		 */
 		LOG_WRN("DLC_ARQ_CB: MAC PERMANENT FAILURE for SN %u. Signaling for DLC-level re-TX.", dlc_sn);
 
-		k_fifo_put(&g_dlc_retransmit_signal_fifo, (void *)((uintptr_t)job_idx));
+		k_fifo_put(&g_dlc_retransmit_signal_fifo, job);
 	}
 }
 
 
-int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
+__weak int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 		  const uint8_t *cvg_pdu_payload, size_t cvg_pdu_len, uint8_t flow_id)
 {
 	printk("[DLC_SEND_DBG] dlc_send_data received payload at %p (len %zu), flow_id %u:\n",
@@ -703,15 +704,10 @@ static void dlc_rx_thread_entry(void *p1, void *p2, void *p3)
 		printk("[DLC_RX_CONTEXT_DBG] Top of loop. Active context: %p, Own Addr: 0x%08X\n",
 		       (void *)dect_mac_get_active_context(), dect_mac_get_own_long_id());
 
-        sys_dnode_t *node = sys_dlist_get(&g_dlc_internal_mac_rx_dlist);
-        if (!node) {
-			printk("[DLC_RX_SLEEP_DBG] No data. About to call k_sleep. Current thread: %p\n",
-			       (void *)k_current_get());
-            k_sleep(K_MSEC(10));
-            printk("DLC RX Thread continue. \n");
+        mac_sdu_t *mac_sdu = k_queue_get(&g_dlc_internal_mac_rx_queue, K_FOREVER);
+        if (!mac_sdu) {
             continue;
         }
-        mac_sdu_t *mac_sdu = CONTAINER_OF(node, mac_sdu_t, node);
 
         const uint8_t *dlc_pdu = mac_sdu->data;
         size_t dlc_pdu_len = mac_sdu->len;
@@ -1022,12 +1018,11 @@ static void dlc_tx_service_thread_entry(void *p1, void *p2, void *p3)
 	printk("[ARQ_THREAD_DBG] ARQ service thread started. Active context ROLE is:%d\n",dect_mac_get_role());
 
 	while (1) {
-		uintptr_t job_idx = (uintptr_t)k_fifo_get(&g_dlc_retransmit_signal_fifo, K_FOREVER);
-		if (job_idx >= MAX_DLC_RETRANSMISSION_JOBS || !retransmission_jobs[job_idx].is_active) {
+		dlc_retransmission_job_t *job = k_fifo_get(&g_dlc_retransmit_signal_fifo, K_FOREVER);
+		if (!job || !job->is_active) {
 			continue;
 		}
 
-		dlc_retransmission_job_t *job = &retransmission_jobs[job_idx];
 		if (job->retries >= DLC_MAX_RETRIES) {
 			LOG_ERR("DLC_ARQ_SVC: Job for SN %u has reached max retries. Discarding.", job->sequence_number);
 
@@ -1097,23 +1092,22 @@ int dect_dlc_init(void)
 {
 	// printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_to_app_rx_dlist BEFORE init & start: %p\n",
 	//        (void *)&g_dlc_to_app_rx_dlist);
-	printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_dlist BEFORE init: %p\n",
-	       (void *)&g_dlc_internal_mac_rx_dlist);
+	printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue BEFORE init: %p\n",
+	       (void *)&g_dlc_internal_mac_rx_queue);
 
 	printk("[DLC_INIT_DBG] Entered dect_dlc_init.\n");
-	// sys_dlist_init(&g_dlc_to_app_rx_dlist);
     /* Initialize Scheduler Queues */
     for (int i = 0; i < DLC_LANE_COUNT; i++) {
         k_queue_init(&g_dlc_scheduler.queues[i]);
         g_dlc_scheduler.last_service_time[i] = k_uptime_ticks();
     }
 
-	sys_dlist_init(&g_dlc_internal_mac_rx_dlist);
+	k_queue_init(&g_dlc_internal_mac_rx_queue);
 
 	/* printk("[INIT_DLIST_DBG] DLC's APP RX dlist (g_dlc_to_app_rx_dlist) is at address: %p\n",
 	       (void *)&g_dlc_to_app_rx_dlist); */
-	printk("[INIT_DLIST_DBG] DLC's internal RX dlist (g_dlc_internal_mac_rx_dlist) is at address: %p\n",
-	       (void *)&g_dlc_internal_mac_rx_dlist);
+	printk("[INIT_QUEUE_DBG] DLC's internal RX queue (g_dlc_internal_mac_rx_queue) is at address: %p\n",
+	       (void *)&g_dlc_internal_mac_rx_queue);
 
 	/* Create threads in a suspended state. The application/test will start them. */
 	g_dlc_rx_thread_id = k_thread_create(
@@ -1151,7 +1145,7 @@ int dect_dlc_init(void)
 	/* The DLC provides its RX dlist and TX status callback to the unified MAC init function. */
 	printk("[DLC_INIT_DBG] About to call dect_mac_init...\n");
 	// int err = dect_mac_init(&g_dlc_to_app_rx_dlist, dlc_tx_status_cb_handler);
-	int err = dect_mac_init(&g_dlc_internal_mac_rx_dlist, dlc_tx_status_cb_handler);
+	int err = dect_mac_init(&g_dlc_internal_mac_rx_queue, dlc_tx_status_cb_handler);
 	
 	if (err) {
 		LOG_ERR("Failed to initialize MAC layer: %d", err);
@@ -1160,8 +1154,8 @@ int dect_dlc_init(void)
 
 	// printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_to_app_rx_dlist AFTER init & start: %p\n",
 	//        (void *)&g_dlc_to_app_rx_dlist);
-	printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_dlist AFTER init & start: %p\n",
-	       (void *)&g_dlc_internal_mac_rx_dlist);
+	printk("[QUEUE_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue AFTER init & start: %p\n",
+	       (void *)&g_dlc_internal_mac_rx_queue);
 
 	LOG_INF("DLC Layer Initialized.");
 	return 0;
@@ -1358,7 +1352,7 @@ static void dlc_retransmit_attempt_timeout_handler(struct k_timer *timer_id)
 	if (job_idx < MAX_DLC_RETRANSMISSION_JOBS && retransmission_jobs[job_idx].is_active) {
 		LOG_WRN("DLC_ARQ_TIMEOUT: Transmission for SN %u timed out. Signaling for re-TX.",
 			retransmission_jobs[job_idx].sequence_number);
-		k_fifo_put(&g_dlc_retransmit_signal_fifo, (void *)job_idx);
+		k_fifo_put(&g_dlc_retransmit_signal_fifo, &retransmission_jobs[job_idx]);
 	}
 }
 

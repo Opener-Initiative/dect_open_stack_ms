@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <zephyr/sys/dlist.h>
+#include <zephyr/kernel.h>
 
 #ifndef CONFIG_DECT_MAC_SDU_MAX_SIZE
 #define CONFIG_DECT_MAC_SDU_MAX_SIZE 1636
@@ -33,7 +33,7 @@ typedef void (*dlc_tx_status_cb_t)(uint16_t dlc_sn, bool success);
 
 /** @brief Represents a MAC Service Data Unit (SDU). */
 typedef struct mac_sdu {
-	sys_dnode_t node;
+	void *fifo_reserved;
 	uint8_t data[CONFIG_DECT_MAC_SDU_MAX_SIZE];
 	uint16_t len;
 	uint16_t target_peer_short_rd_id;
