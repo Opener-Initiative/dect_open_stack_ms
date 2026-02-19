@@ -1258,7 +1258,8 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
                         printk("RX_SDU_HANDLER: Copying %u bytes to SDU buffer...\n", dlc_pdu_len_from_mux);
                         memcpy(sdu_for_dlc->data, dlc_pdu_ptr_from_mux,
                                dlc_pdu_len_from_mux);
-                        sdu_for_dlc->len = dlc_pdu_len_from_mux;
+                        sdu_for_dlc->len = (uint16_t)dlc_pdu_len_from_mux;
+                        sdu_for_dlc->ctx = ctx; // Pass context for multi-node simulation support
                         
                         /* Extract Flow ID from IE Type */
                         uint8_t extracted_flow_id;

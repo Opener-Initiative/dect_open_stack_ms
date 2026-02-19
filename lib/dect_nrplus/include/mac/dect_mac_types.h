@@ -43,6 +43,8 @@ typedef struct mac_sdu {
 	/* QoS Metadata */
 	uint8_t flow_id;       /**< ETSI Flow ID (0-7) */
 	bool flow_id_present;  /**< Indicates if flow_id is valid */
+
+	void *ctx;             /**< MAC context for multi-node simulation support */
 } mac_sdu_t;
 
 /** @brief Defines the QoS-aware data flows available to the application. */

@@ -37,16 +37,6 @@ static void dlc_arq_before(void *fixture)
 	g_dlc_status_cb = NULL;
 	memset(g_captured_pdus, 0, sizeof(g_captured_pdus));
 
-	dect_mac_test_set_active_context(&g_mac_ctx);
-
-	/* Initialize MAC and DLC layers */
-	dect_mac_core_init(MAC_ROLE_PT, 0xAABBCCDD);
-	dect_dlc_init();
-
-	/* Start the DLC threads so they can process events */
-	k_thread_start(g_dlc_tx_service_thread_id);
-	k_thread_start(g_dlc_rx_thread_id);
-
 	/* Manually set the MAC state to ASSOCIATED for this test */
 	dect_mac_get_active_context()->state = MAC_STATE_ASSOCIATED;
 	dect_mac_get_active_context()->role_ctx.pt.associated_ft.is_valid = true;
@@ -54,14 +44,30 @@ static void dlc_arq_before(void *fixture)
 	/* Register the send spy and retrieve the DLC status callback for the test */
 	dect_mac_test_set_send_spy(test_send_spy_callback);
 	g_dlc_status_cb = dect_mac_test_get_dlc_status_callback();
+
+	/* Reset duplicate detection cache for test isolation */
+	dect_dlc_test_reset_duplicate_cache();
 }
 
 static void dlc_arq_after(void *fixture)
 {
 	ARG_UNUSED(fixture);
-	k_thread_abort(g_dlc_tx_service_thread_id);
-	k_thread_abort(g_dlc_rx_thread_id);
 	dect_mac_test_set_send_spy(NULL);
+}
+
+static void *dlc_arq_suite_setup(void)
+{
+	/* Set the active context pointer BEFORE calling any core functions */
+	dect_mac_test_set_active_context(&g_mac_ctx);
+
+	/* Initialize MAC and DLC layers once for the whole suite */
+	dect_mac_core_init(MAC_ROLE_PT, 0xAABBCCDD);
+	dect_dlc_init();
+
+	/* Start the DLC threads so they can process events */
+	k_thread_start(g_dlc_tx_service_thread_id);
+	k_thread_start(g_dlc_rx_thread_id);
+	return NULL;
 }
 
 ZTEST(dect_dlc_arq, test_arq_aa_success_on_first_try)
@@ -173,13 +179,11 @@ ZTEST(dect_dlc_arq, test_routing_packet_forwarding)
 	bitmap |= (DLC_RH_DEST_ADD_PRESENT << DLC_RH_DEST_ADDR_SHIFT);
 	bitmap |= (1 << DLC_RH_HOP_COUNT_LIMIT_SHIFT);
 	bitmap |= (DLC_RH_TYPE_LOCAL_FLOODING << DLC_RH_ROUTING_TYPE_SHIFT);
-	// rh.source_addr_be = sys_cpu_to_be32(g_mac_ctx.own_long_rd_id);
-	// rh.dest_addr_be = sys_cpu_to_be32(final_destination_id);
-	rh.source_addr_be = (g_mac_ctx.own_long_rd_id);
-	rh.dest_addr_be = (final_destination_id);
+	rh.source_addr = g_mac_ctx.own_long_rd_id;
+	rh.dest_addr = final_destination_id;
 	rh.hop_count = 1;
 	rh.hop_limit = 5;
-	rh.bitmap_be = sys_cpu_to_be16(bitmap);
+	rh.bitmap = bitmap;
 	int rh_len = dlc_serialize_routing_header(dlc_sdu_buf, sizeof(dlc_sdu_buf), &rh);
 	zassert_true(rh_len > 0, "Failed to serialize routing header");
 	printk("[TEST_DBG] Serialized Routing Header (len=%d):\n", rh_len);
@@ -234,14 +238,12 @@ ZTEST(dect_dlc_arq, test_routing_duplicate_rejection)
 	bitmap |= (1 << DLC_RH_SEQ_NUM_SHIFT);
 	bitmap |= (DLC_RH_DEST_ADD_PRESENT << DLC_RH_DEST_ADDR_SHIFT);
 	bitmap |= (DLC_RH_TYPE_LOCAL_FLOODING << DLC_RH_ROUTING_TYPE_SHIFT);
-	// rh.source_addr_be = sys_cpu_to_be32(source_id);
-	rh.source_addr_be = (source_id);
+	rh.source_addr = source_id;
 	rh.sequence_number = seq_num;
-	// rh.dest_addr_be = sys_cpu_to_be32(g_mac_ctx.own_long_rd_id);
-	rh.dest_addr_be = g_mac_ctx.own_long_rd_id;
+	rh.dest_addr = g_mac_ctx.own_long_rd_id;
 	rh.hop_count = 1;
 	rh.hop_limit = 5;	
-	rh.bitmap_be = sys_cpu_to_be16(bitmap);
+	rh.bitmap = bitmap;
 	int rh_len = dlc_serialize_routing_header(dlc_sdu_buf, sizeof(dlc_sdu_buf), &rh);
 	memcpy(dlc_sdu_buf + rh_len, payload, sizeof(payload));
 	size_t dlc_sdu_len = rh_len + sizeof(payload);
@@ -290,11 +292,11 @@ ZTEST(dect_dlc_arq, test_routing_hop_limit_expiry)
 	bitmap |= (DLC_RH_DEST_ADD_PRESENT << DLC_RH_DEST_ADDR_SHIFT);
 	bitmap |= (1 << DLC_RH_HOP_COUNT_LIMIT_SHIFT);
 	bitmap |= (DLC_RH_TYPE_LOCAL_FLOODING << DLC_RH_ROUTING_TYPE_SHIFT);
-	rh.source_addr_be = sys_cpu_to_be32(g_mac_ctx.own_long_rd_id);
-	rh.dest_addr_be = sys_cpu_to_be32(final_destination_id);
+	rh.source_addr = g_mac_ctx.own_long_rd_id;
+	rh.dest_addr = final_destination_id;
 	rh.hop_count = 5;
 	rh.hop_limit = 5;
-	rh.bitmap_be = sys_cpu_to_be16(bitmap);
+	rh.bitmap = bitmap;
 	int rh_len = dlc_serialize_routing_header(dlc_sdu_buf, sizeof(dlc_sdu_buf), &rh);
 	memcpy(dlc_sdu_buf + rh_len, payload, sizeof(payload));
 	size_t dlc_sdu_len = rh_len + sizeof(payload);
@@ -356,4 +358,4 @@ ZTEST(dect_dlc_arq, test_control_route_error_ie)
 
 
 
-ZTEST_SUITE(dect_dlc_arq, NULL, NULL, dlc_arq_before, dlc_arq_after, NULL);
+ZTEST_SUITE(dect_dlc_arq, NULL, dlc_arq_suite_setup, dlc_arq_before, dlc_arq_after, NULL);

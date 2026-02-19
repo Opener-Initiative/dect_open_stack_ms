@@ -47,13 +47,13 @@ extern k_tid_t g_dlc_rx_thread_id;
 #define DLC_RH_SRC_ADD_IS_BACKEND  0b011
 
 typedef struct {
-	uint16_t bitmap_be; /* Routing bitmap field (2 octets, Big Endian) */
+	uint16_t bitmap; /* Routing bitmap field (host endian internally) */
 	/* Optional fields follow based on bitmap. This struct represents the maximum possible size. */
-	uint32_t source_addr_be;
-	uint32_t dest_addr_be;
+	uint32_t source_addr;
+	uint32_t dest_addr;
 	uint8_t hop_count;
 	uint8_t hop_limit;
-	uint32_t delay_be;
+	uint32_t delay;
 	uint8_t sequence_number;
 } __attribute__((packed)) dect_dlc_routing_header_t;
 
@@ -443,6 +443,11 @@ int dlc_serialize_routing_header(uint8_t *target_buf, size_t target_buf_len,
  * @return The number of bytes consumed, or a negative error code.
  */
 int dlc_parse_routing_header(const uint8_t *buf, size_t len, dect_dlc_routing_header_t *rh);
+
+/**
+ * @brief [TEST ONLY] Resets the DLC duplicate detection cache.
+ */
+void dect_dlc_test_reset_duplicate_cache(void);
 
 
 
