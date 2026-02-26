@@ -23,7 +23,7 @@ static struct {
 	int call_count;
 } g_mock_cvg_send;
 
-static struct k_fifo g_mock_cvg_rx_fifo;
+static struct k_queue g_mock_cvg_rx_queue;
 
 int dect_cvg_send(uint16_t endpoint_id, uint32_t dest_long_id, const uint8_t *app_sdu,
 		  size_t app_sdu_len)
@@ -38,7 +38,7 @@ int dect_cvg_send(uint16_t endpoint_id, uint32_t dest_long_id, const uint8_t *ap
 
 int dect_cvg_receive(uint8_t *app_sdu_buf, size_t *len_inout, k_timeout_t timeout)
 {
-	mac_sdu_t *sdu_buf = k_fifo_get(&g_mock_cvg_rx_fifo, timeout);
+	mac_sdu_t *sdu_buf = k_queue_get(&g_mock_cvg_rx_queue, timeout);
 	if (!sdu_buf) {
 		return -EAGAIN;
 	}
@@ -163,7 +163,7 @@ ZTEST_F(l2_test_fixture, test_l2_receive_path)
 	zassert_not_null(rx_sdu, "Failed to alloc mock SDU");
 	memcpy(rx_sdu->data, compressed_pkt, sizeof(compressed_pkt));
 	rx_sdu->len = sizeof(compressed_pkt);
-	k_fifo_put(&g_mock_cvg_rx_fifo, rx_sdu);
+	k_queue_append(&g_mock_cvg_rx_queue, rx_sdu);
 
 	/* Wait for the RX thread to process and deliver the packet */
 	int ret = k_sem_take(&fixture->rx_sem, K_SECONDS(1));

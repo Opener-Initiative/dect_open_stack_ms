@@ -913,7 +913,7 @@ static void ft_start_beaconing_actions(void) {
 	int ret = dect_mac_phy_ctrl_start_rx(
 		ctx->role_ctx.ft.operating_carrier, 0, /* Continuous RX */
 		NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, phy_rx_op_handle,
-		ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW); /* Reuse RACH op type for general listen */
+		ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW, 0); /* Reuse RACH op type for general listen */
 
 	if (ret != 0) {
 		dect_mac_enter_error_state("Failed to start continuous FT RX");
@@ -937,18 +937,18 @@ static void ft_start_beaconing_actions(void) {
     ctx->own_route_cost = 0;
 
 	/* Build the configuration data that this FT will serve */
-#if IS_ENABLED(CONFIG_NET_L2_DECT_NRPLUS)	
-	struct in6_addr ft_prefix;
-	int err = net_addr_pton(AF_INET6, CONFIG_NET_CONFIG_MY_IPV6_PREFIX, &ft_prefix);
-	if (err) {
-		LOG_ERR("FT_BEACON_ACT: Invalid IPv6 prefix in Kconfig. CDD will be empty.");
-	} else {
-		err = dect_cdd_ft_build_own_config(&ft_prefix);
-		if (err) {
-			LOG_ERR("FT_BEACON_ACT: Failed to build FT CDD config: %d", err);
-		}
-	}
-#endif /* IS_ENABLED(CONFIG_NET_L2_DECT_NRPLUS) */
+// #if IS_ENABLED(CONFIG_NET_L2_DECT_NRPLUS)	
+// 	struct in6_addr ft_prefix;
+// 	int err = net_addr_pton(AF_INET6, CONFIG_NET_CONFIG_MY_IPV6_PREFIX, &ft_prefix);
+// 	if (err) {
+// 		LOG_ERR("FT_BEACON_ACT: Invalid IPv6 prefix in Kconfig. CDD will be empty.");
+// 	} else {
+// 		err = dect_cdd_ft_build_own_config(&ft_prefix);
+// 		if (err) {
+// 			LOG_ERR("FT_BEACON_ACT: Failed to build FT CDD config: %d", err);
+// 		}
+// 	}
+// #endif /* IS_ENABLED(CONFIG_NET_L2_DECT_NRPLUS) */
 
     ctx->role_ctx.ft.sfn = 0; // FT starts its SFN count from 0
     uint32_t first_beacon_tx_attempt_delay_ms = 50; // Small delay before trying to send the first beacon
@@ -1225,7 +1225,7 @@ printk("[FT_SM] ft_send_beacon_action -> beacon_target_start_time: %lluus \n", b
 		true, phy_op_handle, PENDING_OP_FT_BEACON, false, beacon_target_start_time,
 		ctx->own_phy_params.mu, NULL);
 
-	// dect_mac_buffer_free(pdu_sdu);
+	dect_mac_buffer_free(pdu_sdu);
 
 	if (ret != 0) {
 		dect_mac_buffer_free(pdu_sdu);
@@ -1478,7 +1478,7 @@ dect_mac_core_clear_pending_op();
         NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS,
         phy_op_handle,
         ctx->own_short_rd_id,
-        PENDING_OP_FT_RACH_RX_WINDOW);
+        PENDING_OP_FT_RACH_RX_WINDOW, 0);
 
 printk("[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d \n", ctx->pending_op_type);
 
@@ -1706,20 +1706,20 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
 				* The response was sent. Now, open a continuous RX window to listen
 				* for traffic from any/all connected PTs.
 				*/
-				// LOG_INF("FT SM: Opening continuous RX window for PT traffic.");
-				// uint32_t phy_rx_op_handle;
+				LOG_INF("FT SM: Opening continuous RX window for PT traffic.");
+				uint32_t phy_rx_op_handle;
 
-				// dect_mac_rand_get((uint8_t *)&phy_rx_op_handle,
-				// 		  sizeof(phy_rx_op_handle));
-				// int ret = dect_mac_phy_ctrl_start_rx(
-				// 	ctx->role_ctx.ft.operating_carrier, 0, /* Continuous RX */
-				// 	NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, phy_rx_op_handle,
-				// 	ctx->own_short_rd_id, PENDING_OP_FT_DATA_RX);
-				// if (ret != 0) {
-				// 	LOG_ERR("FT SM: Failed to start continuous RX for PT data: %d",
-				// 		ret);
-				// 	/* TODO: Handle this failure, maybe release the PT */
-				// }
+				dect_mac_rand_get((uint8_t *)&phy_rx_op_handle,
+						  sizeof(phy_rx_op_handle));
+				int ret = dect_mac_phy_ctrl_start_rx(
+					ctx->role_ctx.ft.operating_carrier, 0, /* Continuous RX */
+					NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, phy_rx_op_handle,
+					ctx->own_short_rd_id, PENDING_OP_FT_DATA_RX, 0);
+				if (ret != 0) {
+					LOG_ERR("FT SM: Failed to start continuous RX for PT data: %d",
+						ret);
+					/* TODO: Handle this failure, maybe release the PT */
+				}
              } else {
                 LOG_ERR("FT SM: Association Response TX failed (err %d) for PT ShortID 0x%04X.",
                         event->err, ctx->role_ctx.ft.last_assoc_resp_pt_short_id);
@@ -1743,6 +1743,7 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
         case PENDING_OP_FT_DATA_TX_HARQ_MAX: // Covers range with fallthrough
             {
                 int harq_idx = completed_op_type - PENDING_OP_FT_DATA_TX_HARQ0;
+				printk("FT SM: Data TX HARQ %d LBT  %s\n",harq_idx, dect_pending_op_to_str(ctx->pending_op_type));
                 if (harq_idx >= 0 && harq_idx < MAX_HARQ_PROCESSES) {
                     if (event->err == NRF_MODEM_DECT_PHY_ERR_LBT_CHANNEL_BUSY) {
                         LOG_WRN("FT SM: Data TX HARQ %d LBT busy. Data Path will re-TX.", harq_idx);
@@ -1762,6 +1763,15 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
                 }
             }
             break;
+
+		case PENDING_OP_FT_DATA_RX:
+			LOG_DBG("FT SM: Scheduled Data RX window completed (err %d).", event->err);
+			/* The listening window has closed. Deregister handle and clear pending state.
+			* Any data received during this window was handled by the PDC event. */
+			dect_mac_phy_if_deregister_op_handle(event->handle);
+			dect_mac_core_clear_pending_op();
+		break;
+
         default:
             LOG_WRN("FT SM: OP_COMPLETE for unhandled FT op type: %s, err %d",
                     dect_pending_op_to_str(completed_op_type), event->err);
@@ -2987,11 +2997,11 @@ void ft_service_schedules(void)
 	if (next_op_is_tx) {
 		dect_mac_peer_info_t *pt_peer_ctx = &ctx->role_ctx.ft.connected_pts[next_op_peer_idx];
 		dect_mac_schedule_t *sched = &ctx->role_ctx.ft.peer_schedules[next_op_peer_idx];
-		dect_mac_peer_tx_queue_set_t *peer_dlists =
+		dect_mac_peer_tx_queue_set_t *peer_queues =
 			&ctx->role_ctx.ft.peer_tx_data_queues[next_op_peer_idx];
-		struct k_queue *queue_array[] = { &peer_dlists->high_priority_queue,
-					       &peer_dlists->reliable_data_queue,
-					       &peer_dlists->best_effort_queue };
+		struct k_queue *queue_array[] = { &peer_queues->high_priority_queue,
+					       &peer_queues->reliable_data_queue,
+					       &peer_queues->best_effort_queue };
 
 		union nrf_modem_dect_phy_feedback feedback_to_send = {0};
 		bool feedback_is_pending = false;
@@ -3066,7 +3076,8 @@ void ft_service_schedules(void)
 		dect_mac_phy_ctrl_start_rx(
 			sched->channel, rx_duration_ticks, NRF_MODEM_DECT_PHY_RX_MODE_SINGLE_SHOT,
 			phy_op_handle, ctx->own_short_rd_id,
-			next_op_is_group_ul ? PENDING_OP_FT_GROUP_RX : PENDING_OP_FT_DATA_RX);
+			next_op_is_group_ul ? PENDING_OP_FT_GROUP_RX : PENDING_OP_FT_DATA_RX,
+			next_op_time);
 
 		printk("[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d \n", ctx->pending_op_type);
 	}

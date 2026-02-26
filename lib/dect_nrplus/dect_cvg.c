@@ -150,15 +150,15 @@ K_MEM_SLAB_DEFINE(g_cvg_arq_event_slab, sizeof(cvg_arq_event_t), CVG_MAX_IN_FLIG
 K_MEM_SLAB_DEFINE(g_cvg_app_sdu_slab, sizeof(mac_sdu_t), CVG_APP_BUFFER_COUNT, 4);
 
 #if IS_ENABLED(CONFIG_ZTEST)
-K_FIFO_DEFINE(g_app_to_cvg_tx_fifo);
-K_FIFO_DEFINE(g_cvg_to_app_rx_fifo);
-// K_FIFO_DEFINE(g_cvg_retransmit_signal_fifo);
-K_FIFO_DEFINE(g_cvg_arq_event_fifo);
+K_QUEUE_DEFINE(g_app_to_cvg_tx_queue);
+K_QUEUE_DEFINE(g_cvg_to_app_rx_queue);
+// K_QUEUE_DEFINE(g_cvg_retransmit_signal_queue);
+K_QUEUE_DEFINE(g_cvg_arq_event_queue);
 #else
-// static K_FIFO_DEFINE(g_cvg_retransmit_signal_fifo);
-static K_FIFO_DEFINE(g_cvg_arq_event_fifo);
-static K_FIFO_DEFINE(g_app_to_cvg_tx_fifo);
-static K_FIFO_DEFINE(g_cvg_to_app_rx_fifo);
+// static K_QUEUE_DEFINE(g_cvg_retransmit_signal_queue);
+static K_QUEUE_DEFINE(g_cvg_arq_event_queue);
+static K_QUEUE_DEFINE(g_app_to_cvg_tx_queue);
+static K_QUEUE_DEFINE(g_cvg_to_app_rx_queue);
 #endif
 
 
@@ -376,7 +376,7 @@ static void cvg_tx_sdu_lifetime_expiry_handler(struct k_timer *timer_id)
 	if (k_mem_slab_alloc(&g_cvg_arq_event_slab, (void **)&evt, K_NO_WAIT) == 0) {
 		evt->type = CVG_ARQ_EVENT_TIMEOUT;
 		evt->sn = sdu_ctx->sequence_number;
-		k_fifo_put(&g_cvg_arq_event_fifo, evt);
+		k_queue_append(&g_cvg_arq_event_queue, evt);
 	} else {
 		LOG_ERR("CVG_ARQ: Could not allocate event for SN %u timeout", sdu_ctx->sequence_number);
 	}
@@ -498,7 +498,7 @@ static void cvg_process_arq_feedback(const uint8_t *pdu_ptr, size_t len)
 	if (k_mem_slab_alloc(&g_cvg_arq_event_slab, (void **)&evt, K_NO_WAIT) == 0) {
 		evt->type = is_nack ? CVG_ARQ_EVENT_NACK : CVG_ARQ_EVENT_ACK;
 		evt->sn = sn;
-		k_fifo_put(&g_cvg_arq_event_fifo, evt);
+		k_queue_append(&g_cvg_arq_event_queue, evt);
 	} else {
 		LOG_ERR("CVG_ARQ: Could not allocate event for SN %u feedback", sn);
 	}
@@ -512,11 +512,11 @@ static void cvg_tx_thread_entry(void *p1, void *p2, void *p3)
 	ARG_UNUSED(p3);
 	printk("[CVG_THREAD_DBG] TX Thread has started execution.\n");
 
-	uint8_t cvg_pdu_buf[CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE];
+	static uint8_t cvg_pdu_buf[CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE];
 
 	while (1) {
 		printk("[CVG TX] About to get item from FIFO.\n");
-		cvg_tx_queue_item_t *tx_item = k_fifo_get(&g_app_to_cvg_tx_fifo, K_FOREVER);
+		cvg_tx_queue_item_t *tx_item = k_queue_get(&g_app_to_cvg_tx_queue, K_FOREVER);
 		if (!tx_item) {
 			printk("x");
 			continue;
@@ -616,6 +616,14 @@ static void cvg_tx_thread_entry(void *p1, void *p2, void *p3)
 #endif /* IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
 
 		/* --- PDU Construction & Transmission --- */
+		if (tx_item->endpoint_id != 0) {
+			cvg_ie_ep_mux_t *ep_mux = (cvg_ie_ep_mux_t *)(cvg_pdu_buf + pdu_offset);
+			ep_mux->header.ext_mt_f2c_or_type =
+				((CVG_EXT_NO_LEN_FIELD & 0x03) << 6) | (CVG_IE_TYPE_EP_MUX & 0x1F);
+			ep_mux->endpoint_mux_be = sys_cpu_to_be16(tx_item->endpoint_id);
+			pdu_offset += sizeof(cvg_ie_ep_mux_t);
+		}
+
 		pdu_len = build_cvg_data_ie_pdu(cvg_pdu_buf + pdu_offset,
 						sizeof(cvg_pdu_buf) - pdu_offset, app_sdu->data,
 						app_sdu->len, current_sn);
@@ -673,7 +681,7 @@ static void cvg_rx_thread_entry(void *p1, void *p2, void *p3)
 	ARG_UNUSED(p3);
 	LOG_INF("CVG RX Thread started.");
 
-	uint8_t dlc_sdu_buf[CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE];
+	static uint8_t dlc_sdu_buf[CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE];
 	bool next_data_ie_is_encrypted = false;
 
 	while (1) {
@@ -704,6 +712,17 @@ static void cvg_rx_thread_entry(void *p1, void *p2, void *p3)
 			size_t ie_consumed_len = 0;
 
 			switch (ie_type) {
+			case CVG_IE_TYPE_EP_MUX:
+				if (remaining_len >= sizeof(cvg_ie_ep_mux_t)) {
+					const cvg_ie_ep_mux_t *ep_ie = (const cvg_ie_ep_mux_t *)pdu_ptr;
+					uint16_t ep = sys_be16_to_cpu(ep_ie->endpoint_mux_be);
+					printk("[CVG_RX] Parsed EP MUX: 0x%04X\n", ep);
+					ie_consumed_len = sizeof(cvg_ie_ep_mux_t);
+				} else {
+					ie_consumed_len = remaining_len; // malformed
+				}
+				break;
+
 			case CVG_IE_TYPE_SECURITY:
 				if (remaining_len >= sizeof(cvg_ie_security_t)) {
 					const cvg_ie_security_t *sec_ie = (const cvg_ie_security_t *)pdu_ptr;
@@ -815,7 +834,7 @@ if (alloc_result == 0) {
     }
     
     printk("[DECT RX DELIVERY] Putting SDU buffer into g_cvg_to_app_rx_fifo...\n");
-    k_fifo_put(&g_cvg_to_app_rx_fifo, app_sdu);
+    k_queue_append(&g_cvg_to_app_rx_queue, app_sdu);
     printk("[DECT RX DELIVERY] SUCCESS: SDU buffer queued for application delivery\n");
     
 } else {
@@ -911,15 +930,19 @@ static int build_cvg_pdu(uint8_t *target_buf, size_t target_buf_len,
 		sec_ie->rsv_keyidx_ivtype = 0;
 		sec_ie->hpc_be = sys_cpu_to_be32(mac_ctx->hpc);
 		pdu_offset += sizeof(cvg_ie_security_t);
-
-		pdu_len = build_cvg_data_ie_pdu(target_buf + pdu_offset,
-						target_buf_len - pdu_offset, temp_sdu_data,
-						temp_sdu_len, sequence_number);
-	} else {
-#endif /* IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
-		pdu_len = build_cvg_data_ie_pdu(target_buf, target_buf_len,
-						app_sdu->data, app_sdu->len, sequence_number);
 	}
+#endif /* IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
+
+	if (tx_item->endpoint_id != 0) {
+		cvg_ie_ep_mux_t *ep_mux = (cvg_ie_ep_mux_t *)(target_buf + pdu_offset);
+		ep_mux->header.ext_mt_f2c_or_type =
+			((CVG_EXT_NO_LEN_FIELD & 0x03) << 6) | (CVG_IE_TYPE_EP_MUX & 0x1F);
+		ep_mux->endpoint_mux_be = sys_cpu_to_be16(tx_item->endpoint_id);
+		pdu_offset += sizeof(cvg_ie_ep_mux_t);
+	}
+
+	pdu_len = build_cvg_data_ie_pdu(target_buf + pdu_offset, target_buf_len - pdu_offset,
+					app_sdu->data, app_sdu->len, sequence_number);
 
 	if (pdu_len < 0) {
 		return pdu_len;
@@ -940,7 +963,7 @@ static void cvg_arq_service_thread_entry(void *p1, void *p2, void *p3)
 	cvg_flow_context_t *flow = &g_default_cvg_flow_ctx;
 
 	while (1) {
-		cvg_arq_event_t *evt = k_fifo_get(&g_cvg_arq_event_fifo, K_FOREVER);
+		cvg_arq_event_t *evt = k_queue_get(&g_cvg_arq_event_queue, K_FOREVER);
 		if (!evt) {
 			continue;
 		}
@@ -982,7 +1005,7 @@ static void cvg_arq_service_thread_entry(void *p1, void *p2, void *p3)
 					tx_item->dest_long_id = sdu_ctx->dest_long_id;
 					tx_item->endpoint_id = sdu_ctx->endpoint_id;
 					/* NOTE: This re-queues the original buffer. The TX thread must not free it. */
-					k_fifo_put(&g_app_to_cvg_tx_fifo, tx_item);
+					k_queue_append(&g_app_to_cvg_tx_queue, tx_item);
 				}
 				/* Restart the lifetime timer for this new attempt */
 				k_timer_start(&sdu_ctx->lifetime_timer, K_MSEC(flow->configured_lifetime_ms), K_NO_WAIT);
@@ -1005,10 +1028,10 @@ static void cvg_arq_service_thread_entry(void *p1, void *p2, void *p3)
 int dect_cvg_init(void)
 {
 	/* Initialise FIFO Threads */
-	k_fifo_init(&g_app_to_cvg_tx_fifo);
-	k_fifo_init(&g_cvg_to_app_rx_fifo);
-	// k_fifo_init(&g_cvg_retransmit_signal_fifo);
-	k_fifo_init(&g_cvg_arq_event_fifo);
+	k_queue_init(&g_app_to_cvg_tx_queue);
+	k_queue_init(&g_cvg_to_app_rx_queue);
+	// k_queue_init(&g_cvg_retransmit_signal_queue);
+	k_queue_init(&g_cvg_arq_event_queue);
     
 	/* Re-initialize the flow context for non-reliable service */
     memset(&g_default_cvg_flow_ctx, 0, sizeof(g_default_cvg_flow_ctx));
@@ -1109,7 +1132,7 @@ int dect_cvg_configure_flow(cvg_service_type_t service, cvg_qos_t qos, uint16_t 
     return 0;
 }
 
-int dect_cvg_send(uint16_t endpoint_id, uint32_t dest_long_id, const uint8_t *app_sdu,
+__attribute__((weak)) int dect_cvg_send(uint16_t endpoint_id, uint32_t dest_long_id, const uint8_t *app_sdu,
 		  size_t app_sdu_len)
 {
 	printk("[DECT CVG SEND] Starting dect_cvg_send ...\n");
@@ -1180,7 +1203,7 @@ int dect_cvg_send(uint16_t endpoint_id, uint32_t dest_long_id, const uint8_t *ap
 
 	// Put the item in the TX FIFO
 	printk("[DECT CVG SEND] Putting TX item into g_app_to_cvg_tx_fifo...\n");
-	k_fifo_put(&g_app_to_cvg_tx_fifo, tx_item);
+	k_queue_append(&g_app_to_cvg_tx_queue, tx_item);
 	printk("[DECT CVG SEND] Successfully queued TX item for processing\n");
 
 	printk("[DECT CVG SEND] Ending dect_cvg_send - SUCCESS\n");
@@ -1205,8 +1228,8 @@ int dect_cvg_receive(uint8_t *app_sdu_buf, size_t *len_inout, k_timeout_t timeou
         return -EINVAL;
     }
 
-    printk("[DECT CVG RECEIVE] Waiting for data from g_cvg_to_app_rx_fifo...\n");
-    mac_sdu_t *sdu_buf = k_fifo_get(&g_cvg_to_app_rx_fifo, timeout);
+    printk("[DECT CVG RECEIVE] Waiting for data from g_cvg_to_app_rx_queue...\n");
+    mac_sdu_t *sdu_buf = k_queue_get(&g_cvg_to_app_rx_queue, timeout);
     if (!sdu_buf) {
         printk("[DECT CVG RECEIVE] Timeout or no data available in FIFO\n");
         return -EAGAIN; // Timeout
@@ -1230,7 +1253,7 @@ int dect_cvg_receive(uint8_t *app_sdu_buf, size_t *len_inout, k_timeout_t timeou
                *len_inout, sdu_buf->len);
         *len_inout = sdu_buf->len; // Report required size
         printk("[DECT CVG RECEIVE] Returning required size: %zu, putting SDU back in FIFO\n", *len_inout);
-        k_fifo_put(&g_cvg_to_app_rx_fifo, sdu_buf); // Put it back
+        k_queue_prepend(&g_cvg_to_app_rx_queue, sdu_buf); // Put it back
         return -EMSGSIZE;
     }
 

@@ -14,7 +14,7 @@
 #include <mac/dect_mac.h>
 #include <net_platform_time.h> /**< For net_tick_t */
 
-/* DList for data from DLC to the App/CVG layer. Made extern for test access. */
+
 #if IS_ENABLED(CONFIG_ZTEST)
 /* Expose thread IDs for test control */
 extern k_tid_t g_dlc_tx_service_thread_id;
@@ -420,7 +420,7 @@ void dlc_test_set_receive_spy(int (*handler)(dlc_service_type_t *, uint32_t *, u
 
 
 
-/* DList for data from MAC to the DLC layer. Made extern for test access. */
+/* k_queue for data from MAC to the DLC layer. Made extern for test access. */
 extern struct k_queue g_dlc_internal_mac_rx_queue;
 
 /**

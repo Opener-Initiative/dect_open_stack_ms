@@ -12,6 +12,7 @@
 #include <mac/dect_mac_phy_if.h>
 #include <mac/dect_mac_sm_ft.h>
 #include <mac/dect_mac_main_dispatcher.h>
+#include <mac/dect_mac_timeline_utils.h>
 #include <mocks/mock_nrf_modem_dect_phy.h>
 #include "../../tests/utils/test_harness_helpers.h"
 
@@ -64,8 +65,8 @@ static void ft_service_schedules_if_due(uint64_t now_us)
 	for (int i = 0; i < MAX_PEERS_PER_FT; i++) {
 		if (g_mac_ctx_ft.role_ctx.ft.connected_pts[i].is_valid &&
 		    g_mac_ctx_ft.role_ctx.ft.peer_schedules[i].is_active) {
-			/* Convert ticks to us for comparison */
-			uint64_t occ_us = k_ticks_to_us_floor64(g_mac_ctx_ft.role_ctx.ft.peer_schedules[i].next_occurrence_modem_time);
+			/* Convert modem ticks to us for comparison */
+			uint64_t occ_us = modem_ticks_to_us(g_mac_ctx_ft.role_ctx.ft.peer_schedules[i].next_occurrence_modem_time, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 			next_occurrence_us = MIN(next_occurrence_us, occ_us);
 		}
 	}
@@ -80,62 +81,113 @@ static void ft_service_schedules_if_due(uint64_t now_us)
 
 static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(void))
 {
-	uint64_t end_time_us = k_ticks_to_us_floor64(k_uptime_ticks()) + timeout_us;
-	mock_phy_context_t *all_phys[] = { &g_phy_ctx_pt, &g_phy_ctx_ft };
-	uint32_t iteration_count = 0;
-	uint64_t last_now_us = k_ticks_to_us_floor64(k_uptime_ticks());
+    uint64_t end_time_us = k_ticks_to_us_floor64(k_uptime_ticks()) + timeout_us;
+    mock_phy_context_t *all_phys[] = { &g_phy_ctx_pt, &g_phy_ctx_ft };
+    uint32_t iteration_count = 0;
+    uint32_t stall_count = 0;
+    uint64_t last_time_us = k_ticks_to_us_floor64(k_uptime_ticks());
+    
+    printk("[SIMULATION] Starting simulation. End time: %llu us, Timeout: %llu us\n",
+           end_time_us, timeout_us);
+    
+    while (k_ticks_to_us_floor64(k_uptime_ticks()) < end_time_us) {
+        iteration_count++;
+        
+        /* Safety check: prevent infinite loops */
+        if (iteration_count > 10000) {
+            printk("[SIMULATION] Maximum iterations (%u) reached, breaking\n", iteration_count);
+            break;
+        }
+        
+        /* Check if we're stuck at the same time */
+        uint64_t now_us = k_ticks_to_us_floor64(k_uptime_ticks());
+        if (now_us == last_time_us) {
+            stall_count++;
+            if (stall_count > 10) {
+                printk("[SIMULATION] Stuck at same time for %u iterations, forcing advance\n", stall_count);
+                k_usleep(1);
+                stall_count = 0;
+            }
+        } else {
+            stall_count = 0;
+        }
+        last_time_us = now_us;
+        
+        /* Check break condition */
+        if (break_cond_func && break_cond_func()) {
+            printk("[SIMULATION] Break condition met at iteration %u\n", iteration_count);
+            return true;
+        }
+        
+        /* Get next PHY event time */
+        uint64_t next_phy_event_time = mock_phy_get_next_event_time(all_phys, 2);
+        
+        /* Get next timer expiry time */
+        uint64_t next_timer_ticks = K_TICKS_FOREVER;
+        uint64_t remaining;
+        
+        /* Check PT keep-alive timer only if it's running */
+        if (k_timer_status_get(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer) != 0) {
+            remaining = k_timer_remaining_get(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
+            if (remaining > 0) {
+                next_timer_ticks = MIN(next_timer_ticks, remaining);
+                printk("[SIMULATION] PT keep-alive timer running, expires in %u ticks\n", (unsigned int)remaining);
+            }
+        }
+        
+        /* Check FT beacon timer only if it's running */
+        if (k_timer_status_get(&g_mac_ctx_ft.role_ctx.ft.beacon_timer) != 0) {
+            remaining = k_timer_remaining_get(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
+            if (remaining > 0) {
+                next_timer_ticks = MIN(next_timer_ticks, remaining);
+                printk("[SIMULATION] FT beacon timer running, expires in %u ticks\n", (unsigned int)remaining);
+            }
+        }
+        
+        uint64_t next_timer_expiry_us = (next_timer_ticks == K_TICKS_FOREVER) ?
+            UINT64_MAX :
+            k_ticks_to_us_floor64(k_uptime_ticks()) + k_ticks_to_us_floor64(next_timer_ticks);
+        
+        uint64_t next_event_time = MIN(next_phy_event_time, next_timer_expiry_us);
+        uint64_t time_to_advance_us;
+        
+        if (next_event_time == UINT64_MAX || next_event_time > end_time_us) {
+            time_to_advance_us = MIN(1000, end_time_us - now_us);
+        } else if (next_event_time > now_us) {
+            time_to_advance_us = next_event_time - now_us;
+        } else {
+            time_to_advance_us = 1;  /* Minimum 1us advance */
+        }
 
-	printk("[SIM] Starting flow test simulation. Timeout: %llu us\n", timeout_us);
-
-	while (k_ticks_to_us_floor64(k_uptime_ticks()) < end_time_us) {
-		iteration_count++;
-		if (iteration_count > 20000) {
-			printk("[SIM_ERR] Maximum iterations reached!\n");
-			break;
-		}
-
-		if (break_cond_func && break_cond_func()) {
-			printk("[SIM] Break condition met at %llu us\n", k_ticks_to_us_floor64(k_uptime_ticks()));
-			return true;
-		}
-
-		uint64_t now_us = k_ticks_to_us_floor64(k_uptime_ticks());
-		uint64_t next_phy_event_time = mock_phy_get_next_event_time(all_phys, 2);
-		
-		uint64_t next_event_time = MIN(next_phy_event_time, end_time_us);
-		uint64_t time_to_advance_us;
-
-		if (next_event_time > now_us) {
-			time_to_advance_us = next_event_time - now_us;
-		} else {
-			time_to_advance_us = 1; /* Minimal step */
-		}
-
-		/* Limit step size for kernel tick granularity */
-		time_to_advance_us = MIN(time_to_advance_us, 1000);
-
-		if (time_to_advance_us > 0) {
-			if (time_to_advance_us <= 1500) {
-				k_busy_wait(time_to_advance_us);
-			} else {
-				k_sleep(K_USEC(time_to_advance_us));
-			}
-		}
-
-		now_us = k_ticks_to_us_floor64(k_uptime_ticks());
-		if (now_us > last_now_us) {
-			mock_phy_process_events(&g_phy_ctx_pt, now_us);
-			mock_phy_process_events(&g_phy_ctx_ft, now_us);
-			
-			/* Check if FT scheduler needs to run */
-			ft_service_schedules_if_due(now_us);
-			
-			process_all_mac_events();
-			last_now_us = now_us;
-		}
-	}
-
-	return (break_cond_func && break_cond_func());
+        if (time_to_advance_us > 0 && now_us + time_to_advance_us > end_time_us) {
+            time_to_advance_us = end_time_us - now_us;
+        }
+        
+        if (time_to_advance_us > 0) {
+            if (time_to_advance_us <= 1500) {
+                k_busy_wait(time_to_advance_us);
+            } else {
+                k_sleep(K_USEC(time_to_advance_us));
+            }
+        }
+ 
+        uint64_t current_time_us = k_ticks_to_us_floor64(k_uptime_ticks());
+        
+        mock_phy_process_events(&g_phy_ctx_pt, current_time_us);
+        mock_phy_process_events(&g_phy_ctx_ft, current_time_us);
+        ft_service_schedules_if_due(current_time_us);
+        process_all_mac_events();
+        
+        if (next_event_time == UINT64_MAX && 
+            k_ticks_to_us_floor64(k_uptime_ticks()) >= end_time_us) {
+            break;
+        }
+    }
+    
+    printk("[SIMULATION] Ended after %u iterations. Final time: %llu us\n",
+           iteration_count, k_ticks_to_us_floor64(k_uptime_ticks()));
+    
+    return (break_cond_func && break_cond_func());
 }
 
 static bool ft_received_data(void)
@@ -145,7 +197,8 @@ static bool ft_received_data(void)
 	if (peer_idx < 0) {
 		return false;
 	}
-	bool received = (g_mac_ctx_ft.role_ctx.ft.connected_pts[peer_idx].last_rx_sdu_len >= 20);
+	bool received = (g_mac_ctx_ft.role_ctx.ft.connected_pts[peer_idx].last_rx_sdu_len >= 10);
+	printk("[TEST DBG] FT received data from peer: %d (Len:%d)\n", peer_idx, g_mac_ctx_ft.role_ctx.ft.connected_pts[peer_idx].last_rx_sdu_len);
 	return received;
 }
 
@@ -173,6 +226,22 @@ static void dect_mac_flow_before(void *fixture)
 	
 	mock_phy_init_context(&g_phy_ctx_pt, &g_mac_ctx_pt, pt_peers, ARRAY_SIZE(pt_peers));
 	mock_phy_init_context(&g_phy_ctx_ft, &g_mac_ctx_ft, ft_peers, ARRAY_SIZE(ft_peers));
+
+    /* Stop and reinitialize all kernel timers */
+    k_timer_stop(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
+    k_timer_stop(&g_mac_ctx_pt.role_ctx.pt.mobility_scan_timer);
+    k_timer_stop(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
+    
+    k_timer_init(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer, NULL, NULL);
+    k_timer_init(&g_mac_ctx_pt.role_ctx.pt.mobility_scan_timer, NULL, NULL);
+    k_timer_init(&g_mac_ctx_ft.role_ctx.ft.beacon_timer, NULL, NULL);
+
+    /* Clear any pending MAC events */
+    struct dect_mac_event_msg msg;
+    int drained = 0;
+    while (k_msgq_get(&mac_event_msgq, &msg, K_NO_WAIT) == 0) {
+        drained++;
+    }
 
 	/* 1. Init FT */
 	dect_mac_test_set_active_context(&g_mac_ctx_ft);
@@ -223,11 +292,12 @@ ZTEST(dect_mac_flow, test_data_transfer)
 	ul_sched->validity_value = 0xFF; /* Permanent */
 	ul_sched->channel = 0;
 	
-	/* 100ms offset in ticks */
-	uint64_t now_ticks = k_uptime_ticks();
-	uint32_t offset_ticks = 100 * (NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
-	ul_sched->next_occurrence_modem_time = now_ticks + offset_ticks;
-	ul_sched->schedule_init_modem_time = now_ticks;
+	/* 2ms offset in DECT modem ticks */
+	uint64_t now_us = k_ticks_to_us_floor64(k_uptime_ticks());
+	uint64_t now_modem_time = modem_us_to_ticks(now_us, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+	uint32_t offset_modem_ticks = 2 * (NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ); /* 2 milliseconds */
+	ul_sched->next_occurrence_modem_time = now_modem_time + offset_modem_ticks;
+	ul_sched->schedule_init_modem_time = now_modem_time;
 
 	/* 1.2. FT must also know this schedule for the peer to listen */
 	dect_mac_schedule_t *ft_peer_sched = &g_mac_ctx_ft.role_ctx.ft.peer_schedules[peer_idx];

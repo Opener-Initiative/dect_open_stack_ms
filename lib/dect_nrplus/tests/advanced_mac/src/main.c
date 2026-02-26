@@ -211,7 +211,7 @@ static void advanced_mac_before(void *fixture)
 {
 	ARG_UNUSED(fixture);
 
-    /* 0. Initialize API Layer (Critical: Initializes TX dlists) */
+    /* 0. Initialize API Layer (Critical: Initializes TX queues) */
     /* We pass NULL for the DLC RX list as this test focuses on MAC internal scheduling */
     dect_mac_api_init(NULL);
 
@@ -333,22 +333,6 @@ static bool ft_received_reconfig_req(void) {
     return false;
 }
 
-// static bool pt_received_reconfig_resp(void) {
-//     printk("[PT_RX_REC] ft_received_reconfig_req Starting...\n");
-//     for (int i = 0; i < MOCK_RX_QUEUE_MAX_PACKETS; i++) {
-//         if (g_phy_ctx_pt.rx_queue[i].active && g_phy_ctx_pt.rx_queue[i].pdc_len > 0) {
-//             /* Check for Reconfig Resp IE (Type 14 = 0x0E) */
-//             uint8_t *p = g_phy_ctx_pt.rx_queue[i].pdc_payload;
-//             if (g_phy_ctx_pt.rx_queue[i].pdc_len > 11) {
-//                 uint8_t mux_hdr = p[11];
-//                 uint8_t ie_type = mux_hdr & 0x3F;
-//                 if (ie_type == IE_TYPE_RECONFIG_RESP) return true;
-//             }
-//         }
-//     }
-//     return false;
-// }
-
 
 static bool pt_received_reconfig_resp(void) {
     printk("[PT_RX_REC] pt_received_reconfig_resp Starting...\n");
@@ -410,7 +394,7 @@ ZTEST(advanced_mac_tests, test_group_assignment_scheduling)
         NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS,
         phy_rx_handle,
         0xFFFF, /* Listen for broadcast/beacons */
-        PENDING_OP_PT_BEACON_LISTEN 
+        PENDING_OP_PT_BEACON_LISTEN, 0
     );
 
     /* 3. Inject Beacon Timer Expiry to trigger FT TX */
@@ -438,124 +422,6 @@ ZTEST(advanced_mac_tests, test_group_assignment_scheduling)
 
     printk("\n\n[TEST] COMPLETE \n");
 }
-
-
-
-// ZTEST(advanced_mac_tests, test_reconfiguration_flow)
-// {
-//     /* 1. Construct Reconfig Request PDU (PT -> FT) */
-//     dect_mac_test_set_active_context(&g_mac_ctx_pt);
-    
-//     uint8_t req_pdu[64];
-//     uint8_t *p = req_pdu;
-    
-//     /* MAC Header Type: Unicast, No Security */
-//     *p++ = (MAC_COMMON_HEADER_TYPE_UNICAST & 0x0F) | ((MAC_SECURITY_NONE & 0x03) << 4);
-    
-//     /* MAC Common Header: Unicast */
-//     *p++ = 0; /* SN High/Reset */
-//     *p++ = 1; /* SN Low */
-//     /* Struct order is Receiver then Transmitter */
-//     sys_put_be32(g_mac_ctx_ft.own_long_rd_id, p); p += 4; /* Rx: FT */
-//     sys_put_be32(g_mac_ctx_pt.own_long_rd_id, p); p += 4; /* Tx: PT */
-    
-//     /* MAC SDU Area: Reconfig Req IE */
-//     /* MUX Header: MAC_Ext=00 (No Len), Type=13 (Reconfig Req) */
-//     *p++ = (0x00 << 6) | (IE_TYPE_RECONFIG_REQ & 0x3F);
-//     /* Payload: 1 byte flags (0) */
-//     *p++ = 0;
-    
-//     uint16_t req_len = p - req_pdu;
-    
-//     /* 2. Send Reconfig Request */
-//     uint32_t tx_handle;
-//     dect_mac_rand_get((uint8_t *)&tx_handle, sizeof(tx_handle));
-    
-//     dect_mac_phy_ctrl_start_tx_assembled(
-//         g_mac_ctx_pt.role_ctx.pt.associated_ft.operating_carrier,
-//         req_pdu, req_len,
-//         g_mac_ctx_ft.own_short_rd_id, false,
-//         tx_handle, PENDING_OP_GENERIC_UNICAST_TX,
-//         true, 0, g_mac_ctx_pt.own_phy_params.mu, NULL
-//     );
-    
-//     /* 3. Start FT RX to receive it */
-//     dect_mac_test_set_active_context(&g_mac_ctx_ft);
-//     mock_phy_set_active_context(&g_phy_ctx_ft);
-//     uint32_t rx_handle;
-//     dect_mac_rand_get((uint8_t *)&rx_handle, sizeof(rx_handle));
-//     dect_mac_phy_ctrl_start_rx(
-//         g_mac_ctx_ft.role_ctx.ft.operating_carrier, 0,
-//         NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, rx_handle,
-//         g_mac_ctx_ft.own_short_rd_id, PENDING_OP_FT_DATA_RX
-//     );
-
-//     /* 4. Run Simulation */
-//     bool success = run_simulation_until(2000000, ft_received_reconfig_req);
-//     zassert_true(success, "FT did not receive Reconfiguration Request");
-
-    
-//     /* 4b. Wait for PT to finish TX processing (clear pending op) */
-//     /* We need to run the simulation a bit more to let the OP_COMPLETE event propagate */
-//     int safety_counter = 0;
-//     while (g_mac_ctx_pt.pending_op_type != PENDING_OP_NONE && safety_counter < 100) {
-//         run_simulation_until(1000, NULL); /* Advance 1ms at a time */
-//         safety_counter++;
-//     }
-//     zassert_equal(g_mac_ctx_pt.pending_op_type, PENDING_OP_NONE, "PT pending op did not clear after TX");
-
-    
-
-//     /* 5. Construct Reconfig Response PDU (FT -> PT) */
-//     dect_mac_test_set_active_context(&g_mac_ctx_ft);
-//     uint8_t resp_pdu[64];
-//     p = resp_pdu;
-    
-//     /* MAC Header Type */
-//     *p++ = (MAC_COMMON_HEADER_TYPE_UNICAST & 0x0F) | ((MAC_SECURITY_NONE & 0x03) << 4);
-    
-//     /* MAC Common Header */
-//     *p++ = 0;
-//     *p++ = 2;
-//     /* Struct order is Receiver then Transmitter */
-//     sys_put_be32(g_mac_ctx_pt.own_long_rd_id, p); p += 4; /* Rx: PT */
-//     sys_put_be32(g_mac_ctx_ft.own_long_rd_id, p); p += 4; /* Tx: FT */
-    
-//     /* MAC SDU Area: Reconfig Resp IE */
-//     /* MUX Header: MAC_Ext=00 (No Len), Type=14 (Reconfig Resp) */
-//     *p++ = (0x00 << 6) | (IE_TYPE_RECONFIG_RESP & 0x3F);
-//     /* Payload: 1 byte flags (0) */
-//     *p++ = 0;
-    
-//     uint16_t resp_len = p - resp_pdu;
-    
-//     /* 6. Send Reconfig Response */
-//     dect_mac_rand_get((uint8_t *)&tx_handle, sizeof(tx_handle));
-//     dect_mac_phy_ctrl_start_tx_assembled(
-//         g_mac_ctx_ft.role_ctx.ft.operating_carrier,
-//         resp_pdu, resp_len,
-//         g_mac_ctx_pt.own_short_rd_id, false,
-//         tx_handle, PENDING_OP_GENERIC_UNICAST_TX,
-//         true, 0, g_mac_ctx_ft.own_phy_params.mu, NULL
-//     );
-    
-//     /* 7. Start PT RX to receive it */
-//     dect_mac_test_set_active_context(&g_mac_ctx_pt);
-//     mock_phy_set_active_context(&g_phy_ctx_pt);
-//     dect_mac_rand_get((uint8_t *)&rx_handle, sizeof(rx_handle));
-    
-//     int ret = dect_mac_phy_ctrl_start_rx(
-//         g_mac_ctx_pt.role_ctx.pt.associated_ft.operating_carrier, 0,
-//         NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, rx_handle,
-//         g_mac_ctx_pt.own_short_rd_id, PENDING_OP_PT_DATA_RX
-//     );
-//     /* Ensure the PT was actually able to start listening (i.e., previous TX op was cleared) */
-//     zassert_ok(ret, "Failed to start PT RX for Reconfig Response (is pending op cleared?)");
-    
-//     /* 8. Run Simulation */
-//     success = run_simulation_until(2000000, pt_received_reconfig_resp);
-//     zassert_true(success, "PT did not receive Reconfiguration Response");
-// }
 
 ZTEST(advanced_mac_tests, test_reconfiguration_flow)
 {
@@ -603,7 +469,7 @@ ZTEST(advanced_mac_tests, test_reconfiguration_flow)
     dect_mac_phy_ctrl_start_rx(
         g_mac_ctx_ft.role_ctx.ft.operating_carrier, 0,
         NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, rx_handle,
-        g_mac_ctx_ft.own_short_rd_id, PENDING_OP_FT_DATA_RX
+        g_mac_ctx_ft.own_short_rd_id, PENDING_OP_FT_DATA_RX, 0
     );
 
     /* 4. Run Simulation: PT Sends -> FT Receives -> FT Sends Response */
@@ -628,7 +494,7 @@ ZTEST(advanced_mac_tests, test_reconfiguration_flow)
     int ret = dect_mac_phy_ctrl_start_rx(
         g_mac_ctx_pt.role_ctx.pt.associated_ft.operating_carrier, 0,
         NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, rx_handle,
-        g_mac_ctx_pt.own_short_rd_id, PENDING_OP_PT_DATA_RX
+        g_mac_ctx_pt.own_short_rd_id, PENDING_OP_PT_DATA_RX, 0
     );
     process_all_mac_events();
     zassert_ok(ret, "Failed to start PT RX for Reconfig Response");

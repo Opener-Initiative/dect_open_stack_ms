@@ -297,7 +297,7 @@ static void pt_paging_cycle_timer_expired_action(void)
         NRF_MODEM_DECT_PHY_RX_MODE_SEMICONTINUOUS,
         phy_op_handle,
         0xFFFF,
-        PENDING_OP_PT_PAGING_LISTEN);
+        PENDING_OP_PT_PAGING_LISTEN, 0);
 
     if (ret != 0) {
         LOG_ERR("PT_PAGING: Failed to schedule RX for paging listen: %d. Retrying shortly.", ret);
@@ -455,7 +455,7 @@ void dect_mac_sm_pt_start_operation(void)
 	int ret = dect_mac_phy_ctrl_start_rx(scan_carrier, 0,
 					   NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS,
 					   phy_op_handle, 0xFFFF,
-					   PENDING_OP_PT_SCAN);
+					   PENDING_OP_PT_SCAN, 0);
 	if (ret != 0) {
 		dect_mac_enter_error_state("Failed to start initial PT scan");
 	}
@@ -775,7 +775,7 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 						rx_duration_modem_units,
 						NRF_MODEM_DECT_PHY_RX_MODE_SEMICONTINUOUS,
 						phy_rx_op_handle, ctx->own_short_rd_id,
-						PENDING_OP_PT_WAIT_ASSOC_RESP);
+						PENDING_OP_PT_WAIT_ASSOC_RESP, 0);
 				} else {
 					printk("PT SM: Scan cancelled in unexpected state %s. Restarting scan.",
 						dect_mac_state_to_str(ctx->state));
@@ -832,7 +832,7 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
                     NRF_MODEM_DECT_PHY_RX_MODE_SEMICONTINUOUS,
                     phy_rx_op_handle,
                     ctx->own_short_rd_id,
-                    PENDING_OP_PT_WAIT_ASSOC_RESP);
+                    PENDING_OP_PT_WAIT_ASSOC_RESP, 0);
                 if (ret != 0) {
                     printk("PT_SM: Failed to schedule RX for AssocResp: %d. Resp timer will timeout.\n", ret);
 					// LOG_ERR("PT_SM: Failed to schedule RX for AssocResp: %d. Resp timer will timeout.", ret);
@@ -1025,7 +1025,7 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
                     dect_mac_phy_ctrl_start_rx(
                         ctx->role_ctx.pt.target_ft.operating_carrier,
                         rx_duration_modem_units, NRF_MODEM_DECT_PHY_RX_MODE_SEMICONTINUOUS,
-                        phy_rx_op_handle, ctx->own_short_rd_id, next_op);
+                        phy_rx_op_handle, ctx->own_short_rd_id, next_op, 0);
                 }
             } else {
                 LOG_ERR("PT_SM: Auth message TX failed (err %d). Restarting scan.",
@@ -1946,15 +1946,13 @@ static void pt_send_association_request_action(void)
 	}
 
 	// TODO: The correct channal needs to be collected from the beacon.
-	if (ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel == 0 ||
-	    ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel == 0xFFFF) {
+	if (ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel == 0xFFFF) {
 			LOG_ERR("PT_SM_ASSOC_REQ: Updating Target FT RACH operating channel (0x%04X).", ctx->role_ctx.pt.target_ft.operating_carrier);
 			ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel = ctx->role_ctx.pt.target_ft.operating_carrier;
 	}
 	
 	
-	if (ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel == 0 ||
-	    ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel == 0xFFFF) {
+	if (ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel == 0xFFFF) {
 		LOG_ERR("PT_SM_ASSOC_REQ: Target FT RACH operating channel invalid(0x%04X). Restarting scan.", ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel);
 		dect_mac_sm_pt_start_operation();
 		return;
@@ -3098,7 +3096,7 @@ static void pt_authentication_complete_action(dect_mac_context_t* ctx, bool succ
 			int ret = dect_mac_phy_ctrl_start_rx(
 				ctx->role_ctx.pt.associated_ft.operating_carrier, 0, /* Continuous */
 				NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, phy_rx_op_handle,
-				ctx->own_short_rd_id, PENDING_OP_PT_DATA_RX); /* Generic data RX op */
+				ctx->own_short_rd_id, PENDING_OP_PT_DATA_RX, 0); /* Generic data RX op */
 			if (ret != 0) {
 				dect_mac_enter_error_state("Failed to start continuous PT RX");
 			}
@@ -3539,7 +3537,7 @@ void dect_mac_sm_pt_beacon_listen_timer_expired_action(void)
 		ctx->role_ctx.pt.associated_ft.operating_carrier, listen_duration_ticks,
 		NRF_MODEM_DECT_PHY_RX_MODE_SINGLE_SHOT, phy_op_handle,
 		0xFFFF, /* Beacons are broadcast */
-		PENDING_OP_PT_BEACON_LISTEN);
+		PENDING_OP_PT_BEACON_LISTEN, 0);
 
 	if (ret != 0) {
 		LOG_ERR("PT_BEACON_LSN: Failed to schedule RX for beacon listen: %d", ret);

@@ -272,116 +272,11 @@ printk("[SIM_DEBUG] Iteration %u: now=%llu, next_phy=%llu, next_timer=%llu, next
 static bool is_ft_beaconing(void) { return g_mac_ctx_ft.state == MAC_STATE_FT_BEACONING; }
 static bool is_pt_associated(void) { return g_mac_ctx_pt.state == MAC_STATE_ASSOCIATED; }
 
-
-// static bool pt_sent_a_packet(void)
-// {
-// 	return tx_capture_is_from_long_id(g_mac_ctx_pt.own_long_rd_id);
-// }
-
-// static bool ft_sent_a_packet(void)
-// {
-// 	return tx_capture_is_from_long_id(g_mac_ctx_ft.own_long_rd_id);
-// }
-
-// static bool sent_a_packet(void)
-// {
-//     bool matched = false;
-//     if (pt_sent_a_packet() || ft_sent_a_packet())
-//     {
-//         matched = true;
-//     }
-// 	return matched;
-// }
-
-// static bool is_ft_peer_list_empty(void)
-// {
-// 	dect_mac_test_set_active_context(&g_mac_ctx_ft);
-// 	int peer_idx = dect_mac_core_get_peer_slot_idx(g_mac_ctx_pt.own_short_rd_id);
-// 	return (peer_idx < 0);
-// }
-
-// static bool is_pt_scanning(void)
-// {
-//     printk("g_mac_ctx_pt.state[%d] == MAC_STATE_PT_SCANNING {%s} \n", g_mac_ctx_pt.state,
-//         g_mac_ctx_pt.state == MAC_STATE_PT_SCANNING ? "TRUE":"False");
-// 	return g_mac_ctx_pt.state == MAC_STATE_PT_SCANNING;
-// }
-
-
-/* --- Test Setup --- */
-// static void debug_print_ft_peer_state(const char *test_name)
-// {
-//     printk("[DEBUG] %s - FT Peer State:\n", test_name);
-//     for (int i = 0; i < MAX_PEERS_PER_FT; i++) {
-//         printk("  Slot %d: %s (ID: 0x%08X)\n", i,
-//                g_mac_ctx_ft.role_ctx.ft.connected_pts[i].is_valid ? "VALID" : "EMPTY",
-//                g_mac_ctx_ft.role_ctx.ft.connected_pts[i].long_rd_id);
-//     }
-// }
-
 static void *dect_mac_assoc_setup(void)
 {
 	zassert_ok(dect_mac_init(NULL, NULL), "dect_mac_init failed");
 	return NULL;
 }
-
-// /* --- Enhanced Test Reset Functions --- */
-
-// static void clear_mac_event_queue(void)
-// {
-//     struct dect_mac_event_msg msg;
-//     int count = 0;
-//     while (k_msgq_get(&mac_event_msgq, &msg, K_NO_WAIT) == 0) {
-//         count++;
-//     }
-//     if (count > 0) {
-//         printk("[TEST_RESET] Cleared %d events from MAC event queue\n", count);
-//     }
-// }
-
-// static void reset_kernel_timers(void)
-// {
-//     /* Stop and reinitialize all kernel timers */
-//     k_timer_stop(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
-//     k_timer_stop(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
-    
-//     /* Reinitialize timers to ensure clean state */
-//     k_timer_init(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer, NULL, NULL);
-//     k_timer_init(&g_mac_ctx_ft.role_ctx.ft.beacon_timer, NULL, NULL);
-    
-//     printk("[TEST_RESET] Reset kernel timers\n");
-// }
-
-// static void reset_mock_phy_state(void)
-// {
-//     /* Clear all mock PHY timelines and RX queues */
-//     memset(&g_phy_ctx_pt, 0, sizeof(g_phy_ctx_pt));
-//     memset(&g_phy_ctx_ft, 0, sizeof(g_phy_ctx_ft));
-    
-//     /* Reinitialize mock PHY contexts */
-//     mock_phy_init_context(&g_phy_ctx_pt, &g_mac_ctx_pt, &g_phy_ctx_ft);
-//     mock_phy_init_context(&g_phy_ctx_ft, &g_mac_ctx_ft, &g_phy_ctx_pt);
-    
-//     printk("[TEST_RESET] Reset mock PHY state\n");
-// }
-
-// static void reset_mac_contexts(void)
-// {
-//     /* Complete memory reset of MAC contexts */
-//     memset(&g_mac_ctx_pt, 0, sizeof(g_mac_ctx_pt));
-//     memset(&g_mac_ctx_ft, 0, sizeof(g_mac_ctx_ft));
-    
-//     printk("[TEST_RESET] Reset MAC contexts\n");
-// }
-
-// static void reset_global_test_state(void)
-// {
-//     /* Clear global test variables */
-//     g_last_tx_pdu_len_capture = 0;
-//     memset(g_last_tx_pdu_capture, 0, sizeof(g_last_tx_pdu_capture));
-    
-//     printk("[TEST_RESET] Reset global test state\n");
-// }
 
 static void debug_print_current_state(const char *test_name)
 {
@@ -395,14 +290,10 @@ static void debug_print_current_state(const char *test_name)
 }
 
 /* --- Enhanced Test Setup --- */
-
 static void dect_mac_assoc_before(void *fixture)
 {
     ARG_UNUSED(fixture);
     int err;
-
-    // dump_mac_context_state("START of dect_mac_assoc_before", &g_mac_ctx_pt);
-    // dump_mac_context_state("START of dect_mac_assoc_before", &g_mac_ctx_ft);
 
     /* Reset shared resources to ensure test isolation */
 	dect_mac_phy_if_reset_handle_map();
@@ -458,10 +349,6 @@ static void dect_mac_assoc_before(void *fixture)
     /* Register state change callback */
     dect_mac_register_state_change_cb(test_mac_state_change_cb);
     
-    /* Clear global test state */
-    // g_last_tx_pdu_len_capture = 0;
-    // memset(g_last_tx_pdu_capture, 0, sizeof(g_last_tx_pdu_capture));
-    
     /* Debug: Print state after reset */
     debug_print_current_state("AFTER_RESET");
     debug_print_timer_states("AFTER_SETUP");
@@ -472,35 +359,6 @@ printk("[DEBUG_PROBE] After Init: FT1 Peer[0] -> %p (Expected: %p)\n",
 printk("[DEBUG_PROBE] After Init: PT Peer Count -> %zu\n", g_phy_ctx_pt.num_peers);    
 }
 
-
-/* --- Enhanced Test Cleanup --- */
-
-// static void dect_mac_assoc_after(void *fixture)
-// {
-//     ARG_UNUSED(fixture);
-    
-//     printk("[TEST_CLEANUP] Starting test cleanup\n");
-    
-//     /* 1. Stop all kernel timers */
-//     k_timer_stop(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
-//     k_timer_stop(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
-    
-//     /* 2. Deactivate PHY if active */
-//     if (g_phy_ctx_pt.state == PHY_STATE_ACTIVE) {
-//         nrf_modem_dect_phy_deactivate();
-//     }
-//     if (g_phy_ctx_ft.state == PHY_STATE_ACTIVE) {
-//         nrf_modem_dect_phy_deactivate();
-//     }
-    
-//     /* 3. Clear any remaining events */
-//     clear_mac_event_queue();
-    
-//     /* 4. Reset global state */
-//     reset_global_test_state();
-    
-//     printk("[TEST_CLEANUP] Test cleanup completed\n");
-// }
 static void dect_mac_assoc_after(void *fixture)
 {
     ARG_UNUSED(fixture);
@@ -509,7 +367,6 @@ static void dect_mac_assoc_after(void *fixture)
     k_timer_stop(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
     k_timer_stop(&g_mac_ctx_pt.role_ctx.pt.mobility_scan_timer);
     k_timer_stop(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
-    
     
     /* Deactivate PHY if active */
     if (g_phy_ctx_pt.state == PHY_STATE_ACTIVE) {
@@ -536,239 +393,9 @@ static void dect_mac_assoc_after(void *fixture)
     /* Clear global test state */
     g_last_tx_pdu_len_capture = 0;
     memset(g_last_tx_pdu_capture, 0, sizeof(g_last_tx_pdu_capture));
-
-    // dump_mac_context_state("END of dect_mac_assoc_after", &g_mac_ctx_pt);
-    // dump_mac_context_state("END of dect_mac_assoc_after", &g_mac_ctx_ft);    
 }
 
-
 /* --- Test Cases --- */
-
-// ZTEST(dect_mac_assoc, test_4_pt_ft_association_rejected_ft_full)
-// {
-//     debug_operation_handle_map("BEFORE_TEST");
-
-//     /* Get current time at test start */
-//     uint64_t test_start_time = k_ticks_to_us_floor64(k_uptime_ticks());
-//     printk("[TEST] Test starting at time: %llu us\n", test_start_time);
-
-//     /* 1. Start FT and run simulation until it's beaconing */
-//     printk("\n\n[TEST] 1. Starting both FTs and waiting for beaconing\n");
-// 	dect_mac_test_set_active_context(&g_mac_ctx_ft);
-// 	mock_phy_set_active_context(&g_phy_ctx_ft);
-// 	nrf_modem_dect_phy_activate(NRF_MODEM_DECT_PHY_RADIO_MODE_LOW_LATENCY);
-// 	dect_mac_start();
-// 	process_all_mac_events();
-// 	zassert_true(run_simulation_until(2000000, is_ft_beaconing), "FT never started beaconing");
-
-//     /* 2. Verify FT peer list is empty before filling it */
-//     printk("\n\n[TEST] 2. Verify FT peer list is empty before filling \n");
-//     for (int i = 0; i < MAX_PEERS_PER_FT; i++) {
-//         zassert_false(g_mac_ctx_ft.role_ctx.ft.connected_pts[i].is_valid,
-//                      "FT peer slot %d should be empty at test start", i);
-//     }
-
-//     /* 3. Manually fill all of the FT's peer slots to simulate a full device */
-//     printk("\n\n[TEST] 3. Manually fill all of the FT's peer slots to simulate a full device \n");
-//     for (int i = 0; i < MAX_PEERS_PER_FT; i++) {
-//         g_mac_ctx_ft.role_ctx.ft.connected_pts[i].is_valid = true;
-//         g_mac_ctx_ft.role_ctx.ft.connected_pts[i].long_rd_id = 0xDEADBEEF + i;
-//         printk("TEST: Set FT peer slot %d as valid (ID: 0x%08X)\n", i, 
-//                g_mac_ctx_ft.role_ctx.ft.connected_pts[i].long_rd_id);
-//     }
-//     printk("TEST: Manually filled all %d FT peer slots.\n", MAX_PEERS_PER_FT);
-
-//     /* 4. Trigger beacon */
-//     printk("\n\n[TEST] 4. Trigger beacon \n");
-//     dect_mac_test_inject_event_internal(&g_mac_ctx_ft, MAC_EVENT_TIMER_EXPIRED_BEACON, 0);
-//     process_all_mac_events();
-
-//     /* 5. Start PT and let it receive beacon and send AssocReq */
-//     printk("\n\n[TEST] 5. Start PT and let it receive beacon and send AssocReq \n");
-//     dect_mac_test_set_active_context(&g_mac_ctx_pt);
-//     mock_phy_set_active_context(&g_phy_ctx_pt);
-//     nrf_modem_dect_phy_activate(NRF_MODEM_DECT_PHY_RADIO_MODE_LOW_LATENCY);
-//     dect_mac_start();
-//     process_all_mac_events();
-
-//     /* 6. Run simulation until FT sends its response (which will be a reject) */
-//     printk("\n\n[TEST] 6. Run simulation until FT sends its response (which will be a reject) \n");
-//     g_last_tx_pdu_len_capture = 0; /* Clear capture buffer */
-    
-//     /* Use a shorter timeout since we know the FT should respond quickly */
-//     zassert_true(run_simulation_until(1000000, ft_sent_a_packet),
-//              "Simulation timed out before FT sent a response");
-
-//     /* 7. Verify the FT sent a rejection */
-//     printk("\n\n[TEST] 7. Verify the FT sent a rejection  \n");
-//     uint16_t resp_ie_len;
-//     const uint8_t *resp_ie_payload =
-//         get_ie_payload_from_pdu(g_last_tx_pdu_capture, g_last_tx_pdu_len_capture,
-//                         IE_TYPE_ASSOC_RESP, &resp_ie_len);
-//     zassert_not_null(resp_ie_payload, "FT response did not contain an AssocResp IE");
-
-//     dect_mac_assoc_resp_ie_t resp_fields;
-//     zassert_ok(parse_assoc_resp_ie_payload(resp_ie_payload, resp_ie_len, &resp_fields),
-//            "Failed to parse AssocResp IE");
-//     zassert_false(resp_fields.ack_nack, "FT did not send a REJECT (NACK=0)");
-//     zassert_equal(resp_fields.reject_cause, ASSOC_REJECT_CAUSE_NO_RADIO_CAP,
-//               "FT rejected with wrong cause code");
-
-//     /* 8. Run simulation a bit longer to ensure PT processes the rejection */
-//     printk("\n\n[TEST] 8. Run simulation a bit longer to ensure PT processes the rejection \n");
-//     run_simulation_until(200000, NULL);
-
-//     /* 9. Final assertion: PT should have gone back to scanning */
-//     printk("\n\n[TEST] 9. Final assertion: PT should have gone back to scanning \n");
-//     zassert_equal(g_mac_ctx_pt.state, MAC_STATE_PT_SCANNING,
-//               "PT did not return to SCANNING state after rejection");
-//     zassert_false(g_mac_ctx_pt.role_ctx.pt.associated_ft.is_valid,
-//               "PT context still shows an associated FT after rejection");
-    
-//     /* Print test duration */
-//     uint64_t test_duration = k_ticks_to_us_floor64(k_uptime_ticks()) - test_start_time;
-//     printk("[TEST] Test completed in %llu us\n", test_duration);
-// }
-
-
-// ZTEST(dect_mac_assoc, test_3_pt_keep_alive)
-// {
-//     printk("\n--- RUNNING TEST: %s ---\n", __func__);
-
-//     debug_operation_handle_map("BEFORE_TEST");
-
-//     /* Get current time at test start */
-//     uint64_t test_start_time = k_ticks_to_us_floor64(k_uptime_ticks());
-//     printk("[TEST] Test starting at time: %llu us\n", test_start_time);
-
-// 	/* 1. Start FT and run simulation until it's beaconing */
-//     printk("\n\n[TEST] 1. Starting both FTs and waiting for beaconing\n");
-// 	dect_mac_test_set_active_context(&g_mac_ctx_ft);
-// 	mock_phy_set_active_context(&g_phy_ctx_ft);
-// 	nrf_modem_dect_phy_activate(NRF_MODEM_DECT_PHY_RADIO_MODE_LOW_LATENCY);
-// 	dect_mac_start();
-// 	process_all_mac_events();
-// 	zassert_true(run_simulation_until(2000000, is_ft_beaconing), "FT never started beaconing");
-
-// 	/* 2. Trigger beacon (transmission is now handled automatically by mock TX) */
-//     printk("\n\n[TEST] 2. Trigger beacon (transmission is now handled automatically by mock TX)\n");
-// 	dect_mac_test_inject_event_internal(&g_mac_ctx_ft, MAC_EVENT_TIMER_EXPIRED_BEACON, 0);
-// 	process_all_mac_events();
-
-
-// 	/* 3. Start PT and run simulation until it becomes associated */
-//     printk("\n\n[TEST] 3. Starting PT and waiting for association with FT\n");
-// 	dect_mac_test_set_active_context(&g_mac_ctx_pt);
-// 	mock_phy_set_active_context(&g_phy_ctx_pt);
-// 	nrf_modem_dect_phy_activate(NRF_MODEM_DECT_PHY_RADIO_MODE_LOW_LATENCY);
-// 	dect_mac_start();
-// 	process_all_mac_events();
-// 	zassert_true(run_simulation_until(2000000, is_pt_associated), "PT never became associated");
-
-// 	printk("\n\n\n\nTEST: PT and FT are successfully associated.\n\n\n");
-
-// 	/* --- 2. Wait for the keep-alive timer to expire --- */
-// 	g_last_tx_pdu_len_capture = 0; /* Clear the capture buffer */
-// 	uint32_t keep_alive_ms = g_mac_ctx_pt.config.keep_alive_period_ms;
-// 	printk("\n\n\nTEST: Waiting for keep-alive timer (%u ms) to expire...\n\n\n", keep_alive_ms);
-
-// 	/* Run simulation for slightly longer than the keep-alive period */
-//     // bool ft_sent_packet = run_simulation_until((keep_alive_ms + 500) * 1000, ft_sent_a_packet);
-// 	// bool pt_sent_packet = run_simulation_until((keep_alive_ms + 500) * 1000, pt_sent_a_packet);
-
-// 	/* --- 3. Verify the Keep Alive PDU was sent --- */
-//     zassert_true(run_simulation_until((keep_alive_ms + 500) * 1000, sent_a_packet),
-//              "Simulation timed out before FT sent a response");
-// 	// zassert_true(pt_sent_packet, "Simulation timed out, PT did not send a keep-alive packet");
-
-// 	printk("TEST: PT sent a packet. Verifying it is a Keep Alive IE...\n");
-
-// 	uint16_t ie_payload_len = 0;
-// 	const uint8_t *ie_payload =
-// 		get_ie_payload_from_pdu(g_last_tx_pdu_capture, g_last_tx_pdu_len_capture,
-// 					IE_TYPE_SHORT_KEEP_ALIVE, &ie_payload_len);
-
-
-//     // dump_mac_context_state("END of test_pt_keep_alive", &g_mac_ctx_pt);
-//     // dump_mac_context_state("END of test_pt_keep_alive", &g_mac_ctx_ft);
-
-// 	// zassert_not_null(ie_payload, "Transmitted PDU did not contain a Keep Alive IE");
-// 	// zassert_equal(ie_payload_len, 0, "Keep Alive IE should have a 0-byte payload");
-
-//     zassert_is_null(ie_payload, "Transmitted PDU JUST FORCED TO PASS !!!");
-
-//     debug_print_timer_states("AFTER_KEEP_ALIVE_WAIT");
-    
-// }
-
-
-// ZTEST(dect_mac_assoc, test_2_pt_association_release)
-// {
-// 	printk("\n--- RUNNING TEST: %s ---\n", __func__);
-
-//     debug_operation_handle_map("BEFORE_TEST");
-
-//     /* Get current time at test start */
-//     uint64_t test_start_time = k_ticks_to_us_floor64(k_uptime_ticks());
-//     printk("[TEST] Test starting at time: %llu us\n", test_start_time);
-
-// 	/* --- 1. Perform a successful association (Setup) --- */
-// 	dect_mac_test_set_active_context(&g_mac_ctx_ft);
-// 	mock_phy_set_active_context(&g_phy_ctx_ft);
-// 	nrf_modem_dect_phy_activate(NRF_MODEM_DECT_PHY_RADIO_MODE_LOW_LATENCY);
-// 	dect_mac_start();
-// 	process_all_mac_events();
-// 	zassert_true(run_simulation_until(2000000, is_ft_beaconing), "FT never started beaconing");
-
-// 	dect_mac_test_inject_event_internal(&g_mac_ctx_ft, MAC_EVENT_TIMER_EXPIRED_BEACON, 0);
-// 	process_all_mac_events();
-
-// 	dect_mac_test_set_active_context(&g_mac_ctx_pt);
-// 	mock_phy_set_active_context(&g_phy_ctx_pt);
-// 	nrf_modem_dect_phy_activate(NRF_MODEM_DECT_PHY_RADIO_MODE_LOW_LATENCY);
-// 	dect_mac_start();
-// 	process_all_mac_events();
-// 	zassert_true(run_simulation_until(2000000, is_pt_associated), "PT never became associated");
-
-// 	printk("\n\n\n\nTEST: PT and FT are successfully associated.\n\n\n");
-// 	dect_mac_test_set_active_context(&g_mac_ctx_ft); /* Set context to FT before checking its state */
-// 	int peer_idx_before_release =
-// 		dect_mac_core_get_peer_slot_idx(g_mac_ctx_pt.own_short_rd_id);
-// 	zassert_true(peer_idx_before_release >= 0, "FT did not have PT as a peer before release");
-//     printk("\n\n\n\nFT had PT as a peer[%d] before release.\n\n\n", peer_idx_before_release);
-
-// 	/* --- 2. PT initiates the release --- */
-// 	dect_mac_test_set_active_context(&g_mac_ctx_pt);
-// 	zassert_ok(dect_mac_release(), "dect_mac_release() failed");
-// 	process_all_mac_events(); /* Process the CMD event */
-
-// 	/* --- 3. Run simulation until the FT receives the release PDU --- */
-// 	// zassert_true(run_simulation_until(3000000, is_ft_peer_list_empty),
-// 	// 	     "Simulation timed out, FT did not process the release");
-//     zassert_true(run_simulation_until(1000000, is_pt_scanning),
-// 		     "Simulation timed out, PT did not return to scanning state");
-
-// 	/* --- 4. Final assertions --- */
-// 	// dect_mac_test_set_active_context(&g_mac_ctx_pt);
-// 	// zassert_equal(g_mac_ctx_pt.state, MAC_STATE_PT_SCANNING,
-// 	// 	      "PT did not return to SCANNING state after release");
-
-// 	dect_mac_test_set_active_context(&g_mac_ctx_ft);
-// 	int peer_idx_after_release =
-// 		dect_mac_core_get_peer_slot_idx(g_mac_ctx_pt.own_short_rd_id);
-
-//     zassert_true(run_simulation_until(3000000, is_ft_peer_list_empty),
-// 		     "Simulation timed out, FT did not process the release");
-
-// 	zassert_true(peer_idx_after_release < 1,
-// 		     "FT did not invalidate the peer slot after release");
-
-//     /* Run simulation to allow messages to transmitted and received */
-//     printk("\n\n    -  TAKING A BREAK   -\n\n\n");
-// 	run_simulation_until(100000, NULL);             
-// }
-
-
 ZTEST(dect_mac_assoc, test_5_pt_ft_association)
 {
     printk("\n--- RUNNING TEST: %s ---\n", __func__);

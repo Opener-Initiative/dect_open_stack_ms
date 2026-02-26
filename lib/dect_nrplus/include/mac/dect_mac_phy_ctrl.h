@@ -58,7 +58,8 @@ void dect_mac_phy_ctrl_init(void);
 int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
                                enum nrf_modem_dect_phy_rx_mode mode,
                                uint32_t phy_op_handle, uint16_t expected_receiver_id,
-                               pending_op_type_t op_type);
+                               pending_op_type_t op_type,
+                               uint64_t start_time_modem_ticks);
 
 /**
  * @brief Starts a PHY TX operation using an already assembled MAC PDU, potentially at a scheduled time.

@@ -266,6 +266,9 @@ void dect_mac_event_dispatch(const struct dect_mac_event_msg *msg)
 
 	/* Set the active context for the duration of this dispatch. */
 	dect_mac_test_set_active_context(ctx);
+#if IS_ENABLED(CONFIG_ZTEST)
+    mock_phy_set_active_by_mac_context(ctx);
+#endif
 
     // printk("[DISPATCH_DBG] Event %s received. Current state is %s (%d).\n",
     //         dect_mac_event_to_str(msg->type), dect_mac_state_to_str(ctx->state), ctx->state);

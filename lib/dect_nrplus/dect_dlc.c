@@ -129,7 +129,7 @@ static dlc_scheduler_t g_dlc_scheduler;
 /* Queue for data from MAC to the DLC layer. */
 struct k_queue g_dlc_internal_mac_rx_queue;
 
-K_FIFO_DEFINE(g_dlc_retransmit_signal_fifo);
+K_QUEUE_DEFINE(g_dlc_retransmit_signal_queue);
 K_MEM_SLAB_DEFINE(g_dlc_rx_delivery_item_slab, sizeof(dlc_rx_delivery_item_t), 32, 4); /* Increased slab size for queues */
 
 /* Removed g_dlc_rx_sem as k_queue handles blocking */
@@ -224,7 +224,6 @@ int dlc_serialize_routing_header(uint8_t *target_buf, size_t target_buf_len,
 
     /* Dump input routing header fields */
     if (rh) {
-        printk("[SERIALIZE_RH_DBG] Input Routing Header:\n");
         printk("  -> bitmap=0x%04X\n", rh->bitmap);
         printk("  -> source_addr=0x%08X\n", rh->source_addr);
         printk("  -> dest_addr=0x%08X\n", rh->dest_addr);
@@ -232,7 +231,6 @@ int dlc_serialize_routing_header(uint8_t *target_buf, size_t target_buf_len,
         printk("  -> delay=0x%08X\n", rh->delay);
         printk("  -> sequence_number=%u\n", rh->sequence_number);
     } else {
-        printk("[SERIALIZE_RH_DBG] Input rh is NULL\n");
     }
 
     if (!target_buf || !rh) {
@@ -245,7 +243,6 @@ int dlc_serialize_routing_header(uint8_t *target_buf, size_t target_buf_len,
     size_t required_len = 0;
 
     /* Calculate required length for buffer validation */
-    printk("[SERIALIZE_RH_DBG] Calculating required buffer length:\n");
     required_len += 2; // bitmap
     printk("  -> bitmap: 2 bytes\n");
 
@@ -280,7 +277,6 @@ int dlc_serialize_routing_header(uint8_t *target_buf, size_t target_buf_len,
     }
 
     /* Serialize the data */
-    printk("[SERIALIZE_RH_DBG] Serializing fields:\n");
 	sys_put_be16(rh->bitmap, p);
     printk("  -> Wrote bitmap=0x%04X at offset %zu\n", rh->bitmap, (size_t)(p - target_buf));
     p += sizeof(uint16_t);
@@ -401,7 +397,7 @@ static void dlc_tx_status_cb_handler(uint16_t dlc_sn, bool success)
 		 */
 		LOG_WRN("DLC_ARQ_CB: MAC PERMANENT FAILURE for SN %u. Signaling for DLC-level re-TX.", dlc_sn);
 
-		k_fifo_put(&g_dlc_retransmit_signal_fifo, job);
+		k_queue_append(&g_dlc_retransmit_signal_queue, job);
 	}
 }
 
@@ -414,7 +410,6 @@ __weak int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 
 #if IS_ENABLED(CONFIG_DECT_DLC_API_MOCK)
 	if (g_dlc_send_spy_cb) {
-		printk("[DLC_SEND_DBG] Calling g_dlc_send_spy_cb \n");
 		return g_dlc_send_spy_cb(service, dest_long_id, cvg_pdu_payload, cvg_pdu_len, flow_id);
 	}
 #endif
@@ -497,7 +492,6 @@ __weak int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 		arq_job->flow_id = flow_id;
 		k_timer_start(&arq_job->lifetime_timer, K_MSEC(g_tx_sdu_lifetime_ms), K_NO_WAIT);
 	}
-printk("[DLC_SEND_DBG] Calling dlc_send_segmented...\n");
 	return dlc_send_segmented(service, dest_long_id, rh_buf, rh_len, cvg_pdu_payload, cvg_pdu_len, current_dlc_sn, flow_id);
 }
 
@@ -553,7 +547,6 @@ int dlc_parse_routing_header(const uint8_t *buf, size_t len, dect_dlc_routing_he
            DLC_RH_SRC_ADDR_SHIFT, (rh->bitmap >> DLC_RH_SRC_ADDR_SHIFT) & 0x01);
     
     if ((rh->bitmap >> DLC_RH_SRC_ADDR_SHIFT) & 0x01) {
-        printk("[PARSE_RH_DBG] Parsing Source Address\n");
         if ((p + sizeof(uint32_t)) > (buf + len)) {
             printk("[ERROR] Buffer overrun for source_addr\n");
             return -EMSGSIZE;
@@ -562,14 +555,12 @@ int dlc_parse_routing_header(const uint8_t *buf, size_t len, dect_dlc_routing_he
         printk("[PARSE_RH_DBG]  -> source_addr=0x%08X\n", rh->source_addr);
         p += sizeof(uint32_t);
     } else {
-        printk("[PARSE_RH_DBG] Source Address not present\n");
     }
 
     printk("[BITMASK_DBG] DLC_RH_DEST_ADDR_SHIFT = %d, Result = %d\n",
            DLC_RH_DEST_ADDR_SHIFT, (rh->bitmap >> DLC_RH_DEST_ADDR_SHIFT) & 0x07);
     
     if (((rh->bitmap >> DLC_RH_DEST_ADDR_SHIFT) & 0x07) == DLC_RH_DEST_ADD_PRESENT) {
-        printk("[PARSE_RH_DBG] Parsing Destination Address\n");
         if ((p + sizeof(uint32_t)) > (buf + len)) {
             printk("[ERROR] Buffer overrun for dest_addr\n");
             return -EMSGSIZE;
@@ -578,14 +569,12 @@ int dlc_parse_routing_header(const uint8_t *buf, size_t len, dect_dlc_routing_he
         printk("[PARSE_RH_DBG]  -> dest_addr=0x%08X\n", rh->dest_addr);
         p += sizeof(uint32_t);
     } else {
-        printk("[PARSE_RH_DBG] Destination Address not present\n");
     }
 
     printk("[BITMASK_DBG] DLC_RH_HOP_COUNT_LIMIT_SHIFT = %d, Result = %d\n",
            DLC_RH_HOP_COUNT_LIMIT_SHIFT, (rh->bitmap >> DLC_RH_HOP_COUNT_LIMIT_SHIFT) & 0x01);
     
     if ((rh->bitmap >> DLC_RH_HOP_COUNT_LIMIT_SHIFT) & 0x01) {
-        printk("[PARSE_RH_DBG] Parsing Hop Count/Limit\n");
         if ((p + 2) > (buf + len)) {
             printk("[ERROR] Buffer overrun for hop fields\n");
             return -EMSGSIZE;
@@ -594,11 +583,9 @@ int dlc_parse_routing_header(const uint8_t *buf, size_t len, dect_dlc_routing_he
         rh->hop_limit = *p++;
         printk("[PARSE_RH_DBG]  -> hop_count=%u, hop_limit=%u\n", rh->hop_count, rh->hop_limit);
     } else {
-        printk("[PARSE_RH_DBG] Hop Count/Limit not present\n");
     }
 
     if ((rh->bitmap >> DLC_RH_DELAY_SHIFT) & 0x01) {
-        printk("[PARSE_RH_DBG] Parsing Delay\n");
         if ((p + sizeof(uint32_t)) > (buf + len)) {
             printk("[ERROR] Buffer overrun for delay\n");
             return -EMSGSIZE;
@@ -607,11 +594,9 @@ int dlc_parse_routing_header(const uint8_t *buf, size_t len, dect_dlc_routing_he
         printk("[PARSE_RH_DBG]  -> delay=0x%08X\n", rh->delay);
         p += sizeof(uint32_t);
     } else {
-        printk("[PARSE_RH_DBG] Delay not present\n");
     }
 
     if ((rh->bitmap >> DLC_RH_SEQ_NUM_SHIFT) & 0x01) {
-        printk("[PARSE_RH_DBG] Parsing Sequence Number\n");
         if (p >= (buf + len)) {
             printk("[ERROR] Buffer overrun for sequence number\n");
             return -EMSGSIZE;
@@ -619,7 +604,6 @@ int dlc_parse_routing_header(const uint8_t *buf, size_t len, dect_dlc_routing_he
         rh->sequence_number = *p++;
         printk("[PARSE_RH_DBG]  -> sequence_number=%u\n", rh->sequence_number);
     } else {
-        printk("[PARSE_RH_DBG] Sequence Number not present\n");
     }
 
     /* Hexdump of serialized buffer */
@@ -715,7 +699,6 @@ static void dlc_rx_thread_entry(void *p1, void *p2, void *p3)
         size_t dlc_sdu_payload_len = 0;
 
         if (si == DLC_SI_COMPLETE_SDU) {
-            printk("[DLC_RX_DBG] Path: Complete SDU. Passing original MAC buffer up.\n");
             printk("  -> sdu_buf ptr: %p\n", (void *)mac_sdu);            
             size_t hdr_len = sizeof(dect_dlc_header_type123_basic_t);
             dlc_sdu_payload_ptr = dlc_pdu + hdr_len;
@@ -895,7 +878,7 @@ printk("[DLC_RX_DBG] dest_addr:0x%08X routing_type:%d\n", rh.dest_addr, routing_
                                 LOG_ERR("DLC_RX_FWD: Forwarding reassembled SDU failed: too large for MAC (%zu bytes).", fwd_needed);
                             } else {
                                 dect_dlc_header_type123_basic_t fwd_dlc_hdr;
-                                uint8_t fwd_payload_buf[CONFIG_DECT_MAC_SDU_MAX_SIZE];
+                                static uint8_t fwd_payload_buf[CONFIG_DECT_MAC_SDU_MAX_SIZE];
 
                                 memcpy(fwd_payload_buf, rh_fwd_buf, new_rh_len);
                                 memcpy(fwd_payload_buf + new_rh_len, current_msg_payload_ptr, current_msg_payload_len);
@@ -935,7 +918,6 @@ printk("[DLC_RX_DBG] dest_addr:0x%08X routing_type:%d\n", rh.dest_addr, routing_
 
                 if (alloc_ret == 0) {
                     dlc_app_sdu_t *app_sdu = NULL;
-                    printk("[DLC_RX_DBG] Message for local device. Allocating from app slab.\n");
                     int sdu_alloc_ret = k_mem_slab_alloc(&g_dlc_app_sdu_slab, (void **)&app_sdu, K_NO_WAIT);
                     
                     if (sdu_alloc_ret != 0) {
@@ -1017,7 +999,7 @@ static void dlc_tx_service_thread_entry(void *p1, void *p2, void *p3)
 	printk("[ARQ_THREAD_DBG] ARQ service thread started. Active context ROLE is:%d\n",dect_mac_get_role());
 
 	while (1) {
-		dlc_retransmission_job_t *job = k_fifo_get(&g_dlc_retransmit_signal_fifo, K_FOREVER);
+		dlc_retransmission_job_t *job = k_queue_get(&g_dlc_retransmit_signal_queue, K_FOREVER);
 		if (!job || !job->is_active) {
 			continue;
 		}
@@ -1089,12 +1071,9 @@ void dlc_test_set_receive_spy(int (*handler)(dlc_service_type_t *, uint32_t *, u
 
 int dect_dlc_init(void)
 {
-	// printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_to_app_rx_dlist BEFORE init & start: %p\n",
-	//        (void *)&g_dlc_to_app_rx_dlist);
-	printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue BEFORE init: %p\n",
+	printk("[DLC_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue BEFORE init: %p\n",
 	       (void *)&g_dlc_internal_mac_rx_queue);
 
-	printk("[DLC_INIT_DBG] Entered dect_dlc_init.\n");
     /* Initialize Scheduler Queues */
     for (int i = 0; i < DLC_LANE_COUNT; i++) {
         k_queue_init(&g_dlc_scheduler.queues[i]);
@@ -1107,9 +1086,7 @@ int dect_dlc_init(void)
 
 	k_queue_init(&g_dlc_internal_mac_rx_queue);
 
-	/* printk("[INIT_DLIST_DBG] DLC's APP RX dlist (g_dlc_to_app_rx_dlist) is at address: %p\n",
-	       (void *)&g_dlc_to_app_rx_dlist); */
-	printk("[INIT_QUEUE_DBG] DLC's internal RX queue (g_dlc_internal_mac_rx_queue) is at address: %p\n",
+	printk("[DLC_INIT_QUEUE_DBG] DLC's internal RX queue (g_dlc_internal_mac_rx_queue) is at address: %p\n",
 	       (void *)&g_dlc_internal_mac_rx_queue);
 
 	/* Create threads in a suspended state. The application/test will start them. */
@@ -1129,7 +1106,6 @@ int dect_dlc_init(void)
 	/* START THE THREADS - THIS IS WHAT'S MISSING */
 	k_thread_start(g_dlc_rx_thread_id);
 	k_thread_start(g_dlc_tx_service_thread_id);
-	printk("[DLC_INIT_DBG] Started DLC RX and TX service threads\n");
 
 	for (int i = 0; i < MAX_DLC_RETRANSMISSION_JOBS; i++) {
 		k_timer_init(&retransmission_jobs[i].retransmit_attempt_timer,
@@ -1145,9 +1121,7 @@ int dect_dlc_init(void)
 		reassembly_sessions[i].timeout_timer.user_data = (void *)(uintptr_t)i;
 		reassembly_sessions[i].is_active = false;
 	}
-	/* The DLC provides its RX dlist and TX status callback to the unified MAC init function. */
-	printk("[DLC_INIT_DBG] About to call dect_mac_init...\n");
-	// int err = dect_mac_init(&g_dlc_to_app_rx_dlist, dlc_tx_status_cb_handler);
+	/* The DLC provides its RX k_queue and TX status callback to the unified MAC init function. */
 	int err = dect_mac_init(&g_dlc_internal_mac_rx_queue, dlc_tx_status_cb_handler);
 	
 	if (err) {
@@ -1155,9 +1129,7 @@ int dect_dlc_init(void)
 		return err;
 	}
 
-	// printk("[DLIST_INIT_ORDER_DBG] Address of g_dlc_to_app_rx_dlist AFTER init & start: %p\n",
-	//        (void *)&g_dlc_to_app_rx_dlist);
-	printk("[QUEUE_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue AFTER init & start: %p\n",
+	printk("[DLC_INIT_QUEUE_DBG] Address of g_dlc_internal_mac_rx_queue AFTER init & start: %p\n",
 	       (void *)&g_dlc_internal_mac_rx_queue);
 
 	LOG_INF("DLC Layer Initialized.");
@@ -1175,14 +1147,10 @@ void dect_dlc_test_reset_duplicate_cache(void)
 int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr_out,
 		     uint8_t *app_level_payload_buf, size_t *app_level_payload_len_inout,
 		     k_timeout_t timeout)
-// int dlc_receive_data(dlc_service_type_t *service_type_out, uint8_t *app_level_payload_buf,
-// 		     size_t *app_level_payload_len_inout, k_timeout_t timeout)
 {
-	printk("[DLC_RECV_DBG] Entering dlc_receive_data...\n");
 
 #if IS_ENABLED(CONFIG_DECT_DLC_API_MOCK)
 	if (g_dlc_receive_spy_cb) {
-		printk("[DLC_RECV_DBG] Calling g_dlc_receive_spy_cb...\n");
 		return g_dlc_receive_spy_cb(service_type_out, source_addr_out, app_level_payload_buf,
 					    app_level_payload_len_inout, timeout);
 	}
@@ -1190,13 +1158,6 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 
 	if (!service_type_out || !app_level_payload_buf || !app_level_payload_len_inout ||
 	    (*app_level_payload_len_inout == 0)) {
-		printk("[DLC_RECV_DBG] (!service_type_out || !app_level_payload_buf || !app_level_payload_len_inout || (*app_level_payload_len_inout == 0)) ERROR...\n");
-		return -EINVAL;
-	}
-
-	if (!service_type_out || !app_level_payload_buf || !app_level_payload_len_inout ||
-	    (*app_level_payload_len_inout == 0)) {
-		printk("[DLC_RECV_DBG] Invalid args.\n");
 		return -EINVAL;
 	}
 
@@ -1265,7 +1226,6 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 
 	printk("[DLC_RECV_DBG] delivery_item->is_app_sdu:%s *app_level_payload_len_inout:%zu \n", delivery_item->is_app_sdu? "Yes":"No", *app_level_payload_len_inout);
 	if (delivery_item->is_app_sdu) {
-		printk("[DLC_RECV_DBG] Processing APP SDU buffer\n");
 		dlc_app_sdu_t *sdu_buf = delivery_item->sdu_buf;
 		
 		if (*app_level_payload_len_inout < sdu_buf->len) {
@@ -1283,7 +1243,6 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 		k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)sdu_buf);
 	} else {
         /* Legacy path fallback, usually unused now */
-		printk("[DLC_RECV_DBG] Processing MAC SDU buffer\n");
 		mac_sdu_t *sdu_buf = delivery_item->sdu_buf;
 		
 		/* Unsegmented packets have routing header stripped before this point */
@@ -1307,7 +1266,6 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 	*service_type_out = delivery_item->dlc_service_type;
     /* Free the delivery item wrapper */
 	k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)delivery_item);
-printk("[DLC_RECV_DBG] EXITTING dlc_receive_data...\n");
 	return 0;
 }
 
@@ -1361,7 +1319,7 @@ static void dlc_retransmit_attempt_timeout_handler(struct k_timer *timer_id)
 	if (job_idx < MAX_DLC_RETRANSMISSION_JOBS && retransmission_jobs[job_idx].is_active) {
 		LOG_WRN("DLC_ARQ_TIMEOUT: Transmission for SN %u timed out. Signaling for re-TX.",
 			retransmission_jobs[job_idx].sequence_number);
-		k_fifo_put(&g_dlc_retransmit_signal_fifo, &retransmission_jobs[job_idx]);
+		k_queue_append(&g_dlc_retransmit_signal_queue, &retransmission_jobs[job_idx]);
 	}
 }
 
@@ -1603,7 +1561,7 @@ static int dlc_sched_drop_oldest(void)
             
             if (dropped->sdu_buf) {
                 if (dropped->is_app_sdu) {
-                    k_mem_slab_free(&g_dlc_app_sdu_slab, &dropped->sdu_buf);
+                    k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)dropped->sdu_buf);
                 } else {
                     dect_mac_buffer_free(dropped->sdu_buf);
                 }

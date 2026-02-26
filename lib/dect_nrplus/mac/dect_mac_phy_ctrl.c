@@ -150,7 +150,8 @@ void dect_mac_phy_ctrl_build_pcc_header(union nrf_modem_dect_phy_hdr *pcc_hdr,
 
 int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 			       enum nrf_modem_dect_phy_rx_mode mode, uint32_t phy_op_handle,
-			       uint16_t expected_receiver_id, pending_op_type_t op_type)
+			       uint16_t expected_receiver_id, pending_op_type_t op_type,
+			       uint64_t start_time_modem_ticks)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
@@ -165,10 +166,6 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 				dect_pending_op_to_str(op_type), phy_op_handle,
 				dect_pending_op_to_str(ctx->pending_op_type),
 				ctx->pending_op_handle);
-			// LOG_WRN("PHY_CTRL_RX: Cannot start RX op %s (H:%u), op %s (H:%u) already pending.",
-			// 	dect_pending_op_to_str(op_type), phy_op_handle,
-			// 	dect_pending_op_to_str(ctx->pending_op_type),
-			// 	ctx->pending_op_handle);				
 			return -EBUSY;
 		}
 	}
@@ -179,39 +176,30 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 	printk("[PHY_CTRL_SET_PENDING] Set pending op to Type: %s, Handle: %u\n",
 	       dect_pending_op_to_str(op_type), phy_op_handle);
 
+	/* Pass start_time_modem_ticks directly. The mock PHY (and real PHY API) treats
+	 * start_time as a raw modem time value; 0 = immediate start.
+	 * This matches the convention used by the TX path (phy_op_target_start_time). */
 	struct nrf_modem_dect_phy_rx_params rx_params = {
-		.start_time = 0, /* Default to immediate start for RX initiated by MAC logic */
+		.start_time = start_time_modem_ticks,
 		.handle = phy_op_handle,
 		.network_id = ctx->network_id_32bit,
 		.mode = mode,
 		.rssi_interval =
-			NRF_MODEM_DECT_PHY_RSSI_INTERVAL_OFF, /* Default, can be changed by caller if needed */
-		.link_id = NRF_MODEM_DECT_PHY_LINK_UNSPECIFIED, /* TODO: Set if multi-link AFC is used */
-		.rssi_level = 0, /* Auto AGC */
+			NRF_MODEM_DECT_PHY_RSSI_INTERVAL_OFF,
+		.link_id = NRF_MODEM_DECT_PHY_LINK_UNSPECIFIED,
+		.rssi_level = 0,
 		.carrier = carrier,
 		.duration = duration_modem_units,
 		.filter = { .short_network_id = (uint8_t)(ctx->network_id_32bit & 0xFF),
 			    .is_short_network_id_used = 1,
-			    /* Use the passed-in receiver ID. This allows for broadcast (0xFFFF) or unicast. */
 			    .receiver_identity = (expected_receiver_id) }
-				// .receiver_identity = sys_cpu_to_be16(expected_receiver_id) }
 	};
 
-	printk("PHY_CTRL_RX: Sending RX. op %s (H:%u), pending op %s (H:%u).\n",
-				dect_pending_op_to_str(op_type), phy_op_handle,
-				dect_pending_op_to_str(ctx->pending_op_type),
-				ctx->pending_op_handle);
-
-	printk("PHY_CTRL_RX: Sending RX. Hdl: %u, C: %u, Mode: %d, Dur: %u TU, RxID_Filter: 0x%04X, OpT: %s \n",
+	printk("PHY_CTRL_RX: Sending RX. Hdl: %u, C: %u, Mode: %d, Dur: %u TU, RxID_Filter: 0x%04X, OpT: %s, StartTime(ticks): %llu\n",
 		phy_op_handle, carrier, mode, duration_modem_units, expected_receiver_id,
-		dect_pending_op_to_str(op_type));
-
-	// LOG_DBG("PHY_CTRL_RX: Starting RX. Hdl: %u, C: %u, Mode: %d, Dur: %u TU, RxID_Filter: 0x%04X, OpT: %s",
-	// 	phy_op_handle, carrier, mode, duration_modem_units, expected_receiver_id,
-	// 	dect_pending_op_to_str(op_type));
+		dect_pending_op_to_str(op_type), start_time_modem_ticks);
 
 	int ret = nrf_modem_dect_phy_rx(&rx_params);
-	// printk("[PHY_CTRL_RX] nrf_modem_dect_phy_rx returned: %d\n", ret);
 	if (ret == 0) {
 		dect_mac_phy_if_register_op_handle(phy_op_handle, ctx);
 	}

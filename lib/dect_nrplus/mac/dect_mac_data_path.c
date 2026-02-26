@@ -530,6 +530,10 @@ static void update_security_context_after_tx(dect_mac_context_t* ctx, int ft_tar
         ctx->send_mac_sec_info_ie_on_next_tx = false;
     }
 }
+#define SDU_BUFFER_PADDING 10
+#define SDU_AREA_BUF_SIZE (CONFIG_DECT_MAC_SDU_MAX_SIZE + SDU_BUFFER_PADDING)
+K_MEM_SLAB_DEFINE(g_mac_sdu_area_slab, SDU_AREA_BUF_SIZE, 4, 4);
+
 static int send_data_mac_sdu_via_phy_internal(dect_mac_context_t* ctx,
                                      mac_sdu_t *mac_sdu_dlc_pdu, /* Contains DLC PDU */
                                      int harq_proc_idx, bool is_retransmission,
@@ -542,13 +546,13 @@ static int send_data_mac_sdu_via_phy_internal(dect_mac_context_t* ctx,
     // Constants for better maintainability
     #define INVALID_SHORT_ID 0xFFFF
     #define MIC_SIZE 5
-    #define SDU_BUFFER_PADDING 10
     
     int ret = 0;
     mac_sdu_t *pdu_sdu = NULL;
     uint8_t *full_mac_pdu_for_phy = NULL;
     bool pdu_sdu_allocated = false;
     bool mac_sdu_dlc_pdu_owned = false;
+    uint8_t *sdu_area_buf = NULL;
 
     // Debug prints
     printk("[HEADER_TYPE_DBG] MAC_COMMON_HEADER_TYPE_UNICAST = 0x%02X\n", MAC_COMMON_HEADER_TYPE_UNICAST);
@@ -704,14 +708,17 @@ static int send_data_mac_sdu_via_phy_internal(dect_mac_context_t* ctx,
     common_hdr.sequence_num_low = psn_for_this_pdu & 0xFF;
 
     /* Build SDU area with information elements */
-    uint8_t sdu_area_buf[CONFIG_DECT_MAC_SDU_MAX_SIZE + SDU_BUFFER_PADDING];
+    if (k_mem_slab_alloc(&g_mac_sdu_area_slab, (void **)&sdu_area_buf, K_NO_WAIT) != 0) {
+        LOG_ERR("DATA_TX_INT: Failed to alloc SDU area buffer");
+        ret = -ENOMEM;
+        goto cleanup;
+    }
     size_t current_sdu_area_len = 0;
     size_t len_of_muxed_sec_ie_for_crypto_calc = 0;
 
-    /* Build security information element if needed */
     if (security_active_for_this_pdu && include_mac_sec_info_ie) {
         int ie_len = build_mac_security_info_ie_muxed(
-            sdu_area_buf, sizeof(sdu_area_buf),
+            sdu_area_buf, SDU_AREA_BUF_SIZE,
             0, ctx->current_key_index,
             sec_iv_type_for_current_tx_ie,
             ctx->hpc);
@@ -745,7 +752,7 @@ static int send_data_mac_sdu_via_phy_internal(dect_mac_context_t* ctx,
     }
 
     int ie_len = build_user_data_ie_muxed(sdu_area_buf + current_sdu_area_len,
-                                      sizeof(sdu_area_buf) - current_sdu_area_len,
+                                      SDU_AREA_BUF_SIZE - current_sdu_area_len,
                                       mac_sdu_dlc_pdu->data, mac_sdu_dlc_pdu->len,
                                       target_ie_type);
     if (ie_len < 0) {
@@ -885,7 +892,22 @@ static int send_data_mac_sdu_via_phy_internal(dect_mac_context_t* ctx,
         harq_p->tx_attempts++;
     }
     harq_p->needs_retransmission = false;
-    k_timer_start(&harq_p->retransmission_timer, K_MSEC(HARQ_ACK_TIMEOUT_MS), K_NO_WAIT);
+    {
+        /* Adjust the HARQ timer to account for future TX slot times.
+         * phy_op_target_start_time is in modem ticks, which the mock PHY
+         * treats identically to microseconds. If the TX is scheduled for a
+         * future slot, the timer must not fire before the packet is actually
+         * transmitted over the air. */
+        uint64_t now_us = k_ticks_to_us_floor64(k_uptime_ticks());
+        uint32_t future_delay_ms = 0;
+        if (phy_op_target_start_time > now_us) {
+            uint64_t delay_us = phy_op_target_start_time - now_us;
+            future_delay_ms = (uint32_t)(delay_us / 1000U);
+        }
+        k_timer_start(&harq_p->retransmission_timer,
+                      K_MSEC((uint32_t)HARQ_ACK_TIMEOUT_MS + future_delay_ms),
+                      K_NO_WAIT);
+    }
 
     /* Update security context if security information element was included */
     if (include_mac_sec_info_ie && security_active_for_this_pdu && !is_retransmission) {
@@ -900,6 +922,9 @@ static int send_data_mac_sdu_via_phy_internal(dect_mac_context_t* ctx,
 
 cleanup:
     /* Cleanup resources based on ownership flags */
+    if (sdu_area_buf) {
+        k_mem_slab_free(&g_mac_sdu_area_slab, sdu_area_buf);
+    }
     if (pdu_sdu_allocated && pdu_sdu) {
         dect_mac_buffer_free(pdu_sdu);
     }
@@ -916,7 +941,6 @@ cleanup:
 
     #undef INVALID_SHORT_ID
     #undef MIC_SIZE
-    #undef SDU_BUFFER_PADDING
     
     return ret;
 }
@@ -1245,6 +1269,7 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
             }
             if (peer && peer->is_valid) {
                  peer->last_rx_sdu_len = dlc_pdu_len_from_mux;
+                 printk("RX_SDU_HANDLER: peer->last_rx_sdu_len = %d\n", peer->last_rx_sdu_len);
             }
             
             if (g_dlc_rx_sdu_queue_ptr != NULL) {
@@ -1293,7 +1318,7 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
                         
                         printk("[QUEUE_DBG] After append, g_dlc_rx_sdu_queue_ptr is %s.\n",
 				                k_queue_is_empty(g_dlc_rx_sdu_queue_ptr) ? "EMPTY" : "NOT EMPTY");
-                        printk("RX_SDU_HANDLER: Successfully added SDU to dlist. Dlist ptr: %p\n", 
+                        printk("RX_SDU_HANDLER: Successfully added SDU to queue. k_queue ptr: %p\n", 
                                 g_dlc_rx_sdu_queue_ptr);
                         
                         // Log first few bytes for verification

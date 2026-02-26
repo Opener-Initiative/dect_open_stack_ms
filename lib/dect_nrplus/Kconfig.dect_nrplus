@@ -6,7 +6,7 @@
 menuconfig NET_L2_DECT_NRPLUS
 	bool "DECT NR+ L2 network driver"
 	depends on NETWORKING && DECT_NRPLUS_STACK
-	select NET_L2_6LO if NET_IPV6
+	select NET_6LO if NET_IPV6
 	help
 	  Enable the DECT NR+ L2 network driver. This driver acts as the
 	  glue between the DECT NR+ protocol stack (CVG/DLC/MAC) and the
@@ -33,5 +33,12 @@ if NET_L2_DECT_NRPLUS
 		default 80 # Typical for network drivers
 		help
 		  Initialization priority of the DECT NR+ L2 network driver.
+
+	config NET_CONFIG_MY_IPV6_PREFIX
+		string "Default IPv6 prefix"
+		default "2001:db8:cafe::"
+		help
+		  The default IPv6 prefix to be used for DECT NR+ interfaces when 
+		  stateless address autoconfiguration or DHCPv6 is not used.
 
 endif # NET_L2_DECT_NRPLUS

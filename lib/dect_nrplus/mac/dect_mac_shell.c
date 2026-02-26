@@ -272,19 +272,17 @@ static int cmd_inject_ie(const struct shell *sh, size_t argc, char **argv)
 		return -ENOMEM;
 	}
 
-	/* Convert hex string to binary */
-	uint8_t payload[CONFIG_DECT_MAC_SDU_MAX_SIZE];
-	for (size_t i = 0; i < payload_len; i++) {
-		char byte_str[3] = {hex_str[i*2], hex_str[i*2 + 1], '\0'};
-		payload[i] = (uint8_t)strtoul(byte_str, NULL, 16);
-	}
-
 	/* Build MAC PDU with custom IE
 	 * Format: [MAC Extension (2b) + IE Type (6b)] [Payload]
 	 * For simplicity, use no length field (extension = 00)
 	 */
 	sdu->data[0] = ie_type & 0x3F; // 6-bit IE type, extension = 00
-	memcpy(&sdu->data[1], payload, payload_len);
+
+	/* Convert hex string to binary directly into SDU */
+	for (size_t i = 0; i < payload_len; i++) {
+		char byte_str[3] = {hex_str[i*2], hex_str[i*2 + 1], '\0'};
+		sdu->data[1 + i] = (uint8_t)strtoul(byte_str, NULL, 16);
+	}
 	sdu->len = payload_len + 1;
 
 	shell_print(sh, "Injecting IE Type 0x%02X with %zu bytes payload...", ie_type, payload_len);

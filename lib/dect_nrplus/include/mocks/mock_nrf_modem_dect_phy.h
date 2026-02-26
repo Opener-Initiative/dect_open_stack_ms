@@ -249,6 +249,16 @@ void mock_phy_init_context(mock_phy_context_t *ctx,
 void mock_phy_set_active_context(mock_phy_context_t *ctx);
 
 /**
+ * @brief Set the active PHY context based on the associated MAC context
+ * 
+ * Searches the registry of all known PHY contexts and sets the one matching
+ * the provided MAC context as active.
+ * 
+ * @param mac_ctx MAC context to match
+ */
+void mock_phy_set_active_by_mac_context(struct dect_mac_context *mac_ctx);
+
+/**
  * @brief Reset PHY context to initial state
  * 
  * Cancels all scheduled operations, clears all queued packets, and resets

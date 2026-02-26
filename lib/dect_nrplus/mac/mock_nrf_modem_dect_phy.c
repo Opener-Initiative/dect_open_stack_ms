@@ -40,6 +40,10 @@ static int8_t g_mock_rssi_buffer[MOCK_RSSI_MAX_SAMPLES];
 static mock_phy_context_t *g_active_phy_ctx = NULL;
 static nrf_modem_dect_phy_event_handler_t g_event_handler = NULL;
 
+#define MAX_NODES 16
+static mock_phy_context_t *g_all_phys[MAX_NODES];
+static size_t g_num_all_phys = 0;
+
 /* --- Forward declarations for internal functions --- */
 static void mock_phy_send_event(const struct nrf_modem_dect_phy_event *event);
 static int find_free_timeline_slot(mock_phy_context_t *ctx);
@@ -79,7 +83,7 @@ static void init_rf_environment(void)
 
     /* 2. Set the Default Channel to be "Clean" (-100 dBm) */
     /* This ensures the FT DCS algorithm will prefer this channel if RSSI is valid. */
-    int default_carrier = 0;
+    int default_carrier = 2;
 #ifdef CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL
     default_carrier = CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL;
 #endif
@@ -149,6 +153,19 @@ void mock_phy_init_context(mock_phy_context_t *ctx, struct dect_mac_context *mac
     ctx->num_peers = num_peers;
     ctx->num_active_rx_ops = 0;
     ctx->state = PHY_STATE_DEINITIALIZED;
+
+    if (g_num_all_phys < MAX_NODES) {
+        bool already_present = false;
+        for (size_t i = 0; i < g_num_all_phys; i++) {
+            if (g_all_phys[i] == ctx) {
+                already_present = true;
+                break;
+            }
+        }
+        if (!already_present) {
+            g_all_phys[g_num_all_phys++] = ctx;
+        }
+    }
     
     static bool env_init_done = false;
     if (!env_init_done) {
@@ -160,6 +177,16 @@ void mock_phy_init_context(mock_phy_context_t *ctx, struct dect_mac_context *mac
 void mock_phy_set_active_context(mock_phy_context_t *ctx)
 {
     g_active_phy_ctx = ctx;
+}
+
+void mock_phy_set_active_by_mac_context(struct dect_mac_context *mac_ctx)
+{
+    for (size_t i = 0; i < g_num_all_phys; i++) {
+        if (g_all_phys[i]->mac_ctx == mac_ctx) {
+            g_active_phy_ctx = g_all_phys[i];
+            return;
+        }
+    }
 }
 
 int mock_phy_queue_rx_packet(mock_phy_context_t *dest_ctx, const mock_rx_packet_t *packet)
@@ -251,7 +278,110 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
         }
     }
     
-    /* --- Phase 2: Complete Scheduled Operations --- */
+    /* --- Phase 2: Process Incoming RX Packets --- */
+    /* Process ALL packets in the queue that have arrived by current_time_us */
+    bool processed_packet;
+    do {
+        processed_packet = false;
+        int next_pkt_idx = -1;
+        uint64_t earliest_time = UINT64_MAX;
+
+        for (int i = 0; i < MOCK_RX_QUEUE_MAX_PACKETS; i++) {
+            if (ctx->rx_queue[i].active && ctx->rx_queue[i].reception_time_us <= current_time_us) {
+                if (ctx->rx_queue[i].reception_time_us < earliest_time) {
+                    earliest_time = ctx->rx_queue[i].reception_time_us;
+                    next_pkt_idx = i;
+                }
+            }
+        }
+
+        if (next_pkt_idx != -1) {
+            mock_rx_packet_t *pkt = &ctx->rx_queue[next_pkt_idx];
+            processed_packet = true;
+
+            printk("[MOCK_PROCESS_RX_DBG] Processing packet from slot %d (Time: %llu). Searching for matching RX op...\n", 
+                   next_pkt_idx, pkt->reception_time_us);
+
+            /* --- Feature: Packet Loss Simulation --- */
+            if (g_mock_packet_loss_rate_percent > 0 && (sys_rand32_get() % 100 < g_mock_packet_loss_rate_percent)) {
+                printk("[MOCK_RF_LOSS] Probability drop. Time: %llu, Carrier: %u\n", pkt->reception_time_us, pkt->carrier);
+                pkt->active = false;
+                continue;
+            }
+
+            /* --- Feature: Collision Detection --- */
+            bool collision = false;
+            if (g_mock_collisions_enabled) {
+                for (int k = 0; k < MOCK_RX_QUEUE_MAX_PACKETS; k++) {
+                    if (k != next_pkt_idx && ctx->rx_queue[k].active && ctx->rx_queue[k].carrier == pkt->carrier) {
+                        bool overlaps = (pkt->reception_time_us < (ctx->rx_queue[k].reception_time_us + ctx->rx_queue[k].duration_us)) &&
+                                        (ctx->rx_queue[k].reception_time_us < (pkt->reception_time_us + pkt->duration_us));
+                        if (overlaps) { 
+                            collision = true; 
+                            printk("[MOCK_RF_COLLISION] Detected overlap between slot %d and %d on carrier %u\n", next_pkt_idx, k, pkt->carrier);
+                            break; 
+                        }
+                    }
+                }
+            }
+
+            /* Find a matching, active RX operation on the timeline.
+             * Note: We can now find matching ops even if they are about to end,
+             * because they haven't been deactivated yet!
+             */
+            bool rx_op_found = false;
+            for (int j = 0; j < MOCK_TIMELINE_MAX_EVENTS; ++j) {
+                mock_scheduled_operation_t *rx_op = &ctx->timeline[j];
+
+                if (rx_op->active && rx_op->running && rx_op->type == MOCK_OP_TYPE_RX) {
+                    if (pkt->carrier == rx_op->carrier) {
+                        mock_phy_set_active_context(ctx);
+                        rx_op_found = true;
+
+                        if (collision) {
+                            printk("[MOCK_RF_COLLISION] Reporting PCC_ERROR for Handle %u at %llu.\n", rx_op->handle, pkt->reception_time_us);
+                            ctx->transaction_id_counter++; 
+                            if (ctx->transaction_id_counter == 0) ctx->transaction_id_counter = 1;
+                            
+                            struct nrf_modem_dect_phy_event pcc_err = {
+                                .id = NRF_MODEM_DECT_PHY_EVT_PCC_ERROR,
+                                .time = pkt->reception_time_us,
+                                .pcc_crc_err = { .handle = rx_op->handle, .transaction_id = ctx->transaction_id_counter }
+                            };
+                            mock_phy_send_event(&pcc_err);
+                        } else {
+                            printk("[MOCK_PROCESS_RX_DBG] Delivering packet from slot %d. Handle: %u\n", next_pkt_idx, rx_op->handle);
+                            
+                            struct nrf_modem_dect_phy_event pcc_evt = {
+                                .id = NRF_MODEM_DECT_PHY_EVT_PCC,
+                                .time = pkt->reception_time_us,
+                                .pcc = pkt->pcc_data};
+                            pcc_evt.pcc.handle = rx_op->handle;
+                            mock_phy_send_event(&pcc_evt);
+
+                            struct nrf_modem_dect_phy_event pdc_evt = {
+                                .id = NRF_MODEM_DECT_PHY_EVT_PDC,
+                                .time = pkt->reception_time_us,
+                                .pdc = {.handle = rx_op->handle, .data = pkt->pdc_payload, .len = pkt->pdc_len}};
+                            mock_phy_send_event(&pdc_evt);
+                        }
+                        break; 
+                    }
+                }
+            }
+            
+            if (!rx_op_found && !collision) {
+                printk("[MOCK_PROCESS_RX_DBG] No matching RX Op found for packet on carrier %u\n", pkt->carrier);
+            }
+
+            pkt->active = false;
+        }
+    } while (processed_packet);
+
+    /* --- Phase 3: Complete Scheduled Operations --- */
+    /* Deactivation happens LAST, so RX packets arriving exactly at the end time 
+     * are still processed.
+     */
     for (int i = 0; i < MOCK_TIMELINE_MAX_EVENTS; ++i) {
         mock_scheduled_operation_t *op = &ctx->timeline[i];
         if (op->active && op->running && op->end_time_us <= current_time_us) {
@@ -259,20 +389,9 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
                    op->handle, op->type, current_time_us, op->end_time_us);
             mock_phy_set_active_context(ctx);
             
-            /* Handle RSSI completion specially */
             if (op->type == MOCK_OP_TYPE_RSSI) {
-				int8_t rssi_val = (op->carrier < MOCK_MAX_CARRIERS) ? g_mock_carrier_noise_dbm[op->carrier] : -60;
-                
-                /* Fill the static buffer with the measured value */
+                int8_t rssi_val = (op->carrier < MOCK_MAX_CARRIERS) ? g_mock_carrier_noise_dbm[op->carrier] : -60;
                 memset(g_mock_rssi_buffer, rssi_val, MOCK_RSSI_MAX_SAMPLES);
-                
-                printk("[MOCK_RSSI_REPORT] Handle: %u, Carrier: %u, RSSI: %d dBm (Simulating %d samples)\n", 
-                       op->handle, op->carrier, rssi_val, MOCK_RSSI_MAX_SAMPLES);
-                // int8_t dummy_meas[1];
-                // dummy_meas[0] = (op->carrier < MOCK_MAX_CARRIERS) ? g_mock_carrier_noise_dbm[op->carrier] : -60;
-                
-                // printk("[MOCK_RSSI_REPORT] Handle: %u, Carrier: %u, RSSI: %d dBm\n", 
-                //        op->handle, op->carrier, dummy_meas[0]);
                 
                 struct nrf_modem_dect_phy_event rssi_evt = {
                     .id = NRF_MODEM_DECT_PHY_EVT_RSSI,
@@ -281,16 +400,13 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
                         .handle = op->handle, 
                         .meas_start_time = op->start_time_us, 
                         .carrier = op->carrier,
-						.meas_len = MOCK_RSSI_MAX_SAMPLES, /* Return multiple samples */
-                        .meas = g_mock_rssi_buffer         /* Pointer to full buffer */
-                        // .meas_len = 1, 
-                        // .meas = dummy_meas 
+                        .meas_len = MOCK_RSSI_MAX_SAMPLES,
+                        .meas = g_mock_rssi_buffer 
                     }
                 };
                 mock_phy_send_event(&rssi_evt);
             }
             
-            /* General completion event */
             struct nrf_modem_dect_phy_event complete_evt = {
                 .id = NRF_MODEM_DECT_PHY_EVT_COMPLETED,
                 .time = op->end_time_us,
@@ -300,117 +416,6 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
             op->active = false;
         }
     }
-
-    /* --- Phase 3: Process Incoming RX Packets --- */
-    /* Find the single next RX packet to process */
-    int next_pkt_idx = -1;
-    uint64_t earliest_time = UINT64_MAX;
-    for (int i = 0; i < MOCK_RX_QUEUE_MAX_PACKETS; i++) {
-		if (ctx->rx_queue[i].active) {
-			printk("[MOCK_PROCESS_RX_DBG] Found active packet in slot %d for time %llu (current time: %llu)\n",
-			       i, ctx->rx_queue[i].reception_time_us, current_time_us);
-		}
-
-        if (ctx->rx_queue[i].active && ctx->rx_queue[i].reception_time_us <= current_time_us) {
-            if (ctx->rx_queue[i].reception_time_us < earliest_time) {
-                earliest_time = ctx->rx_queue[i].reception_time_us;
-                next_pkt_idx = i;
-            }
-        }
-    }
-
-    if (next_pkt_idx == -1) {
-        printk("[MOCK_PROCESS_RX_DBG] No RX packets to process at this time.\n");
-        return; /* No packets to process at this time */
-    }
-
-    mock_rx_packet_t *pkt = &ctx->rx_queue[next_pkt_idx];
-
-    printk("[MOCK_PROCESS_RX_DBG] Processing packet from slot %d. Searching for matching RX op...\n", next_pkt_idx);
-
-    /* --- Feature: Packet Loss Simulation --- */
-    if (g_mock_packet_loss_rate_percent > 0 && (sys_rand32_get() % 100 < g_mock_packet_loss_rate_percent)) {
-        printk("[MOCK_RF_LOSS] Probability drop. Time: %llu, Carrier: %u\n", pkt->reception_time_us, pkt->carrier);
-        pkt->active = false; /* Silently drop */
-        return; /* Will pick up next packet in next iteration */
-    }
-
-    /* --- Feature: Collision Detection --- */
-    bool collision = false;
-    if (g_mock_collisions_enabled) {
-        for (int k = 0; k < MOCK_RX_QUEUE_MAX_PACKETS; k++) {
-            if (k != next_pkt_idx && ctx->rx_queue[k].active && ctx->rx_queue[k].carrier == pkt->carrier) {
-                bool overlaps = (pkt->reception_time_us < (ctx->rx_queue[k].reception_time_us + ctx->rx_queue[k].duration_us)) &&
-                                (ctx->rx_queue[k].reception_time_us < (pkt->reception_time_us + pkt->duration_us));
-                if (overlaps) { 
-                    collision = true; 
-                    printk("[MOCK_RF_COLLISION] Detected overlap between slot %d and %d on carrier %u\n", next_pkt_idx, k, pkt->carrier);
-                    break; 
-                }
-            }
-        }
-    }
-
-    /* Find a matching, active RX operation on the timeline */
-    bool rx_op_found = false;
-    for (int j = 0; j < MOCK_TIMELINE_MAX_EVENTS; ++j) {
-        mock_scheduled_operation_t *rx_op = &ctx->timeline[j];
-
-        
-        if (rx_op->active && rx_op->running && rx_op->type == MOCK_OP_TYPE_RX) {
-            if (ctx->mac_ctx->role == MAC_ROLE_FT) {
-                printk("[FT_RX_MATCH_DBG] Checking timeline slot %d: active=%d, running=%d, type=%d, carrier=%u\n",
-                       j, rx_op->active, rx_op->running, rx_op->type, rx_op->carrier);
-                printk("[CARRIER_CHECK_DBG] Comparing packet carrier %u with RX op carrier %u.\n",
-                       pkt->carrier, rx_op->carrier);
-            }
-
-            if (pkt->carrier == rx_op->carrier) {
-                mock_phy_set_active_context(ctx);
-                rx_op_found = true;
-
-                if (collision) {
-                    /* Collision Logic: Send PCC Error */
-                    printk("[MOCK_RF_COLLISION] Reporting PCC_ERROR for Handle %u at %llu.\n", rx_op->handle, pkt->reception_time_us);
-                    
-                    /* Generate unique transaction ID for error reporting */
-                    ctx->transaction_id_counter++; 
-                    if (ctx->transaction_id_counter == 0) ctx->transaction_id_counter = 1;
-                    
-                    struct nrf_modem_dect_phy_event pcc_err = {
-                        .id = NRF_MODEM_DECT_PHY_EVT_PCC_ERROR,
-                        .time = pkt->reception_time_us,
-                        .pcc_crc_err = { .handle = rx_op->handle, .transaction_id = ctx->transaction_id_counter }
-                    };
-                    mock_phy_send_event(&pcc_err);
-                } else {
-                    /* Success Logic: Send PCC then PDC */
-                    printk("[MOCK_PROCESS_RX_DBG] Delivering packet from slot %d. Handle: %u\n", next_pkt_idx, rx_op->handle);
-                    
-                    struct nrf_modem_dect_phy_event pcc_evt = {
-                        .id = NRF_MODEM_DECT_PHY_EVT_PCC,
-                        .time = pkt->reception_time_us,
-                        .pcc = pkt->pcc_data};
-                    pcc_evt.pcc.handle = rx_op->handle;
-                    mock_phy_send_event(&pcc_evt);
-
-                    struct nrf_modem_dect_phy_event pdc_evt = {
-                        .id = NRF_MODEM_DECT_PHY_EVT_PDC,
-                        .time = pkt->reception_time_us,
-                        .pdc = {.handle = rx_op->handle, .data = pkt->pdc_payload, .len = pkt->pdc_len}};
-                    mock_phy_send_event(&pdc_evt);
-                }
-                break; /* Processed one packet, exit loop */
-            }
-        }
-    }
-    
-    if (!rx_op_found && !collision) {
-        printk("[MOCK_PROCESS_RX_DBG] No matching RX Op found for packet on carrier %u\n", pkt->carrier);
-    }
-
-    /* Deactivate the processed packet */
-    pkt->active = false;
 }
 
 /* --- Mock implementation of the nrf_modem_dect_phy.h API --- */

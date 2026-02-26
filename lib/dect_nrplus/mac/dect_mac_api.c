@@ -219,7 +219,7 @@ int dect_mac_api_ft_send_to_pt(mac_sdu_t *sdu, mac_flow_id_t flow, uint16_t targ
         return -EINVAL;
     }
     // Check if MAC is in FT role and PT is connected (implementation-specific)
-    // Add SDU to TX dlist with target PT info
+    // Add SDU to TX queue with target PT info
     sdu->target_peer_short_rd_id = target_pt_short_rd_id;
 	struct k_queue *target_queue_ptr = NULL;
 
