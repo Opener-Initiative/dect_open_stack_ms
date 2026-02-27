@@ -15,8 +15,10 @@ LOG_MODULE_REGISTER(dect_mac_nvs, CONFIG_DECT_MAC_NVS_LOG_LEVEL);
 /* Define a unique key ID for the HPC value within the ZMS namespace. */
 #define ZMS_KEY_ID_HPC 1
 
+#if IS_ENABLED(CONFIG_ZMS)
 /* ZMS filesystem instance. */
 static struct zms_fs fs;
+#endif
 
 /* In-memory cache of the HPC value. */
 static uint32_t g_mac_hpc;
@@ -26,7 +28,7 @@ int dect_mac_nvs_init(void)
 {
 
 	// TODO: Need to resolve some of the board / flash set-up in dts
-#if IS_ENABLED(CONFIG_ZTEST)	
+#if IS_ENABLED(CONFIG_ZMS)
 	int rc;
 	struct flash_pages_info info;
 	const size_t partition_size = FIXED_PARTITION_SIZE(storage_partition);
@@ -73,7 +75,7 @@ int dect_mac_nvs_init(void)
 		LOG_WRN("HPC not found in ZMS (err: %d). Initializing to 1.", (int)bytes_read);
 		g_mac_hpc = 1;
 	}
-#endif /* #if IS_ENABLED(CONFIG_ZTEST) */
+#endif /* #if IS_ENABLED(CONFIG_ZMS) */
 	return 0;
 }
 
@@ -87,6 +89,7 @@ int dect_mac_nvs_save_hpc(uint32_t hpc)
 	// TODO: Fix the zms flash read/write
 	g_mac_hpc = hpc;
 
+#if IS_ENABLED(CONFIG_ZMS)
 	int rc = zms_write(&fs, ZMS_KEY_ID_HPC, &g_mac_hpc, sizeof(g_mac_hpc));
 	if (rc) {
 		LOG_ERR("Failed to write HPC to ZMS (key=%u): %d", ZMS_KEY_ID_HPC, rc);
@@ -94,5 +97,8 @@ int dect_mac_nvs_save_hpc(uint32_t hpc)
 	}
 
 	LOG_DBG("HPC value %u saved to ZMS.", hpc);
+#else
+	LOG_DBG("HPC value %u saved to memory (ZMS disabled).", hpc);
+#endif
 	return 0;
 }

@@ -50,13 +50,13 @@ int main(void)
 		return 0;
 	}
 
-	/* dect_cdd_ft_build_own_config is a public API function included via dect_stack_api.h */
-	err = dect_cdd_ft_build_own_config(&ft_prefix);
-	if (err) {
-		LOG_ERR("FT failed to build CDD config: %d", err);
-		printk("FT failed to build CDD config: %d", err);
-		return 0;
-	}
+	// /* dect_cdd_ft_build_own_config is a public API function included via dect_stack_api.h */
+	// err = dect_cdd_ft_build_own_config(&ft_prefix);
+	// if (err) {
+	// 	LOG_ERR("FT failed to build CDD config: %d", err);
+	// 	printk("FT failed to build CDD config: %d", err);
+	// 	return 0;
+	// }
 #endif
 
 	dect_stack_start();

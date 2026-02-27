@@ -950,7 +950,7 @@ cleanup:
 
 void dect_mac_data_path_service_tx(void)
 {
-    printk("\n--- STARTED: dect_mac_data_path_service_tx ---\n");
+    // printk("\n--- STARTED: dect_mac_data_path_service_tx ---\n");
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
 if (ctx->state > 2 && ctx->state != 17 ){

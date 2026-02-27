@@ -27,7 +27,8 @@
 LOG_MODULE_REGISTER(dect_mac_core, CONFIG_DECT_MAC_CORE_LOG_LEVEL);
 
 // static __thread dect_mac_context_t *g_active_mac_ctx;
-static dect_mac_context_t *g_active_mac_ctx;
+static dect_mac_context_t g_mac_ctx;
+static dect_mac_context_t *g_active_mac_ctx = &g_mac_ctx;
 static struct k_spinlock g_active_mac_ctx_lock;
 
 // External message queue (defined in dect_mac_phy_if.c, used by timer handlers here)

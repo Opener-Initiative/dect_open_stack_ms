@@ -8,7 +8,7 @@ project(dect_mac_mobility_test)
 target_sources(app PRIVATE
     src/main.c
     # The mock PHY that replaces the real one
-    ../../mac/mock_nrf_modem_dect_phy.c
+    # ../../mac/mock_nrf_modem_dect_phy.c
     # The shared test harness helper
     ../../tests/utils/test_harness_helpers.c
 )

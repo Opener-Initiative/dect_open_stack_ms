@@ -216,7 +216,7 @@ static uint32_t cvg_code_to_lifetime_ms(uint8_t code)
 }
 
 
-static cvg_reassembly_session_t *find_or_alloc_cvg_reassembly_session(uint16_t sn)
+static __maybe_unused cvg_reassembly_session_t *find_or_alloc_cvg_reassembly_session(uint16_t sn)
 {
 	int free_slot = -1;
 
@@ -261,7 +261,7 @@ static void cvg_reassembly_timeout_handler(struct k_timer *timer_id)
 	}
 }
 
-static int build_cvg_transparent_pdu(uint8_t *target_buf, size_t target_buf_len,
+static int __maybe_unused build_cvg_transparent_pdu(uint8_t *target_buf, size_t target_buf_len,
                                      const uint8_t *app_payload, size_t app_payload_len)
 {
     size_t header_len;
@@ -418,7 +418,7 @@ static void cvg_handle_ack_action(int cvg_inflight_idx)
  * @param cfg_ie Pointer to the received TX Services Config IE.
  * @param source_rd_id The Long RD ID of the peer that sent the IE.
  */
-static void handle_tx_services_cfg_ie(const cvg_ie_tx_services_cfg_t *cfg_ie, uint32_t source_rd_id)
+static void __maybe_unused handle_tx_services_cfg_ie(const cvg_ie_tx_services_cfg_t *cfg_ie, uint32_t source_rd_id)
 {
 	cvg_flow_context_t *flow = &g_default_cvg_flow_ctx;
 	bool is_response = cvg_ie_tx_cfg_is_response(cfg_ie);
@@ -880,7 +880,7 @@ printk("[DECT RX DELIVERY] Completed payload delivery process\n");
 
 
 #if !defined(CONFIG_ZTEST)
-static int build_cvg_pdu(uint8_t *target_buf, size_t target_buf_len,
+static int __maybe_unused build_cvg_pdu(uint8_t *target_buf, size_t target_buf_len,
 			 const cvg_tx_queue_item_t *tx_item,
 			 cvg_flow_context_t *flow, uint16_t sequence_number)
 {

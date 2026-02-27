@@ -13,7 +13,7 @@ project(mac_flow)
 # Add test source files
 target_sources(app PRIVATE
     src/main.c
-    ../../mac/mock_nrf_modem_dect_phy.c
+    # ../../mac/mock_nrf_modem_dect_phy.c
     ../../tests/utils/virtual_timer.c
     ../../tests/utils/test_harness_helpers.c
 )

@@ -19,6 +19,10 @@ zephyr_library_sources(dect_mac_sm_ft.c)
 zephyr_library_sources(dect_mac_sm_pt.c)
 zephyr_library_sources(dect_mac_timeline_utils.c)
 
+if(CONFIG_BOARD_NATIVE_SIM OR CONFIG_ZTEST)
+    zephyr_library_sources(mock_nrf_modem_dect_phy.c)
+endif()
+
 # Include directories for MAC layer (internal use)
 zephyr_library_include_directories(include)
 

@@ -19,8 +19,9 @@
 #include <mac/dect_mac_timeline_utils.h>
 
 /* --- Test Capture Buffer (defined in test main.c) --- */
-extern uint8_t g_last_tx_pdu_capture[CONFIG_DECT_MAC_PDU_MAX_SIZE];
-extern uint16_t g_last_tx_pdu_len_capture;
+/* --- Test Capture Buffer (defined in test main.c, or weakly here) --- */
+uint8_t __attribute__((weak)) g_last_tx_pdu_capture[CONFIG_DECT_MAC_PDU_MAX_SIZE];
+uint16_t __attribute__((weak)) g_last_tx_pdu_len_capture;
 
 /* --- Public flags for controlling mock behavior from tests --- */
 bool g_force_phy_schedule_failure = false;
@@ -37,7 +38,8 @@ static bool g_mock_collisions_enabled = false;
 static int8_t g_mock_rssi_buffer[MOCK_RSSI_MAX_SAMPLES];
 
 /* --- Mock State --- */
-static mock_phy_context_t *g_active_phy_ctx = NULL;
+static mock_phy_context_t g_mock_phy_ctx;
+static mock_phy_context_t *g_active_phy_ctx = &g_mock_phy_ctx;
 static nrf_modem_dect_phy_event_handler_t g_event_handler = NULL;
 
 #define MAX_NODES 16

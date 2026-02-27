@@ -6,7 +6,7 @@ project(dect_mac_phy_ctrl_test)
 target_sources(app PRIVATE
     src/main.c
     # Mock PHY that replaces the real one
-    ../../mac/mock_nrf_modem_dect_phy.c
+    # ../../mac/mock_nrf_modem_dect_phy.c
     # The virtual timer simulation clock
     ../../tests/utils/virtual_timer.c
     # The new shared test harness helper

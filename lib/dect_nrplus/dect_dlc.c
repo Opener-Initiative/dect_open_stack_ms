@@ -177,7 +177,7 @@ k_tid_t g_dlc_tx_service_thread_id;
 
 
 #if !defined(CONFIG_ZTEST)
-static uint8_t lifetime_ms_to_dlc_code(uint32_t ms) 
+static uint8_t __maybe_unused lifetime_ms_to_dlc_code(uint32_t ms) 
 {
 	if (ms <= 1) return 0x02;
 	if (ms <= 5) return 0x03;
@@ -327,7 +327,7 @@ int dlc_serialize_routing_header(uint8_t *target_buf, size_t target_buf_len,
 
 
 #if !defined(CONFIG_ZTEST)
-static void dlc_handle_timers_config_ie(const dect_dlc_header_timers_config_t *cfg_ie)
+static void __maybe_unused dlc_handle_timers_config_ie(const dect_dlc_header_timers_config_t *cfg_ie)
 {
 	uint32_t new_lifetime_ms = dlc_code_to_lifetime_ms(cfg_ie->lifetime_timer_val);
 	LOG_INF("DLC_CFG: Received Timers Config IE, lifetime code 0x%02x -> %u ms. Updating local config.",
@@ -336,7 +336,7 @@ static void dlc_handle_timers_config_ie(const dect_dlc_header_timers_config_t *c
 	g_rx_sdu_lifetime_ms = new_lifetime_ms;
 }
 
-static void dlc_handle_route_error_ie(const dect_dlc_ie_route_error_t *err_ie)
+static void __maybe_unused dlc_handle_route_error_ie(const dect_dlc_ie_route_error_t *err_ie)
 {
 	uint32_t invalid_hop = sys_be32_to_cpu(err_ie->invalid_next_hop_addr_be);
 	LOG_WRN("DLC_ROUTE_ERR: Received Route Error IE. Reason: %u, Invalid Next Hop: 0x%08X",
@@ -636,7 +636,7 @@ int dlc_parse_routing_header(const uint8_t *buf, size_t len, dect_dlc_routing_he
  * @return The number of bytes consumed by the extension header (1, 2, or 3),
  *         or a negative error code.
  */
-static int dlc_parse_ext_header(const uint8_t *buf, size_t len, dect_dlc_ext_len_type_t *len_type,
+static int __maybe_unused dlc_parse_ext_header(const uint8_t *buf, size_t len, dect_dlc_ext_len_type_t *len_type,
 				dect_dlc_ext_ie_type_t *ie_type, uint16_t *payload_len)
 {
 	if (!buf || !len_type || !ie_type || !payload_len || len < 1) {
