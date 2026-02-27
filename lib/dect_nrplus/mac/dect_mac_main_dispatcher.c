@@ -12,7 +12,7 @@
 #include <mac/dect_mac_phy_ctrl.h>  // For dect_mac_phy_ctrl_handle_op_complete (though SMs call this now)
 #include <mac/dect_mac_data_path.h>
 
-#if IS_ENABLED(CONFIG_ZTEST)
+#if IS_ENABLED(CONFIG_ZTEST) || IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)
 #include <mocks/mock_nrf_modem_dect_phy.h> /* For g_mock_phy_context_override */
 #include <mac/nrf_modem_dect_phy.h>
 #else

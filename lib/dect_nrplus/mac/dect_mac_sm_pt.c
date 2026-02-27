@@ -23,6 +23,15 @@
 #include <psa/crypto.h>
 #endif
 
+#if IS_ENABLED(CONFIG_ZTEST) || IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)
+#include <mocks/mock_nrf_modem_dect_phy.h> /* For g_mock_phy_context_override */
+#include <mac/nrf_modem_dect_phy.h>
+#else
+#include <modem/nrf_modem_lib.h>
+#include <nrf_modem.h>
+#include <nrf_modem_dect_phy.h>
+#endif
+
 
 LOG_MODULE_REGISTER(dect_mac_sm_pt, CONFIG_DECT_MAC_SM_PT_LOG_LEVEL);
 

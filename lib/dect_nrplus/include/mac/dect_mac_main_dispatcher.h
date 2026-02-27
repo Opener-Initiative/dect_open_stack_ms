@@ -4,14 +4,13 @@
 
 #include <mac/dect_mac_sm.h>    // For dect_mac_event_msg, dect_mac_state_t, pending_op_type_t, dect_mac_event_type_t
 
-#if IS_ENABLED(CONFIG_ZTEST)
+#if IS_ENABLED(CONFIG_ZTEST) || IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)
 #include <mocks/mock_nrf_modem_dect_phy.h> /* For g_mock_phy_context_override */
 #include <mac/nrf_modem_dect_phy.h>
 #else
 #include <modem/nrf_modem_lib.h>
 #include <nrf_modem.h>
 #include <nrf_modem_dect_phy.h>
-// #include <zms.h>
 #endif
 
 /* The central message queue for all events processed by the MAC layer. */

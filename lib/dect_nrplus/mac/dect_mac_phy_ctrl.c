@@ -19,7 +19,7 @@
 #include <mac/dect_mac_timeline_utils.h>
 #include <mac/dect_mac_phy_if.h> /* For handle registration functions */
 
-#if IS_ENABLED(CONFIG_ZTEST)
+#if IS_ENABLED(CONFIG_ZTEST) || IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)
 #include <mocks/mock_nrf_modem_dect_phy.h> /* For g_mock_phy_context_override */
 #include <mac/nrf_modem_dect_phy.h>
 #else

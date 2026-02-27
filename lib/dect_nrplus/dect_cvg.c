@@ -23,14 +23,13 @@
 #include <dect_cvg.h>
 #include <dect_dlc.h>
 
-#if IS_ENABLED(CONFIG_ZTEST)
+#if IS_ENABLED(CONFIG_ZTEST) || IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)
 #include <mocks/mock_nrf_modem_dect_phy.h> /* For g_mock_phy_context_override */
 #include <mac/nrf_modem_dect_phy.h>
 #else
 #include <modem/nrf_modem_lib.h>
 #include <nrf_modem.h>
 #include <nrf_modem_dect_phy.h>
-// #include <zms.h>
 #endif
 
 LOG_MODULE_REGISTER(dect_cvg, CONFIG_DECT_CVG_LOG_LEVEL);
@@ -889,8 +888,8 @@ static int build_cvg_pdu(uint8_t *target_buf, size_t target_buf_len,
 	size_t pdu_offset = 0;
 	int pdu_len = 0;
 
+#if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)
 	if (flow->security_enabled) {
-#if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)		
 		uint8_t mic[5];
 		uint8_t iv[16];
 		int err = 0;
