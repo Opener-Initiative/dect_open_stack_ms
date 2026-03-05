@@ -8,8 +8,8 @@ zephyr_library_sources(dect_stack_api.c)
 
 # Core layer sources
 zephyr_library_sources(dect_cdd.c)
-zephyr_library_sources(dect_cvg.c)  
-zephyr_library_sources(dect_dlc.c)
+zephyr_library_sources_ifdef(CONFIG_DECT_CVG_LAYER dect_cvg.c)  
+zephyr_library_sources_ifdef(CONFIG_DECT_DLC_LAYER dect_dlc.c)
 zephyr_library_sources_ifdef(CONFIG_DECT_SECURITY_ENABLE dect_security_crypto.c)
 
 

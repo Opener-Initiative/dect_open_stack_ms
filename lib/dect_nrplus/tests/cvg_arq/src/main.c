@@ -307,15 +307,13 @@ ZTEST(cvg_arq, test_aa_flow_control_window_blocks)
 
 	/* 3. Simulate an ACK for the first packet */
 	uint16_t sn_to_ack = 0;
-	uint8_t ack_pdu[sizeof(cvg_header_t) + sizeof(cvg_ie_arq_feedback_base_t)];
-	cvg_header_t *hdr = (void *)ack_pdu;
-	hdr->ext_mt_f2c_or_type = (CVG_EXT_NO_LEN_FIELD << 6) | CVG_IE_TYPE_ARQ_FEEDBACK;
-	cvg_ie_arq_feedback_base_t *ack = (void *)(ack_pdu + sizeof(cvg_header_t));
-	ack->an_fbinfo_sn_msb = (0 << 7) | (0 << 4) | ((sn_to_ack >> 8) & 0x0F);
-	ack->sequence_number_lsb = sn_to_ack & 0xFF;
+	cvg_ie_arq_feedback_base_t ack_ie;
+	ack_ie.header.ext_mt_f2c_or_type = CVG_IE_TYPE_ARQ_FEEDBACK;
+	ack_ie.an_fbinfo_sn_msb = (0 << 7) | (0 << 4) | ((sn_to_ack >> 8) & 0x0F);
+	ack_ie.sequence_number_lsb = sn_to_ack & 0xFF;
 
-	g_dlc_rx_injection_len = sizeof(ack_pdu);
-	memcpy(g_dlc_rx_injection_buf, ack_pdu, sizeof(ack_pdu));
+	g_dlc_rx_injection_len = sizeof(ack_ie);
+	memcpy(g_dlc_rx_injection_buf, &ack_ie, sizeof(ack_ie));
 	g_dlc_rx_data_available = true;
 
 	/* 4. Yield to let RX thread process ACK and TX thread to send the blocked packet */
@@ -352,11 +350,10 @@ ZTEST(cvg_arq, test_arq_ack_generation)
 
 	zassert_equal(g_dlc_tx_capture_count, 1, "ACK packet was not sent by receiver");
 
-	const cvg_header_t *hdr = (const void *)g_dlc_tx_capture_buf;
-	cvg_ie_type_t ie_type = (cvg_ie_type_t)(hdr->ext_mt_f2c_or_type & 0x1F);
+	const cvg_ie_arq_feedback_base_t *ack = (const void *)g_dlc_tx_capture_buf;
+	cvg_ie_type_t ie_type = (cvg_ie_type_t)(ack->header.ext_mt_f2c_or_type & 0x1F);
 	zassert_equal(ie_type, CVG_IE_TYPE_ARQ_FEEDBACK, "Sent packet was not an ARQ Feedback IE");
 
-	const cvg_ie_arq_feedback_base_t *ack = (const void *)(g_dlc_tx_capture_buf + sizeof(cvg_header_t));
 	bool is_nack = (ack->an_fbinfo_sn_msb >> 7) & 0x01;
 	uint16_t sn = ((uint16_t)(ack->an_fbinfo_sn_msb & 0x0F) << 8) | ack->sequence_number_lsb;
 

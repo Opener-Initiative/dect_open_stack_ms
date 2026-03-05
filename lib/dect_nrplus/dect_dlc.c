@@ -5,10 +5,9 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/kernel.h>
 #include <zephyr/random/random.h>
-// #include <hw_id.h>
 #include <string.h>
-#include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
+#include <zephyr/net_buf.h>
 
 
 #include <dect_dlc.h>
@@ -38,45 +37,65 @@ static int (*g_dlc_receive_spy_cb)(dlc_service_type_t *, uint32_t *, uint8_t *, 
 #endif /* IS_ENABLED(CONFIG_DECT_DLC_API_MOCK) */
 
 
-// --- DLC Internal State and Buffers ---
-#define MAX_DLC_REASSEMBLY_SESSIONS 4
-#define MAX_DLC_RETRANSMISSION_JOBS 8
-#define DLC_RETRANSMISSION_TIMEOUT_MS 10000
-#define DLC_MAX_RETRIES 3
-#define DLC_REASSEMBLY_BUF_SIZE (CONFIG_DECT_MAC_SDU_MAX_SIZE * 5)
-#define DLC_REASSEMBLY_TIMEOUT_MS 5000
-#define DLC_DUPLICATE_CACHE_SIZE 16
+#define DLC_NET_BUF_USER_DATA_SIZE 16
+BUILD_ASSERT(sizeof(dect_buf_meta_t) <= DLC_NET_BUF_USER_DATA_SIZE,
+	     "dect_buf_meta_t exceeds DLC_NET_BUF_USER_DATA_SIZE");
 
+/* --- DLC Internal State and Buffers --- */
+#define MAX_DLC_REASSEMBLY_SESSIONS      4
+#define MAX_DLC_RETRANSMISSION_JOBS      8
+#define DLC_RETRANSMISSION_TIMEOUT_MS    10000
+#define DLC_MAX_RETRIES                  3
+#define DLC_REASSEMBLY_TIMEOUT_MS        5000
+#define DLC_DUPLICATE_CACHE_SIZE         16
 
-/* A buffer definition for delivering large, reassembled SDUs to the upper layer */
-typedef struct {
-	void *fifo_reserved; /* For k_queue internal use */
-	uint8_t data[CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE];
-	size_t len;
-} dlc_app_sdu_t;
+/*
+ * net_buf pool for data SDUs flowing from MAC→DLC and then to CVG.
+ *
+ * Fragment size: 256 bytes  — covers single-slot DECT PDUs without fragmentation.
+ * For multi-slot (up to 1636 bytes), the reassembly session chains fragments.
+ * Count: 48 fragments = ~12 KB, tunable via Kconfig in Phase 5.1.
+ */
+#define DLC_PKT_BUF_FRAG_SIZE  256
+#define DLC_PKT_BUF_COUNT      48
 
-// K_MEM_SLAB_DEFINE(g_dlc_app_sdu_slab, sizeof(dlc_app_sdu_t), 4, 4);
-K_MEM_SLAB_DEFINE(g_dlc_app_sdu_slab, sizeof(dlc_app_sdu_t), (4 + MAX_DLC_RETRANSMISSION_JOBS), 4);
+NET_BUF_POOL_FIXED_DEFINE(dlc_rx_pool, DLC_PKT_BUF_COUNT,
+			  DLC_PKT_BUF_FRAG_SIZE,
+			  DLC_NET_BUF_USER_DATA_SIZE, NULL);
+
+static struct net_buf *dlc_pool_alloc_cb(k_timeout_t timeout, void *user_data)
+{
+	struct net_buf_pool *pool = user_data;
+	return net_buf_alloc_len(pool, DLC_PKT_BUF_FRAG_SIZE, timeout);
+}
+
+struct net_buf_pool *dect_dlc_get_rx_pool(void)
+{
+	return &dlc_rx_pool;
+}
 
 static uint16_t dlc_tx_sequence_number = 0;
 static uint32_t g_tx_sdu_lifetime_ms = CONFIG_DECT_DLC_DEFAULT_SDU_LIFETIME_MS;
 static uint32_t g_rx_sdu_lifetime_ms = CONFIG_DECT_DLC_DEFAULT_SDU_LIFETIME_MS;
 
 /**
- * @brief Context for a DLC SDU that is awaiting acknowledgement (ARQ).
+ * @brief Context for a DLC SDU awaiting acknowledgement (ARQ).
+ *
+ * sdu_buf holds a net_buf reference (via net_buf_ref) to the original
+ * payload. On ACK, net_buf_unref() is called. On re-TX, the existing
+ * reference is reused — no data copy required.
  */
 typedef struct {
 	void *fifo_reserved; /* For k_fifo internal use */
-    bool is_active;
-    uint16_t sequence_number;
-    uint8_t retries;
-    dlc_service_type_t service;
-    uint32_t dest_long_id;
-    // mac_sdu_t *sdu_payload; // This holds the *full* original DLC SDU for re-TX
-	dlc_app_sdu_t *sdu_payload; // This holds the *full* original DLC SDU for re-TX
-    struct k_timer retransmit_attempt_timer;
-    struct k_timer lifetime_timer;
-    uint8_t flow_id; /**< Stored Flow ID for retransmission */
+	bool is_active;
+	uint16_t sequence_number;
+	uint8_t retries;
+	dlc_service_type_t service;
+	uint32_t dest_long_id;
+	struct net_buf *sdu_buf; /**< net_buf ref holding [Routing Hdr | CVG PDU] */
+	struct k_timer retransmit_attempt_timer;
+	struct k_timer lifetime_timer;
+	uint8_t flow_id; /**< Stored Flow ID for retransmission */
 } dlc_retransmission_job_t;
 
 static dlc_retransmission_job_t retransmission_jobs[MAX_DLC_RETRANSMISSION_JOBS];
@@ -95,15 +114,19 @@ static uint8_t g_dlc_dup_cache_next_idx = 0;
 
 /**
  * @brief Context for a reassembly session for a segmented DLC SDU.
+ *
+ * Segment data is accumulated into a net_buf fragment chain (via
+ * net_buf_append/net_buf_add_mem) so no single large static buffer
+ * is needed. The chain is unreferenced on timeout or successful delivery.
  */
 typedef struct {
-    bool is_active;
-    uint16_t sequence_number;
-    uint8_t reassembly_buf[DLC_REASSEMBLY_BUF_SIZE];
-    size_t total_sdu_len;
-    size_t bytes_received;
-    struct k_timer timeout_timer;
-    dlc_service_type_t service_type;
+	bool is_active;
+	uint16_t sequence_number;
+	struct net_buf *buf;        /**< Fragment chain being assembled */
+	size_t total_sdu_len;       /**< Set when last segment received */
+	size_t bytes_received;      /**< Running tally of payload bytes */
+	struct k_timer timeout_timer;
+	dlc_service_type_t service_type;
 } dlc_reassembly_session_t;
 
 static dlc_reassembly_session_t reassembly_sessions[MAX_DLC_REASSEMBLY_SESSIONS];
@@ -372,9 +395,7 @@ static void dlc_tx_status_cb_handler(uint16_t dlc_sn, bool success)
 	}
 
 	if (job_idx == -1) {
-		/* This can happen if the SDU lifetime expired in the DLC layer
-		 * at the same time the MAC layer was processing it. It's not an error. */
-		LOG_DBG("DLC_ARQ_CB: Received status for SN %u, but no active job found. Likely already timed out.", dlc_sn);
+		LOG_DBG("DLC_ARQ_CB: Status for SN %u, no active job. Likely already timed out.", dlc_sn);
 		return;
 	}
 
@@ -383,20 +404,14 @@ static void dlc_tx_status_cb_handler(uint16_t dlc_sn, bool success)
 	k_timer_stop(&job->lifetime_timer);
 
 	if (success) {
-		LOG_INF("DLC_ARQ_CB: MAC SUCCESS for SN %u. Freeing job.", dlc_sn);
-		// k_mem_slab_free(&g_dlc_arq_buf_slab, (void *)job->sdu_payload);
-
-		// Not sure if we need to free this memory
-		k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)job->sdu_payload);
-		// dect_mac_buffer_free(job->sdu_payload);
-		
+		LOG_INF("DLC_ARQ_CB: MAC SUCCESS for SN %u. Unreffing net_buf.", dlc_sn);
+		if (job->sdu_buf) {
+			net_buf_unref(job->sdu_buf);
+			job->sdu_buf = NULL;
+		}
 		job->is_active = false;
 	} else {
-		/* The MAC layer already tried its HARQ retries and failed.
-		 * The DLC layer now needs to decide if it will re-send the entire SDU.
-		 */
-		LOG_WRN("DLC_ARQ_CB: MAC PERMANENT FAILURE for SN %u. Signaling for DLC-level re-TX.", dlc_sn);
-
+		LOG_WRN("DLC_ARQ_CB: MAC PERMANENT FAILURE for SN %u. Signaling DLC re-TX.", dlc_sn);
 		k_queue_append(&g_dlc_retransmit_signal_queue, job);
 	}
 }
@@ -463,7 +478,6 @@ __weak int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 	}
 
 	if (needs_dlc_arq) {
-		/* ARQ logic remains the same, but it now stores header + payload */
 		int job_idx = -1;
 		for (int i = 0; i < MAX_DLC_RETRANSMISSION_JOBS; i++) {
 			if (!retransmission_jobs[i].is_active) {
@@ -477,13 +491,27 @@ __weak int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 		}
 
 		dlc_retransmission_job_t *arq_job = &retransmission_jobs[job_idx];
-		if (k_mem_slab_alloc(&g_dlc_app_sdu_slab, (void **)&arq_job->sdu_payload, K_NO_WAIT) != 0) {
-			LOG_ERR("DLC_SEND_ARQ: Failed to allocate buffer from ARQ slab. Dropping.");
+
+		/* Allocate a net_buf from the shared pool and write [RH | CVG PDU] into it.
+		 * net_buf_add_mem copies in data but no separate allocation is made for
+		 * the ARQ job context itself (we reuse the retransmission_jobs[] slot).
+		 * If the full SDU exceeds the fragment size, fragments are chained.
+		 */
+		size_t total_len = (size_t)rh_len + cvg_pdu_len;
+		struct net_buf *arq_buf = net_buf_alloc_len(&dlc_rx_pool, MIN(total_len, DLC_PKT_BUF_FRAG_SIZE), K_NO_WAIT);
+		if (!arq_buf) {
+			LOG_ERR("DLC_SEND_ARQ: Could not allocate net_buf for ARQ job. Dropping.");
 			return -ENOMEM;
 		}
-		memcpy(arq_job->sdu_payload->data, rh_buf, rh_len);
-		memcpy(arq_job->sdu_payload->data + rh_len, cvg_pdu_payload, cvg_pdu_len);
-		arq_job->sdu_payload->len = rh_len + cvg_pdu_len;
+		/* Write routing header then CVG payload into buf (append allocates more fragments if needed) */
+		if (net_buf_append_bytes(arq_buf, rh_len, rh_buf, K_NO_WAIT, dlc_pool_alloc_cb, &dlc_rx_pool) < rh_len ||
+		    net_buf_append_bytes(arq_buf, cvg_pdu_len, cvg_pdu_payload, K_NO_WAIT, dlc_pool_alloc_cb, &dlc_rx_pool) < (int)cvg_pdu_len) {
+			LOG_ERR("DLC_SEND_ARQ: Insufficient pool fragments for ARQ buf (need %zu bytes).", total_len);
+			net_buf_unref(arq_buf);
+			return -ENOMEM;
+		}
+
+		arq_job->sdu_buf = arq_buf;
 		arq_job->is_active = true;
 		arq_job->sequence_number = current_dlc_sn;
 		arq_job->retries = 0;
@@ -665,6 +693,270 @@ static int __maybe_unused dlc_parse_ext_header(const uint8_t *buf, size_t len, d
 #endif /* !defined(CONFIG_ZTEST) */
 
 
+/**
+ * @brief Helper to write data at a specific offset into a net_buf chain.
+ *        Allocates/expands the chain as needed.
+ */
+static int write_to_net_buf(struct net_buf **buf_ptr, size_t offset, const uint8_t *data, size_t len)
+{
+    if (!*buf_ptr) {
+        *buf_ptr = net_buf_alloc_len(&dlc_rx_pool, 0, K_NO_WAIT);
+        if (!*buf_ptr) {
+            return -ENOMEM;
+        }
+    }
+
+    struct net_buf *buf = *buf_ptr;
+    size_t current_len = net_buf_frags_len(buf);
+
+    /* If there's a gap between the current end of the buffer and the new offset, fill it with zeros */
+    if (offset > current_len) {
+        size_t gap = offset - current_len;
+        uint8_t zeros[64] = {0};
+        while (gap > 0) {
+            size_t to_append = MIN(gap, sizeof(zeros));
+            if (net_buf_append_bytes(buf, to_append, zeros, K_NO_WAIT, dlc_pool_alloc_cb, &dlc_rx_pool) < (int)to_append) {
+                return -ENOMEM;
+            }
+            gap -= to_append;
+        }
+        current_len = net_buf_frags_len(buf); /* Update current_len after padding */
+    }
+
+    /* 
+     * Now, `current_len` is at least `offset`.
+     * If `current_len == offset`, we can just append the new data directly.
+     * This is the normal case for in-order segments, and also handles the padded case above.
+     */
+    if (current_len == offset) {
+        if (net_buf_append_bytes(buf, len, data, K_NO_WAIT, dlc_pool_alloc_cb, &dlc_rx_pool) < (int)len) {
+            return -ENOMEM;
+        }
+        return 0;
+    }
+
+    /*
+     * If `current_len > offset`, it means we are overwriting existing data (e.g., an out-of-order segment 
+     * arriving AFTER a later segment left a zero gap, or we are re-receiving).
+     * We need to find the right fragment and copy over the data for the overlapping part.
+     */
+    struct net_buf *frag = buf;
+    size_t frag_offset = offset;
+
+    while (frag && frag_offset >= frag->len) {
+        frag_offset -= frag->len;
+        frag = frag->frags;
+    }
+
+    size_t data_offset = 0;
+    
+    /* First, overwrite any existing data in the current fragments */
+    while (frag && len > 0) {
+        size_t available = frag->len - frag_offset;
+        size_t to_copy = MIN(available, len);
+        
+        memcpy(frag->data + frag_offset, data + data_offset, to_copy);
+        
+        len -= to_copy;
+        data_offset += to_copy;
+        
+        frag = frag->frags;
+        frag_offset = 0;
+    }
+
+    /* If there is still data left to write, it means we've exceeded `current_len` 
+     * and need to append the remainder. */
+    if (len > 0) {
+        if (net_buf_append_bytes(buf, len, data + data_offset, K_NO_WAIT, dlc_pool_alloc_cb, &dlc_rx_pool) < (int)len) {
+            return -ENOMEM;
+        }
+    }
+
+    return 0;
+}
+
+static void dlc_process_sdu_payload(const uint8_t *payload_ptr, size_t payload_len, 
+                                    uint16_t sn, mac_sdu_t *mac_sdu)
+{
+    if (payload_ptr == NULL || payload_len == 0) {
+        return;
+    }
+
+    // Pointers to track our position within the payload buffer
+    const uint8_t *current_payload_ptr = payload_ptr;
+    size_t remaining_payload_len = payload_len;
+
+    while (remaining_payload_len > 0) {
+        dect_dlc_routing_header_t rh;
+
+        printk("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz \n");
+
+        printk("[DLC_RX_DBG] About to parse SDU payload for routing header (remaining_len=%zu):\n", remaining_payload_len);
+        for (int i = 0; i < remaining_payload_len && i < 64; i++) { /* Print up to 64 bytes */
+            printk("%02x ", current_payload_ptr[i]);
+        }
+        printk("\n");
+
+        int rh_len = dlc_parse_routing_header(current_payload_ptr,
+                                remaining_payload_len, &rh);
+
+        // If we can't parse a routing header, the payload is malformed.
+        // We must stop processing this SDU.
+        if (rh_len <= 0) {
+            LOG_ERR("Failed to parse routing header. Aborting processing of this SDU.");
+            break; // Exit the inner while loop
+        }
+
+        // Calculate the pointer and length for the payload of the CURRENT message
+        const uint8_t *current_msg_payload_ptr = current_payload_ptr + rh_len;
+        size_t current_msg_payload_len = remaining_payload_len - rh_len;
+
+        uint8_t routing_type =
+            (rh.bitmap >>
+                DLC_RH_ROUTING_TYPE_SHIFT) &
+            0x07;
+
+        printk("[DLC_RX_DBG] dest_addr:0x%08X routing_type:%d\n", rh.dest_addr, routing_type);
+
+        if (routing_type == DLC_RH_TYPE_LOCAL_FLOODING) {
+            printk("[DUPLICATE_CHECK_DBG] Parsed src_addr: 0x%08X, seq_num: %u\n",
+                    rh.source_addr, rh.sequence_number);
+            for (int i = 0; i < DLC_DUPLICATE_CACHE_SIZE; i++) {
+                if (g_dlc_dup_cache[i].source_rd_id == rh.source_addr &&
+                    g_dlc_dup_cache[i].sequence_number ==
+                        rh.sequence_number) {
+                    LOG_DBG("DLC_RX_FWD: Duplicate packet from 0x%08X, seq %u. Dropping.",
+                        rh.source_addr, rh.sequence_number);
+                    goto advance_to_next_message; 
+                }
+            }
+            g_dlc_dup_cache[g_dlc_dup_cache_next_idx].source_rd_id =
+                rh.source_addr;
+            g_dlc_dup_cache[g_dlc_dup_cache_next_idx].sequence_number =
+                rh.sequence_number;
+            g_dlc_dup_cache_next_idx =
+                (g_dlc_dup_cache_next_idx + 1) %
+                DLC_DUPLICATE_CACHE_SIZE;
+        }
+
+        printk("[ROUTING_DBG] Checking destination. dest_addr: 0x%08X, own_addr: 0x%08X\n",
+                rh.dest_addr, dect_mac_get_own_long_id());
+
+#if defined(CONFIG_ZTEST)
+/* this is because the mock phy and threads are not able to fully understand their own long id */
+        bool special_addr = (rh.dest_addr == 0x44332211) ? true : false;
+        if (rh.dest_addr != dect_mac_get_own_long_id() && !special_addr &&
+        rh.dest_addr != 0xFFFFFFFF) {	
+#else
+        if (rh.dest_addr != dect_mac_get_own_long_id() &&
+            rh.dest_addr != 0xFFFFFFFF) {
+#endif
+            printk("/* This is a packet for forwarding */ \n");
+            if (rh.hop_count < rh.hop_limit) {
+                printk("DLC_RX_FWD: PDU for 0x%08X not for me. Hops %u/%u. Forwarding.\n",
+                    rh.dest_addr, rh.hop_count, rh.hop_limit);
+                
+                /* Increment hop count in the local copy */
+                rh.hop_count++;
+
+                /*
+                    * Forwarding reassembled SDU logic.
+                    */
+                uint8_t rh_fwd_buf[sizeof(dect_dlc_routing_header_t)];
+                int new_rh_len = dlc_serialize_routing_header(rh_fwd_buf, sizeof(rh_fwd_buf), &rh);
+                
+                if (new_rh_len > 0) {
+                    size_t fwd_needed = new_rh_len + current_msg_payload_len;
+                    if (fwd_needed > CONFIG_DECT_MAC_SDU_MAX_SIZE - sizeof(dect_dlc_header_type123_basic_t)) {
+                        LOG_ERR("DLC_RX_FWD: Forwarding SDU failed: too large for MAC (%zu bytes).", fwd_needed);
+                    } else {
+                        dect_dlc_header_type123_basic_t fwd_dlc_hdr;
+                        static uint8_t fwd_payload_buf[CONFIG_DECT_MAC_SDU_MAX_SIZE];
+
+                        memcpy(fwd_payload_buf, rh_fwd_buf, new_rh_len);
+                        memcpy(fwd_payload_buf + new_rh_len, current_msg_payload_ptr, current_msg_payload_len);
+
+                        dlc_hdr_t123_basic_set(&fwd_dlc_hdr,
+                                        DLC_IE_TYPE_DATA_TYPE_123_WITH_ROUTING,
+                                        DLC_SI_COMPLETE_SDU, sn);
+                        
+                        uint8_t fwd_flow_id = mac_sdu->flow_id_present ? mac_sdu->flow_id : MAC_FLOW_HIGH_PRIORITY;
+                        queue_dlc_pdu_to_mac(0, (const uint8_t *)&fwd_dlc_hdr, sizeof(fwd_dlc_hdr),
+                                    fwd_payload_buf, fwd_needed,
+                                    false, 0, fwd_flow_id);
+                    }
+                }
+            }
+            goto advance_to_next_message; 
+        }
+
+        /* Packet is for us, strip routing header and deliver */
+        dlc_rx_delivery_item_t *item = NULL;
+        int alloc_ret = k_mem_slab_alloc(&g_dlc_rx_delivery_item_slab, (void **)&item, K_NO_WAIT);
+
+        if (alloc_ret != 0) {
+            if (dlc_sched_drop_oldest() == 0) {
+                alloc_ret = k_mem_slab_alloc(&g_dlc_rx_delivery_item_slab, (void **)&item, K_NO_WAIT);
+            }
+        }
+
+        if (alloc_ret == 0) {
+            /* Allocate net_buf from pool and copy payload into it */
+            struct net_buf *deliver_buf = net_buf_alloc_len(
+                dect_dlc_get_rx_pool(),
+                MIN(current_msg_payload_len, DLC_PKT_BUF_FRAG_SIZE),
+                K_NO_WAIT);
+
+            if (deliver_buf) {
+                int appended = net_buf_append_bytes(deliver_buf, current_msg_payload_len,
+                    current_msg_payload_ptr, K_NO_WAIT, dlc_pool_alloc_cb, dect_dlc_get_rx_pool());
+                if (appended < (int)current_msg_payload_len) {
+                    LOG_ERR("DLC_RX: pool exhausted delivering SN %u payload", sn);
+                    net_buf_unref(deliver_buf);
+                    k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)item);
+                    goto advance_to_next_message;
+                }
+
+                /* Tag net_buf user_data with DECT metadata */
+                dect_buf_meta_t *meta = dect_buf_meta(deliver_buf);
+                meta->source_addr = rh.source_addr;
+                meta->dest_addr = rh.dest_addr;
+                meta->dlc_sn = sn;
+                meta->flow_id = mac_sdu->flow_id_present ? mac_sdu->flow_id : MAC_FLOW_HIGH_PRIORITY;
+                meta->service_type = DLC_SERVICE_TYPE_1_SEGMENTATION;
+                meta->flags = 0;
+
+                item->sdu_buf = deliver_buf;
+                item->is_app_sdu = true;
+                item->dlc_service_type = DLC_SERVICE_TYPE_1_SEGMENTATION;
+
+                uint8_t flow = meta->flow_id;
+                int lane = DLC_LANE_LOW;
+                if (flow == MAC_FLOW_HIGH_PRIORITY) lane = DLC_LANE_HIGH;
+                else if (flow == MAC_FLOW_RELIABLE_DATA) lane = DLC_LANE_MED;
+
+                item->priority = lane;
+                item->entry_timestamp = net_get_os_tick();
+                item->origin_queue = &g_dlc_scheduler.queues[lane];
+
+                k_queue_append(&g_dlc_scheduler.queues[lane], item);
+                LOG_DBG("DLC_SCHED: SN %u, flow %u -> lane %d", sn, flow, lane);
+            } else {
+                LOG_ERR("DLC_RX: pool exhausted for delivery item SN %u", sn);
+                k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)item);
+            }
+        }
+
+advance_to_next_message:
+        // Advance the pointer past the message we just processed
+        size_t total_msg_size = rh_len + current_msg_payload_len;
+        printk("rh_len:%d current_payload_ptr:%p total_msg_size:%d remaining_payload_len:%d \n", rh_len, current_payload_ptr, total_msg_size, remaining_payload_len);
+        current_payload_ptr += total_msg_size;
+        remaining_payload_len -= total_msg_size;
+        printk("rh_len:%d current_payload_ptr:%p total_msg_size:%d remaining_payload_len:%d \n", rh_len, current_payload_ptr, total_msg_size, remaining_payload_len);
+    } // end of while(remaining_payload_len > 0)
+}
+
 static void dlc_rx_thread_entry(void *p1, void *p2, void *p3)
 {
     ARG_UNUSED(p1); ARG_UNUSED(p2); ARG_UNUSED(p3);
@@ -672,7 +964,6 @@ static void dlc_rx_thread_entry(void *p1, void *p2, void *p3)
     printk("[TRACE] Starting DLC RX thread entry point\n");
     printk("[TRACE] CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE = %d\n", CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE);
     printk("[TRACE] sizeof(mac_sdu_t) = %zu\n", sizeof(mac_sdu_t));
-    printk("[TRACE] sizeof(dlc_app_sdu_t) = %zu\n", sizeof(dlc_app_sdu_t));
 
     while (1) {
         printk("[TRACE] DLC RX thread waiting for packet...\n");
@@ -703,6 +994,7 @@ static void dlc_rx_thread_entry(void *p1, void *p2, void *p3)
             size_t hdr_len = sizeof(dect_dlc_header_type123_basic_t);
             dlc_sdu_payload_ptr = dlc_pdu + hdr_len;
             dlc_sdu_payload_len = dlc_pdu_len - hdr_len;
+            dlc_process_sdu_payload(dlc_sdu_payload_ptr, dlc_sdu_payload_len, sn, mac_sdu);
         } else { /* Segmented PDU */
             dlc_reassembly_session_t *session = find_or_alloc_reassembly_session(
                 sn, DLC_SERVICE_TYPE_1_SEGMENTATION);
@@ -711,10 +1003,8 @@ static void dlc_rx_thread_entry(void *p1, void *p2, void *p3)
                 goto free_and_continue;
             }
 
-            k_timer_start(&session->timeout_timer, K_MSEC(DLC_REASSEMBLY_TIMEOUT_MS),
-                      K_NO_WAIT);
+            k_timer_start(&session->timeout_timer, K_MSEC(DLC_REASSEMBLY_TIMEOUT_MS), K_NO_WAIT);
 
-            uint16_t offset = 0;
             const uint8_t *segment_payload_ptr;
             size_t segment_payload_len;
 
@@ -726,9 +1016,12 @@ static void dlc_rx_thread_entry(void *p1, void *p2, void *p3)
                 segment_payload_ptr = dlc_pdu + sizeof(dect_dlc_header_type123_basic_t);
                 segment_payload_len = dlc_pdu_len - sizeof(dect_dlc_header_type123_basic_t);
 
-                printk("[FIRST_SEGMENT_DBG] Data to be copied from first segment (len=%zu):\n", segment_payload_len);
-                for (int i=0; i<segment_payload_len && i < 32; i++) { printk("%02x ", segment_payload_ptr[i]); }
-                printk("\n");
+                int err = write_to_net_buf(&session->buf, 0, segment_payload_ptr, segment_payload_len);
+                if (err) {
+                    LOG_ERR("DLC_RX_SAR: pool exhausted for SN %u first segment", sn);
+                    session->is_active = false;
+                    goto free_and_continue;
+                }
 
             } else {
                 if (dlc_pdu_len < sizeof(dect_dlc_header_type13_segmented_t)) {
@@ -736,242 +1029,48 @@ static void dlc_rx_thread_entry(void *p1, void *p2, void *p3)
                     goto free_and_continue;
                 }
                 const dect_dlc_header_type13_segmented_t *seg_hdr = (const void *)dlc_pdu;
-                offset = dlc_hdr_t13_segmented_get_offset(seg_hdr);
+                uint16_t offset = dlc_hdr_t13_segmented_get_offset(seg_hdr);
+
                 segment_payload_ptr = dlc_pdu + sizeof(dect_dlc_header_type13_segmented_t);
                 segment_payload_len = dlc_pdu_len - sizeof(dect_dlc_header_type13_segmented_t);
 
-                printk("[MEMCPY_DBG] Dest Ptr for subsequent segment: %p\n", (void *)(session->reassembly_buf + offset));
-                printk("[OTHER_SEGMENT_DBG] Copying %zu bytes from subsequent segment to reassembly buffer at offset %u.\n",
-                       segment_payload_len, offset);
-                printk("  -> Data: ");
-                for (int i=0; i<segment_payload_len && i < 32; i++) { printk("%02x ", segment_payload_ptr[i]); }
-                printk("\n");
+                if (si == DLC_SI_LAST_SEGMENT) {
+                    session->total_sdu_len = offset + segment_payload_len;
+                }
+
+                int err = write_to_net_buf(&session->buf, offset, segment_payload_ptr, segment_payload_len);
+                if (err) {
+                    LOG_ERR("DLC_RX_SAR: pool full, dropped %zu bytes for SN %u",
+                        segment_payload_len, sn);
+                    if (session->buf) {
+                        net_buf_unref(session->buf);
+                        session->buf = NULL;
+                    }
+                    session->is_active = false;
+                    goto free_and_continue;
+                }
             }
 
-            if ((offset + segment_payload_len) > DLC_REASSEMBLY_BUF_SIZE) {
-                session->is_active = false;
-                k_timer_stop(&session->timeout_timer);
-                goto free_and_continue;
-            }
-            memcpy(session->reassembly_buf + offset, segment_payload_ptr,
-                   segment_payload_len);
             session->bytes_received += segment_payload_len;
 
-            if (si == DLC_SI_LAST_SEGMENT) {
-                session->total_sdu_len = offset + segment_payload_len;
-            }
-
-            printk("[REASSEMBLY_DBG] After processing segment: SN=%u, bytes_received=%zu, total_sdu_len=%zu\n",
+            LOG_DBG("[SAR] SN=%u bytes_received=%zu total_sdu_len=%zu",
                    sn, session->bytes_received, session->total_sdu_len);
 
             if (session->total_sdu_len > 0 &&
                 session->bytes_received >= session->total_sdu_len) {
                 k_timer_stop(&session->timeout_timer);
-                
-                printk("[REASSEMBLY_BUF_DBG] Reassembled buffer (len=%zu):\n", session->total_sdu_len);
-                for (int i=0; i<session->total_sdu_len && i < 64; i++) { printk("%02x ", session->reassembly_buf[i]); }
-                printk("\n");
 
-                dlc_sdu_payload_ptr = session->reassembly_buf;
-                dlc_sdu_payload_len = session->total_sdu_len;
+                /* Linearize the fragment chain to get a contiguous buffer for processing */
+                size_t total_reassembled = net_buf_frags_len(session->buf);
+                /* Use a stack buffer for the assembled payload to feed into the processing loop */
+                uint8_t reassembled_linear[total_reassembled];
+                net_buf_linearize(reassembled_linear, total_reassembled, session->buf, 0, total_reassembled);
+                net_buf_unref(session->buf);
+                session->buf = NULL;
+
+                dlc_process_sdu_payload(reassembled_linear, total_reassembled, sn, mac_sdu);
                 session->is_active = false;
             }
-        }
-
-        /*
-         * ===================================================================
-         * START OF MODIFICATION: Multi-Message Processing Loop
-         * ===================================================================
-         *
-         * The original code assumed one message per SDU payload. This has been
-         * replaced with a loop to process multiple sequential messages.
-         */
-        if (dlc_sdu_payload_ptr != NULL) {
-            // Pointers to track our position within the payload buffer
-            const uint8_t *current_payload_ptr = dlc_sdu_payload_ptr;
-            size_t remaining_payload_len = dlc_sdu_payload_len;
-
-            while (remaining_payload_len > 0) {
-                dect_dlc_routing_header_t rh;
-
-                printk("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz \n");
-
-                printk("[DLC_RX_DBG] About to parse SDU payload for routing header (remaining_len=%zu):\n", remaining_payload_len);
-                for (int i = 0; i < remaining_payload_len && i < 64; i++) { /* Print up to 48 bytes */
-                    printk("%02x ", current_payload_ptr[i]);
-                }
-                printk("\n");
-
-                int rh_len = dlc_parse_routing_header(current_payload_ptr,
-                                      remaining_payload_len, &rh);
-
-                // If we can't parse a routing header, the payload is malformed.
-                // We must stop processing this SDU.
-                if (rh_len <= 0) {
-                    LOG_ERR("Failed to parse routing header. Aborting processing of this SDU.");
-                    break; // Exit the inner while loop
-                }
-
-                // Calculate the pointer and length for the payload of the CURRENT message
-                const uint8_t *current_msg_payload_ptr = current_payload_ptr + rh_len;
-                size_t current_msg_payload_len = remaining_payload_len - rh_len;
-
-                uint8_t routing_type =
-                    (rh.bitmap >>
-                     DLC_RH_ROUTING_TYPE_SHIFT) &
-                    0x07;
-
-printk("[DLC_RX_DBG] dest_addr:0x%08X routing_type:%d\n", rh.dest_addr, routing_type);
-
-                if (routing_type == DLC_RH_TYPE_LOCAL_FLOODING) {
-                    printk("[DUPLICATE_CHECK_DBG] Parsed src_addr: 0x%08X, seq_num: %u\n",
-                           rh.source_addr, rh.sequence_number);
-                    for (int i = 0; i < DLC_DUPLICATE_CACHE_SIZE; i++) {
-                        if (g_dlc_dup_cache[i].source_rd_id == rh.source_addr &&
-                            g_dlc_dup_cache[i].sequence_number ==
-                                rh.sequence_number) {
-                            LOG_DBG("DLC_RX_FWD: Duplicate packet from 0x%08X, seq %u. Dropping.",
-                                rh.source_addr, rh.sequence_number);
-                            goto advance_to_next_message; // Use goto to skip processing and advance
-                        }
-                    }
-                    g_dlc_dup_cache[g_dlc_dup_cache_next_idx].source_rd_id =
-                        rh.source_addr;
-                    g_dlc_dup_cache[g_dlc_dup_cache_next_idx].sequence_number =
-                        rh.sequence_number;
-                    g_dlc_dup_cache_next_idx =
-                        (g_dlc_dup_cache_next_idx + 1) %
-                        DLC_DUPLICATE_CACHE_SIZE;
-                }
-
-                printk("[ROUTING_DBG] Checking destination. dest_addr: 0x%08X, own_addr: 0x%08X\n",
-                       rh.dest_addr, dect_mac_get_own_long_id());
-
-#if defined(CONFIG_ZTEST)
-/* this is because the mock phy and threads are not able to fully understand their own long id */
-				bool special_addr = (rh.dest_addr == 0x44332211) ? true : false;
-				if (rh.dest_addr != dect_mac_get_own_long_id() && !special_addr &&
-				rh.dest_addr != 0xFFFFFFFF) {	
-#else
-                if (rh.dest_addr != dect_mac_get_own_long_id() &&
-                    rh.dest_addr != 0xFFFFFFFF) {
-#endif
-                    printk("/* This is a packet for forwarding */ \n");
-                    if (rh.hop_count < rh.hop_limit) {
-                        printk("DLC_RX_FWD: PDU for 0x%08X not for me. Hops %u/%u. Forwarding.\n",
-                            rh.dest_addr, rh.hop_count, rh.hop_limit);
-                        
-                        /* Increment hop count in the local copy */
-                        rh.hop_count++;
-
-                        /*
-                         * Forwarding reassembled SDU logic.
-                         * If the SDU + new RH exceeds the MAC maximum, we drop it for now
-                         * (re-segmentation for forwarding is not yet implemented).
-                         */
-                        uint8_t rh_fwd_buf[sizeof(dect_dlc_routing_header_t)];
-                        int new_rh_len = dlc_serialize_routing_header(rh_fwd_buf, sizeof(rh_fwd_buf), &rh);
-                        
-                        if (new_rh_len > 0) {
-                            size_t fwd_needed = new_rh_len + current_msg_payload_len;
-                            if (fwd_needed > CONFIG_DECT_MAC_SDU_MAX_SIZE - sizeof(dect_dlc_header_type123_basic_t)) {
-                                LOG_ERR("DLC_RX_FWD: Forwarding reassembled SDU failed: too large for MAC (%zu bytes).", fwd_needed);
-                            } else {
-                                dect_dlc_header_type123_basic_t fwd_dlc_hdr;
-                                static uint8_t fwd_payload_buf[CONFIG_DECT_MAC_SDU_MAX_SIZE];
-
-                                memcpy(fwd_payload_buf, rh_fwd_buf, new_rh_len);
-                                memcpy(fwd_payload_buf + new_rh_len, current_msg_payload_ptr, current_msg_payload_len);
-
-                                dlc_hdr_t123_basic_set(&fwd_dlc_hdr,
-                                               DLC_IE_TYPE_DATA_TYPE_123_WITH_ROUTING,
-                                               DLC_SI_COMPLETE_SDU, sn);
-                                
-                                uint8_t fwd_flow_id = mac_sdu->flow_id_present ? mac_sdu->flow_id : MAC_FLOW_HIGH_PRIORITY;
-                                queue_dlc_pdu_to_mac(0, (const uint8_t *)&fwd_dlc_hdr, sizeof(fwd_dlc_hdr),
-                                           fwd_payload_buf, fwd_needed,
-                                           false, 0, fwd_flow_id);
-                            }
-                        }
-                    }
-                    goto advance_to_next_message; // Forwarded, now move to the next message in the payload
-                }
-
-                /* Packet is for us, strip routing header and deliver */
-                /*
-                 * CORRECTED/UNIFIED DELIVERY LOGIC:
-                 * Regardless of whether the SDU was complete or reassembled, if a message
-                 * is for the local device, it MUST be copied into a new application buffer.
-                 * This is critical because the original buffer (`mac_sdu` or `reassembly_buf`)
-                 * may contain other messages that still need to be processed in this loop.
-                 * We cannot pass the original buffer up to the application.
-                 */
-                dlc_rx_delivery_item_t *item = NULL;
-                int alloc_ret = k_mem_slab_alloc(&g_dlc_rx_delivery_item_slab, (void **)&item, K_NO_WAIT);
-                
-                if (alloc_ret != 0) {
-                    /* Slab full, try to drop oldest and retry once */
-                    if (dlc_sched_drop_oldest() == 0) {
-                        alloc_ret = k_mem_slab_alloc(&g_dlc_rx_delivery_item_slab, (void **)&item, K_NO_WAIT);
-                    }
-                }
-
-                if (alloc_ret == 0) {
-                    dlc_app_sdu_t *app_sdu = NULL;
-                    int sdu_alloc_ret = k_mem_slab_alloc(&g_dlc_app_sdu_slab, (void **)&app_sdu, K_NO_WAIT);
-                    
-                    if (sdu_alloc_ret != 0) {
-                        /* SDU slab full, try to drop oldest and retry once */
-                        if (dlc_sched_drop_oldest() == 0) {
-                            sdu_alloc_ret = k_mem_slab_alloc(&g_dlc_app_sdu_slab, (void **)&app_sdu, K_NO_WAIT);
-                        }
-                    }
-
-                    if (sdu_alloc_ret == 0) {
-                        memcpy(app_sdu->data, current_msg_payload_ptr, current_msg_payload_len);
-                        app_sdu->len = current_msg_payload_len;
-                        item->sdu_buf = app_sdu;
-                        item->is_app_sdu = true;
-
-                        item->dlc_service_type = DLC_SERVICE_TYPE_1_SEGMENTATION;
-
-                        
-                        /* --- DLC CLASSIFIER --- */
-                        /* Extract Flow ID from logic. Since we stripped headers, we must rely on mac_sdu metadata if valid */
-                        /* But mac_sdu might have multiple PDUs. We need to be careful. */
-                        /* Actually, dlc_rx_thread_entry iterates over ONE mac_sdu. All PDUs in it *should* share the MAC header Flow ID. */
-                        /* However, flow_id is per MAC SDU. */
-                        uint8_t flow = mac_sdu->flow_id_present ? mac_sdu->flow_id : MAC_FLOW_HIGH_PRIORITY;
-                        
-                        /* Map Flow to Lane */
-                        int lane = DLC_LANE_LOW;
-                        if (flow == MAC_FLOW_HIGH_PRIORITY) lane = DLC_LANE_HIGH;
-                        else if (flow == MAC_FLOW_RELIABLE_DATA) lane = DLC_LANE_MED;
-                        else if (flow == MAC_FLOW_BEST_EFFORT) lane = DLC_LANE_LOW;
-                        /* Control/Signaling override if needed? For now, map simple. */
-                        
-                        /* Enqueue to Scheduler */
-                        item->priority = lane;
-                        item->entry_timestamp = net_get_os_tick();
-                        item->origin_queue = &g_dlc_scheduler.queues[lane];
-                        
-                        k_queue_append(&g_dlc_scheduler.queues[lane], item);
-                        
-                        printk("[DLC_SCHED_DBG] Packet (SN %u, Flow %u) enqueued to Lane %d.\n", sn, flow, lane);
-                    } else {
-                        LOG_ERR("Failed to allocate from app_sdu_slab");
-                        k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)item);
-                    }
-                }
-
-advance_to_next_message:
-                // Advance the pointer past the message we just processed
-                size_t total_msg_size = rh_len + current_msg_payload_len;
-				printk("rh_len:%d current_payload_ptr:%p total_msg_size:%d remaining_payload_len:%d \n", rh_len, current_payload_ptr, total_msg_size, remaining_payload_len);
-                current_payload_ptr += total_msg_size;
-                remaining_payload_len -= total_msg_size;
-				printk("rh_len:%d current_payload_ptr:%p total_msg_size:%d remaining_payload_len:%d \n", rh_len, current_payload_ptr, total_msg_size, remaining_payload_len);
-            } // end of while(remaining_payload_len > 0)
         }
         /*
          * ===================================================================
@@ -1005,9 +1104,11 @@ static void dlc_tx_service_thread_entry(void *p1, void *p2, void *p3)
 		}
 
 		if (job->retries >= DLC_MAX_RETRIES) {
-			LOG_ERR("DLC_ARQ_SVC: Job for SN %u has reached max retries. Discarding.", job->sequence_number);
-
-			k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)job->sdu_payload);
+			LOG_ERR("DLC_ARQ_SVC: Job for SN %u reached max retries. Discarding.", job->sequence_number);
+			if (job->sdu_buf) {
+				net_buf_unref(job->sdu_buf);
+				job->sdu_buf = NULL;
+			}
 			job->is_active = false;
 			continue;
 		}
@@ -1026,26 +1127,28 @@ static void dlc_tx_service_thread_entry(void *p1, void *p2, void *p3)
 
 static int dlc_resend_sdu_with_original_sn(dlc_retransmission_job_t *job)
 {
-	if (!job || !job->is_active || !job->sdu_payload) {
+	if (!job || !job->is_active || !job->sdu_buf) {
 		return -EINVAL;
 	}
 
-	/* The job->sdu_payload contains the full SDU (Routing Header + CVG Payload).
-	 * We need to parse the routing header to know its length, so we can pass
-	 * the header and the payload as separate arguments to dlc_send_segmented.
+	/* The job->sdu_buf contains the full SDU (Routing Header + CVG Payload)
+	 * potentially across multiple fragments. Linearize to parse the routing header.
 	 */
-	dect_dlc_routing_header_t rh;
-	int rh_len = dlc_parse_routing_header(job->sdu_payload->data, job->sdu_payload->len, &rh);
+	size_t total_len = net_buf_frags_len(job->sdu_buf);
+	uint8_t tmp_buf[total_len]; /* Stack-allocated view for parsing only */
+	net_buf_linearize(tmp_buf, total_len, job->sdu_buf, 0, total_len);
 
+	dect_dlc_routing_header_t rh;
+	int rh_len = dlc_parse_routing_header(tmp_buf, total_len, &rh);
 	if (rh_len <= 0) {
-		LOG_ERR("ARQ_RESEND: Could not parse routing header from stored SDU for SN %u.",
+		LOG_ERR("ARQ_RESEND: Could not parse routing header from stored net_buf for SN %u.",
 			job->sequence_number);
 		return -EBADMSG;
 	}
 
-	const uint8_t *sdu_hdr = job->sdu_payload->data;
-	const uint8_t *sdu_payload = job->sdu_payload->data + rh_len;
-	size_t sdu_payload_len = job->sdu_payload->len - rh_len;
+	const uint8_t *sdu_hdr = tmp_buf;
+	const uint8_t *sdu_payload = tmp_buf + rh_len;
+	size_t sdu_payload_len = total_len - rh_len;
 
 	return dlc_send_segmented(job->service, job->dest_long_id, sdu_hdr, rh_len, sdu_payload,
 				    sdu_payload_len, job->sequence_number, job->flow_id);
@@ -1219,52 +1322,35 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 
 
 	if (!delivery_item->sdu_buf) {
-		LOG_ERR("No delivery_item->sdu_buf");
+		LOG_ERR("DLC_RECV: delivery item has no sdu_buf");
 		k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)delivery_item);
 		return -EFAULT;
 	}
 
-	printk("[DLC_RECV_DBG] delivery_item->is_app_sdu:%s *app_level_payload_len_inout:%zu \n", delivery_item->is_app_sdu? "Yes":"No", *app_level_payload_len_inout);
-	if (delivery_item->is_app_sdu) {
-		dlc_app_sdu_t *sdu_buf = delivery_item->sdu_buf;
-		
-		if (*app_level_payload_len_inout < sdu_buf->len) {
-			/* Buffer too small - put item back (prepend) and return error */
-            /* NOTE: Prepending to k_queue puts it at head */
-            k_queue_prepend(&g_dlc_scheduler.queues[selected_lane], delivery_item);
-			return -EMSGSIZE;
-		}
-		
-		*app_level_payload_len_inout = sdu_buf->len;
-		memcpy(app_level_payload_buf, sdu_buf->data, sdu_buf->len);
-		
-		printk("  -> Freeing app_sdu_buf at address: %p to slab g_dlc_app_sdu_slab\n", 
-		       (void *)sdu_buf);
-		k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)sdu_buf);
-	} else {
-        /* Legacy path fallback, usually unused now */
-		mac_sdu_t *sdu_buf = delivery_item->sdu_buf;
-		
-		/* Unsegmented packets have routing header stripped before this point */
-		const uint8_t *payload = sdu_buf->data + sizeof(dect_dlc_header_type123_basic_t);
-		size_t payload_len = sdu_buf->len - sizeof(dect_dlc_header_type123_basic_t);
+	struct net_buf *sdu_buf = delivery_item->sdu_buf;
+	size_t payload_len = net_buf_frags_len(sdu_buf);
 
-		if (*app_level_payload_len_inout < payload_len) {
-			*app_level_payload_len_inout = payload_len;
-            k_queue_prepend(&g_dlc_scheduler.queues[selected_lane], delivery_item);
-			return -EMSGSIZE;
-		}
-		
+	if (*app_level_payload_len_inout < payload_len) {
+		/* Buffer too small — put item back and return error */
+		k_queue_prepend(&g_dlc_scheduler.queues[selected_lane], delivery_item);
 		*app_level_payload_len_inout = payload_len;
-		memcpy(app_level_payload_buf, payload, payload_len);
-		
-		printk("  -> Freeing mac_sdu_buf at address: %p\n", (void *)sdu_buf);
-		dect_mac_buffer_free(sdu_buf);
+		return -EMSGSIZE;
 	}
 
-	
+	/* Copy payload to caller's buffer from the net_buf fragment chain */
+	net_buf_linearize(app_level_payload_buf, *app_level_payload_len_inout, sdu_buf, 0, payload_len);
+	*app_level_payload_len_inout = payload_len;
+
+	/* Pass metadata to caller via source_addr_out */
+	dect_buf_meta_t *meta = dect_buf_meta(sdu_buf);
+	if (source_addr_out) {
+		*source_addr_out = meta->source_addr;
+	}
+
 	*service_type_out = delivery_item->dlc_service_type;
-    /* Free the delivery item wrapper */
+
+	/* Release the net_buf and the delivery item wrapper */
+	net_buf_unref(sdu_buf);
 	k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)delivery_item);
 	return 0;
 }
@@ -1289,7 +1375,7 @@ static dlc_reassembly_session_t* find_or_alloc_reassembly_session(uint16_t seque
         session->is_active = true;
         session->sequence_number = sequence_number;
         session->service_type = service;
-        memset(session->reassembly_buf, 0, DLC_REASSEMBLY_BUF_SIZE);
+        session->buf = NULL;
         session->bytes_received = 0;
         session->total_sdu_len = 0;
         k_timer_start(&session->timeout_timer, K_MSEC(g_rx_sdu_lifetime_ms), K_NO_WAIT);
@@ -1302,14 +1388,17 @@ static dlc_reassembly_session_t* find_or_alloc_reassembly_session(uint16_t seque
 
 static void dlc_reassembly_timeout_handler(struct k_timer *timer_id)
 {
-    uintptr_t session_idx_from_timer = (uintptr_t)timer_id->user_data;
-    if (session_idx_from_timer < MAX_DLC_REASSEMBLY_SESSIONS &&
-        reassembly_sessions[session_idx_from_timer].is_active) {
-        printk("DLC_SAR_TIMEOUT: Reassembly for session %u (SN %u) timed out. Discarding segments.",
-                (unsigned int)session_idx_from_timer, reassembly_sessions[session_idx_from_timer].sequence_number);
-        LOG_WRN("DLC_SAR_TIMEOUT: Reassembly for session %u (SN %u) timed out. Discarding segments.",
-                (unsigned int)session_idx_from_timer, reassembly_sessions[session_idx_from_timer].sequence_number);
-		reassembly_sessions[session_idx_from_timer].is_active = false;
+    uintptr_t idx = (uintptr_t)timer_id->user_data;
+    if (idx < MAX_DLC_REASSEMBLY_SESSIONS && reassembly_sessions[idx].is_active) {
+        LOG_WRN("DLC_SAR_TIMEOUT: Reassembly for session %u (SN %u) timed out.",
+                (unsigned int)idx, reassembly_sessions[idx].sequence_number);
+        if (reassembly_sessions[idx].buf) {
+            net_buf_unref(reassembly_sessions[idx].buf);
+            reassembly_sessions[idx].buf = NULL;
+        }
+        reassembly_sessions[idx].bytes_received = 0;
+        reassembly_sessions[idx].total_sdu_len = 0;
+        reassembly_sessions[idx].is_active = false;
     }
 }
 
@@ -1327,13 +1416,12 @@ static void dlc_tx_sdu_lifetime_expiry_handler(struct k_timer *timer_id)
 {
 	dlc_retransmission_job_t *job = CONTAINER_OF(timer_id, dlc_retransmission_job_t, lifetime_timer);
 	if (job && job->is_active) {
-		LOG_ERR("DLC_LIFETIME: SDU with SN %u expired. Discarding from ARQ buffer.", job->sequence_number);
+		LOG_ERR("DLC_LIFETIME: SDU with SN %u expired. Unreffing net_buf.", job->sequence_number);
 		k_timer_stop(&job->retransmit_attempt_timer);
-		// k_mem_slab_free(&g_dlc_arq_buf_slab, (void *)job->sdu_payload);
-
-		// Not sure if we should clear this memory
-		k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)job->sdu_payload);
-		// dect_mac_buffer_free(job->sdu_payload);
+		if (job->sdu_buf) {
+			net_buf_unref(job->sdu_buf);
+			job->sdu_buf = NULL;
+		}
 		job->is_active = false;
 	}
 }
@@ -1560,11 +1648,7 @@ static int dlc_sched_drop_oldest(void)
             LOG_WRN("DLC_SCHED_DROP: Dropped oldest item from Lane %d due to buffer pressure.", lane);
             
             if (dropped->sdu_buf) {
-                if (dropped->is_app_sdu) {
-                    k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)dropped->sdu_buf);
-                } else {
-                    dect_mac_buffer_free(dropped->sdu_buf);
-                }
+                net_buf_unref(dropped->sdu_buf);
             }
             k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)dropped);
             return 0;

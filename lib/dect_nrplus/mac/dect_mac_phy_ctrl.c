@@ -374,8 +374,6 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 		.lbt_period = use_lbt ? NRF_MODEM_DECT_LBT_PERIOD_MIN : 0,
 		.phy_header = &g_phy_pcc_tx_constructor_buf,
 		.bs_cqi = NRF_MODEM_DECT_PHY_BS_CQI_NOT_USED,
-		// .data = (pdc_content_len_for_phy > 0) ? g_phy_pdc_tx_constructor_buf_ctrl : NULL,
-		// .data_size = pdc_content_len_for_phy
 		.data = (full_mac_pdu_len > 0) ? g_phy_pdc_tx_constructor_buf_ctrl : NULL,
 		.data_size = full_mac_pdu_len		
 	};

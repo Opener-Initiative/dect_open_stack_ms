@@ -114,6 +114,11 @@ void dect_mac_reset_context(dect_mac_context_t *ctx)
 		memset(&ctx->role_ctx.pt.target_ft, 0, sizeof(dect_mac_peer_info_t));
 		memset(&ctx->role_ctx.pt.associated_ft, 0, sizeof(dect_mac_peer_info_t));
 		ctx->role_ctx.pt.current_assoc_retries = 0;
+
+		/* Reset statistics */
+		ctx->role_ctx.pt.beacon_rx_count = 0;
+		ctx->role_ctx.pt.assoc_attempt_count = 0;
+		ctx->role_ctx.pt.rach_tx_count = 0;
 	} else { /* FT Role */
 		k_timer_stop(&ctx->role_ctx.ft.beacon_timer);
 		
@@ -123,6 +128,9 @@ void dect_mac_reset_context(dect_mac_context_t *ctx)
 			memset(&ctx->role_ctx.ft.connected_pts[i], 0, sizeof(dect_mac_peer_info_t));
 			ctx->role_ctx.ft.keys_provisioned_for_peer[i] = false;
 		}
+
+		/* Reset statistics */
+		ctx->role_ctx.ft.beacon_tx_count = 0;
 	}
 
 	/* 3. Stop PCC cache timers */
@@ -136,6 +144,9 @@ void dect_mac_reset_context(dect_mac_context_t *ctx)
 	ctx->hpc = 1; 
 	ctx->keys_provisioned = false;
 	ctx->send_mac_sec_info_ie_on_next_tx = false;
+
+	ctx->security_enabled = IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE);
+	ctx->consecutive_mic_failures = 0;
 	
 	/* 5. Clear pending operations */
 	ctx->pending_op_type = PENDING_OP_NONE;

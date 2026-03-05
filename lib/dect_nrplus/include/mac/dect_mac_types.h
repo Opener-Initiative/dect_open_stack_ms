@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <zephyr/kernel.h>
+#include <zephyr/net_buf.h>
 
 #ifndef CONFIG_DECT_MAC_SDU_MAX_SIZE
 #define CONFIG_DECT_MAC_SDU_MAX_SIZE 1636
@@ -54,5 +55,40 @@ typedef enum {
 	MAC_FLOW_BEST_EFFORT,
 	MAC_FLOW_COUNT
 } mac_flow_id_t;
+
+/**
+ * @brief DECT-specific metadata stored in net_buf->user_data.
+ *
+ * Fits within the 16-byte user_data field of a Zephyr net_buf.
+ * Used to carry protocol metadata across DLC and CVG data paths
+ * without requiring wrapper structs or separate allocations.
+ *
+ * IMPORTANT: sizeof(dect_buf_meta_t) MUST be <= CONFIG_NET_BUF_USER_DATA_SIZE.
+ * Add a BUILD_ASSERT in any file that uses this.
+ */
+typedef struct {
+	uint16_t dlc_sn;          /**< DLC/CVG Sequence Number */
+	uint16_t endpoint_id;     /**< CVG Endpoint Mux ID (0 = not present) */
+	uint32_t source_addr;     /**< Source Long RD ID */
+	uint32_t dest_addr;       /**< Destination Long RD ID */
+	uint8_t  flow_id;         /**< QoS Flow ID (mac_flow_id_t) */
+	uint8_t  service_type;    /**< DLC service type (dlc_service_type_t) */
+	uint8_t  flags;           /**< Bitmask: bit0=ARQ, bit1=forward, bit2=encrypted */
+	uint8_t  _pad;            /**< Reserved for alignment */
+} dect_buf_meta_t;
+
+BUILD_ASSERT(sizeof(dect_buf_meta_t) <= 16,
+	     "dect_buf_meta_t exceeds net_buf user_data size of 16 bytes");
+
+/** @brief Helper: get DECT metadata from a net_buf */
+static inline dect_buf_meta_t *dect_buf_meta(struct net_buf *buf)
+{
+	return (dect_buf_meta_t *)net_buf_user_data(buf);
+}
+
+/** Flag bits for dect_buf_meta_t.flags */
+#define DECT_BUF_FLAG_ARQ_PENDING  BIT(0)
+#define DECT_BUF_FLAG_FORWARD      BIT(1)
+#define DECT_BUF_FLAG_ENCRYPTED    BIT(2)
 
 #endif /* DECT_MAC_TYPES_H__ */

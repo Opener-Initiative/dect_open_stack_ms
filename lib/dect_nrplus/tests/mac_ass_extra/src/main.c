@@ -427,7 +427,7 @@ static void dect_mac_assoc_before(void *fixture)
     
     /* Stop and reinitialize all kernel timers */
     k_timer_stop(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
-    // k_timer_stop(&g_mac_ctx_pt.role_ctx.pt.mobility_scan_timer);
+    k_timer_stop(&g_mac_ctx_pt.role_ctx.pt.mobility_scan_timer);
     k_timer_stop(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
     
     k_timer_init(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer, NULL, NULL);
@@ -465,8 +465,8 @@ static void dect_mac_assoc_before(void *fixture)
     dect_mac_register_state_change_cb(test_mac_state_change_cb);
     
     /* Clear global test state */
-    // g_last_tx_pdu_len_capture = 0;
-    // memset(g_last_tx_pdu_capture, 0, sizeof(g_last_tx_pdu_capture));
+    g_last_tx_pdu_len_capture = 0;
+    memset(g_last_tx_pdu_capture, 0, sizeof(g_last_tx_pdu_capture));
     
     /* Debug: Print state after reset */
     debug_print_current_state("AFTER_RESET");
@@ -480,33 +480,6 @@ printk("[DEBUG_PROBE] After Init: PT Peer Count -> %zu\n", g_phy_ctx_pt.num_peer
 
 
 /* --- Enhanced Test Cleanup --- */
-
-// static void dect_mac_assoc_after(void *fixture)
-// {
-//     ARG_UNUSED(fixture);
-    
-//     printk("[TEST_CLEANUP] Starting test cleanup\n");
-    
-//     /* 1. Stop all kernel timers */
-//     k_timer_stop(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
-//     k_timer_stop(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
-    
-//     /* 2. Deactivate PHY if active */
-//     if (g_phy_ctx_pt.state == PHY_STATE_ACTIVE) {
-//         nrf_modem_dect_phy_deactivate();
-//     }
-//     if (g_phy_ctx_ft.state == PHY_STATE_ACTIVE) {
-//         nrf_modem_dect_phy_deactivate();
-//     }
-    
-//     /* 3. Clear any remaining events */
-//     clear_mac_event_queue();
-    
-//     /* 4. Reset global state */
-//     reset_global_test_state();
-    
-//     printk("[TEST_CLEANUP] Test cleanup completed\n");
-// }
 static void dect_mac_assoc_after(void *fixture)
 {
     ARG_UNUSED(fixture);
@@ -524,7 +497,15 @@ static void dect_mac_assoc_after(void *fixture)
     if (g_phy_ctx_ft.state == PHY_STATE_ACTIVE) {
         nrf_modem_dect_phy_deactivate();
     }
+
     
+    /* Reset shared resources to ensure test isolation */
+	dect_mac_phy_if_reset_handle_map();
+
+    /* Complete memory reset of all contexts */
+    memset(&g_mac_ctx_pt, 0, sizeof(g_mac_ctx_pt));
+    memset(&g_mac_ctx_ft, 0, sizeof(g_mac_ctx_ft));
+        
     /* Complete mock PHY reset - this is critical */
     mock_phy_complete_reset(&g_phy_ctx_pt);
     mock_phy_complete_reset(&g_phy_ctx_ft);
@@ -550,7 +531,7 @@ static void dect_mac_assoc_after(void *fixture)
 
 /* --- Test Cases --- */
 
-ZTEST(dect_mac_assoc, test_4_pt_ft_association_rejected_ft_full)
+ZTEST(dect_mac_assoc, test_1_pt_ft_association_rejected_ft_full)
 {
     debug_operation_handle_map("BEFORE_TEST");
 

@@ -190,7 +190,7 @@ static int cmd_show_stats(const struct shell *sh, size_t argc, char **argv)
 	shell_print(sh, "  HARQ Processes:");
 	int active_harq = 0;
 	for (int i = 0; i < MAX_HARQ_PROCESSES; i++) {
-		if (ctx->harq[i].is_active) {
+		if (ctx->harq_tx_processes[i].is_active) {
 			active_harq++;
 		}
 	}
@@ -200,7 +200,7 @@ static int cmd_show_stats(const struct shell *sh, size_t argc, char **argv)
 	if (ctx->role == MAC_ROLE_PT) {
 		shell_print(sh, "  Association Attempts: %u", ctx->role_ctx.pt.assoc_attempt_count);
 		shell_print(sh, "  RACH Transmissions: %u", ctx->role_ctx.pt.rach_tx_count);
-		shell_print(sh, "  Current RACH CW: %u", ctx->role_ctx.pt.current_contention_window);
+		shell_print(sh, "  Current RACH CW: %u", ctx->rach_context.rach_cw_current_idx);
 	} else {
 		int connected_count = 0;
 		for (int i = 0; i < MAX_PEERS_PER_FT; i++) {
@@ -302,10 +302,10 @@ static int cmd_inject_ie(const struct shell *sh, size_t argc, char **argv)
 		}
 		
 		shell_print(sh, "Sending to PT Short ID: 0x%04X", target_id);
-		err = dect_mac_api_ft_send_to_pt(sdu, MAC_FLOW_UNRELIABLE_DATA, target_id);
+		err = dect_mac_api_ft_send_to_pt(sdu, MAC_FLOW_BEST_EFFORT, target_id);
 	} else {
 		/* For PT, send to associated FT */
-		err = dect_mac_api_send(sdu, MAC_FLOW_UNRELIABLE_DATA);
+		err = dect_mac_api_send(sdu, MAC_FLOW_BEST_EFFORT);
 	}
 
 	if (err) {

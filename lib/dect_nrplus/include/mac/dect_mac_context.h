@@ -433,7 +433,12 @@ typedef struct {
     // struct k_fifo handover_tx_holding_fifo; // OLD FIFO logic
     struct k_queue handover_tx_holding_queue;
 	struct k_timer reject_timer;
-	bool release_pending;    
+	bool release_pending;
+
+	/* Statistics */
+	uint32_t beacon_rx_count;
+	uint16_t assoc_attempt_count;
+	uint16_t rach_tx_count;
 } pt_context_t;
 
 
@@ -540,6 +545,9 @@ typedef struct {
     dect_mac_group_assignment_fields_t group_assignment_fields;
     
     bool group_assignment_pending;
+
+	/* Statistics */
+	uint32_t beacon_tx_count;
 } ft_context_t;
 
 #ifndef CONFIG_DECT_MAC_DCS_NUM_CHANNELS_TO_SCAN
@@ -586,6 +594,9 @@ typedef struct dect_mac_context {
     bool keys_provisioned;     // For PT: session keys derived. For FT: unused.
     uint8_t current_key_index; // Own current key index for TX.
     bool send_mac_sec_info_ie_on_next_tx; // Global flag, e.g. for PT to send its HPC if FT requested.
+
+	bool security_enabled;
+	uint8_t consecutive_mic_failures;
 
     uint64_t last_known_modem_time;
     uint64_t ft_sfn_zero_modem_time_anchor;

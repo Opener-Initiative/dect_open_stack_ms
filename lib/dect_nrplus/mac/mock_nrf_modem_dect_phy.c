@@ -95,17 +95,6 @@ static void init_rf_environment(void)
         printk("[MOCK_INIT] Configured Default Carrier %d to Clean RSSI (-100 dBm)\n", default_carrier);
     }
 }
-// // static void init_rf_environment(void)
-// // {
-// //     for (int i = 0; i < MOCK_MAX_CARRIERS; i++) {
-// //         g_mock_carrier_noise_dbm[i] = -60; /* Default noise floor */
-// //     }
-// // #ifdef CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL
-// //     if (CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL < MOCK_MAX_CARRIERS) {
-// //         g_mock_carrier_noise_dbm[CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL] = -100;
-// //     }
-// // #endif
-// }
 
 /* ========================================================================
  * PUBLIC MOCK CONTROL FUNCTIONS
@@ -142,6 +131,13 @@ void mock_phy_complete_reset(mock_phy_context_t *ctx)
     g_mock_packet_loss_rate_percent = 0;
     g_mock_collisions_enabled = false;
     
+    if (g_num_all_phys < MAX_NODES) {
+        for (size_t i = 0; i < g_num_all_phys; i++) {
+            g_all_phys[i] = NULL;
+        }
+        g_num_all_phys = 0;
+    }
+
     init_rf_environment();
 }
 
@@ -202,15 +198,14 @@ int mock_phy_queue_rx_packet(mock_phy_context_t *dest_ctx, const mock_rx_packet_
             dest_ctx->rx_queue[i] = *packet;
             dest_ctx->rx_queue[i].active = true;
 			
-			size_t len = 8; /* Adjust this based on your needs */
+			size_t len = 32; /* Adjust this based on your needs */
 			printk("[MOCK_PHY] PHY_QUEUE_RX_PACKET Payload Hexdump (first %zu bytes): \t", len);
 			for (size_t j = 0; j < len && j < packet->pdc_len; j++) {
 				printk("%02x ", packet->pdc_payload[j]);
 			}
 			printk("\n");
 
-			printk("[MOCK_PHY] PHY_QUEUE_RX_QUEUE Payload Hexdump (first %zu bytes): \t", len);
-			
+			printk("[MOCK_PHY] PHY_QUEUE_RX_QUEUE Payload Hexdump (first %zu bytes): \t", len);			
 			for (size_t j = 0; j < len && j < packet->pdc_len; j++) {
 				printk("%02x ", dest_ctx->rx_queue[i].pdc_payload[j]);
 			}			
@@ -392,6 +387,12 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
             mock_phy_set_active_context(ctx);
             
             if (op->type == MOCK_OP_TYPE_RSSI) {
+
+                if(ctx->mac_ctx->role_ctx.ft.operating_carrier == op->carrier) {
+                    g_mock_carrier_noise_dbm[op->carrier] = -120;
+                    printk("[MOCK_TIMELINE] FT operating carrier is %d at %d dbm\n", ctx->mac_ctx->role_ctx.ft.operating_carrier, g_mock_carrier_noise_dbm[op->carrier]);
+                }
+
                 int8_t rssi_val = (op->carrier < MOCK_MAX_CARRIERS) ? g_mock_carrier_noise_dbm[op->carrier] : -60;
                 memset(g_mock_rssi_buffer, rssi_val, MOCK_RSSI_MAX_SAMPLES);
                 

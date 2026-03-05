@@ -6,6 +6,7 @@
 #include <stddef.h>        // For size_t
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/kernel.h>
+#include <zephyr/net_buf.h>
 
 #include <mac/dect_mac_context.h>
 // #include "mac/dect_mac_sm.h"   // For dect_mac_role_t (used by dect_stack_init)
@@ -288,16 +289,15 @@ typedef struct {
  * DLC service type that was applicable to its reception/processing by the DLC.
  */
 typedef struct {
-	void *fifo_reserved; /* For k_queue internal use */
-	/* mac_sdu_t *sdu_buf;  Buffer containing the CVG PDU (DLC SDU payload) */
-	void *sdu_buf; /* Generic pointer to a slab-allocated buffer */
-	bool is_app_sdu; /* Flag to indicate if sdu_buf is a dlc_app_sdu_t or mac_sdu_t */
-	dlc_service_type_t dlc_service_type; /* The DLC service type of this SDU */
+	void *fifo_reserved;            /**< For k_queue internal use */
+	struct net_buf *sdu_buf;        /**< net_buf carrying the CVG PDU payload, with DECT metadata in user_data */
+	bool is_app_sdu;                /**< Kept for back-compat; always true in the net_buf path */
+	dlc_service_type_t dlc_service_type;
 
 	/* Scheduler Metadata */
-	net_tick_t entry_timestamp; /**< Time when packet entered the queue */
-	uint8_t priority;           /**< Priority level */
-	void *origin_queue;         /**< Pointer to the source k_queue */
+	net_tick_t entry_timestamp;     /**< Time when packet entered the queue */
+	uint8_t priority;               /**< Priority lane (DLC_LANE_*) */
+	void *origin_queue;             /**< Pointer to the source k_queue */
 } dlc_rx_delivery_item_t;
 
 
@@ -449,8 +449,10 @@ int dlc_parse_routing_header(const uint8_t *buf, size_t len, dect_dlc_routing_he
  */
 void dect_dlc_test_reset_duplicate_cache(void);
 
-
-
+/**
+ * @brief Returns a pointer to the DLC layer's shared net_buf pool.
+ */
+struct net_buf_pool *dect_dlc_get_rx_pool(void);
 
 
 #endif /* DECT_DLC_H__ */

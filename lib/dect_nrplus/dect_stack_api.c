@@ -5,6 +5,7 @@
 
 #include <dect_stack_api.h>
 #include <dect_cvg.h>
+#include <dect_dlc.h>
 #include <mac/dect_mac.h>
 
 LOG_MODULE_REGISTER(dect_stack_api, CONFIG_LOG_DEFAULT_LEVEL);
@@ -29,10 +30,19 @@ int dect_stack_init(void)
 {
 	int err;
 
+#if IS_ENABLED(CONFIG_DECT_CVG_LAYER)
 	/* The CVG layer initializes the layers below it (DLC -> MAC) */
 	err = dect_cvg_init();
+#elif IS_ENABLED(CONFIG_DECT_DLC_LAYER)
+	/* If CVG is disabled, initialize DLC (which initializes MAC) */
+	err = dect_dlc_init();
+#else
+	/* If only MAC is enabled, initialize it directly with no higher-layer glue */
+	err = dect_mac_init(NULL, NULL);
+#endif
+
 	if (err) {
-		LOG_ERR("Failed to initialize the DECT NR+ stack (CVG layer): %d", err);
+		LOG_ERR("Failed to initialize the DECT NR+ stack: %d", err);
 		return err;
 	}
 

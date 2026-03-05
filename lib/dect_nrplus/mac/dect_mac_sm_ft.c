@@ -816,8 +816,8 @@ static void ft_select_operating_carrier_and_start_beaconing(
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
-	printk("[FT_SM] In ft_select_operating_carrier_and_start_beaconing()\n");
-	// LOG_INF("[FT_SM] In ft_select_operating_carrier_and_start_beaconing()\n");
+	// printk("[FT_SM] In ft_select_operating_carrier_and_start_beaconing()\n");
+	LOG_INF("[FT_SM] In ft_select_operating_carrier_and_start_beaconing()\n");
 
 	if (ctx->state != MAC_STATE_FT_SCANNING) {
 		LOG_WRN("FT_DCS_SEL: Not in SCANNING state (%s), ignoring request to select carrier.",
@@ -972,14 +972,14 @@ static void ft_start_beaconing_actions(void) {
     LOG_DBG("FT_START_BEACONING: SFN anchor will be established with first beacon TX. Initial SFN set to 0.");
 
     // Start the periodic beacon timer.
-    // The first timer expiry will trigger ft_send_beacon_action, which will then establish the SFN anchor.
-    uint32_t beacon_period_ms = ctx->config.ft_cluster_beacon_period_ms;
-    if (beacon_period_ms == 0) { // Fallback if Kconfig is 0
-        beacon_period_ms = 100;
-        LOG_WRN("FT_START_BEACONING: ft_cluster_beacon_period_ms is 0, using fallback %ums for timer.", beacon_period_ms);
-    }
     // The first timer event will trigger the first beacon send attempt.
+	uint32_t beacon_period_ms = ctx->config.ft_cluster_beacon_period_ms;
+	if (beacon_period_ms < 10) {
+		beacon_period_ms = 100;
+		LOG_WRN("FT_START_BEACONING: ft_cluster_beacon_period_ms is < 10, using fallback %ums for timer.", beacon_period_ms);
+	}
 	LOG_INF("FT_START_BEACONING: Starting k_timer for beacon with period %u ms.", beacon_period_ms);
+
     k_timer_start(&ctx->role_ctx.ft.beacon_timer, 
                   K_MSEC(first_beacon_tx_attempt_delay_ms), // Initial delay for the first beacon attempt
                   K_MSEC(beacon_period_ms));               // Subsequent period
@@ -999,6 +999,9 @@ static void ft_send_beacon_action(void)
 
 	/* Increment the SFN for the next beacon transmission */
 	ctx->current_sfn_at_anchor_update = (ctx->current_sfn_at_anchor_update + 1) % 1024;
+
+	/* Update statistics */
+	ctx->role_ctx.ft.beacon_tx_count++;
 
 
 	// if (ctx->pending_op_type != PENDING_OP_NONE) {

@@ -74,7 +74,7 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 static void pt_handle_phy_pcc_internal(const struct nrf_modem_dect_phy_pcc_event *event, uint64_t pcc_event_time);
 static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event *pdc_event, const struct nrf_modem_dect_phy_pcc_event *assoc_pcc_event, uint64_t pcc_reception_modem_time);
 
-static void pt_update_mobility_candidate(uint16_t carrier, int16_t rssi, uint32_t long_id, uint16_t short_id);
+static void pt_update_mobility_candidate(uint16_t carrier, int16_t rssi, uint32_t long_id, uint16_t short_id, const dect_mac_rach_info_ie_fields_t *rach_fields);
 
 static void pt_process_identified_beacon_and_attempt_assoc(dect_mac_context_t *ctx,
                                                            const dect_mac_cluster_beacon_ie_fields_t *cb_fields,
@@ -111,6 +111,7 @@ static void pt_send_auth_initiate_action(void);
 static void pt_process_group_assignment_ie(const uint8_t *payload, uint16_t len);
 static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
 					   const dect_mac_cluster_beacon_ie_fields_t *cb_fields,
+					   const dect_mac_rach_info_ie_fields_t *rach_fields,
 					   uint32_t ft_long_id, uint16_t ft_short_id,
 					   int16_t rssi_q7_1, uint16_t beacon_rx_carrier);
 static void pt_initiate_handover_action(dect_mac_context_t *ctx,
@@ -1260,7 +1261,9 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 			printk("/* This is a beacon from another FT. Evaluate for mobility. */ \n");
 			printk("[DEBUG_PROBE] PT in ASSOCIATED state received a beacon from FT 0x%08X.\n", ft_long_id);
 			dect_mac_cluster_beacon_ie_fields_t cb_fields_parsed = {0};
+			dect_mac_rach_info_ie_fields_t rach_fields_parsed = {0};
 			bool cb_found = false;
+			bool rach_found = false;
 			const uint8_t *sdu_area_ptr = sdu_area_after_common_hdr;
 			size_t sdu_area_len = sdu_area_plus_mic_len_in_payload;
 
@@ -1276,7 +1279,11 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 					if (parse_cluster_beacon_ie_payload(ie_payload, ie_len, &cb_fields_parsed) == 0) {
 						cb_found = true;
 					}
-					break;
+				} else if (ie_type == IE_TYPE_RACH_INFO) {
+					/* Assuming mu=0 for candidate evaluation if RD_CAP is not parsed */
+					if (parse_rach_info_ie_payload(ie_payload, ie_len, 0, &rach_fields_parsed) == 0) {
+						rach_found = true;
+					}
 				}
 				size_t consumed = mux_len + ie_len;
 				if (consumed == 0) {
@@ -1287,9 +1294,10 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 			}
 
 			if (cb_found) {
-				printk("[DEBUG_PROBE] PT sending pt_evaluate_mobility_candidate() messaged from FT 0x%08X.\n", ft_long_id);
-				pt_evaluate_mobility_candidate(ctx, &cb_fields_parsed, ft_long_id,
-								ft_sender_short_id_from_pcc,
+				printk("[DEBUG_PROBE] PT sending pt_evaluate_mobility_candidate() from FT 0x%08X (RACH found: %d).\n", ft_long_id, rach_found);
+				pt_evaluate_mobility_candidate(ctx, &cb_fields_parsed, 
+								rach_found ? &rach_fields_parsed : NULL,
+								ft_long_id, ft_sender_short_id_from_pcc,
 								assoc_pcc_event->rssi_2,
 								ctx->current_rx_op_carrier);
 			}
@@ -1414,8 +1422,9 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 					ft_sender_short_id_from_pcc, assoc_pcc_event->rssi_2,
 					beacon_rx_carrier, pcc_reception_modem_time);
 			} else if (ctx->state == MAC_STATE_ASSOCIATED) {
-				pt_evaluate_mobility_candidate(ctx, &cb_fields_parsed, ft_long_id,
-								ft_sender_short_id_from_pcc,
+				pt_evaluate_mobility_candidate(ctx, &cb_fields_parsed, 
+								rach_found ? &rach_fields_parsed : NULL,
+								ft_long_id, ft_sender_short_id_from_pcc,
 								assoc_pcc_event->rssi_2, beacon_rx_carrier);
 			}
 		}
@@ -1698,6 +1707,7 @@ static void pt_process_identified_beacon_and_attempt_assoc(dect_mac_context_t *c
                                                            uint64_t beacon_pcc_rx_time)
 {
 	printk("[PT_SM] In pt_process_identified_beacon_and_attempt_assoc.\n");
+	ctx->role_ctx.pt.beacon_rx_count++;
     if (!ctx || !cb_fields || !rach_fields) {
 		printk("[PT_SM] PT_BEACON_PROC: NULL arguments.");
         LOG_ERR("PT_BEACON_PROC: NULL arguments.");
@@ -1986,6 +1996,7 @@ static void pt_send_association_request_action(void)
 #endif
 
 	dect_mac_change_state(MAC_STATE_PT_ASSOCIATING);
+	ctx->role_ctx.pt.assoc_attempt_count++;
 
 	LOG_INF("PT_SM_ASSOC_REQ: Attempting Association Request to FT 0x%04X on RACH carrier %u (Attempt %u).",
 		ctx->role_ctx.pt.target_ft.short_rd_id,
@@ -2169,6 +2180,7 @@ static void pt_send_association_request_action(void)
 	} else {
 		LOG_INF("PT_SM_ASSOC_REQ: Association Request TX scheduled (Hdl %u) to FT 0x%04X.",
 			phy_op_handle, ctx->role_ctx.pt.target_ft.short_rd_id);
+		ctx->role_ctx.pt.rach_tx_count++;
 		/* The buffer is now owned by the HARQ process and will be freed on ACK/timeout. */
 	}
 }
@@ -3171,7 +3183,7 @@ void dect_mac_sm_pt_handle_auth_pdu(const uint8_t *pdu_data, size_t pdu_len)
 
 
 static void pt_update_mobility_candidate(uint16_t carrier, int16_t rssi, uint32_t long_id,
-					 uint16_t short_id)
+					 uint16_t short_id, const dect_mac_rach_info_ie_fields_t *rach_fields)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 	int free_slot = -1;
@@ -3227,6 +3239,17 @@ static void pt_update_mobility_candidate(uint16_t carrier, int16_t rssi, uint32_
 	cand->short_rd_id = short_id;
 	cand->operating_carrier = carrier;
 	cand->rssi_2 = rssi;
+
+	if (rach_fields) {
+		memcpy(&cand->rach_params_from_beacon, rach_fields, sizeof(dect_mac_rach_info_ie_fields_t));
+		
+		/* If the neighbor advertising RACH on a specific channel, that's likely its primary operating channel */
+		if (rach_fields->channel_field_present &&
+		    rach_fields->channel_abs_num != 0 &&
+		    rach_fields->channel_abs_num != 0xFFFF) {
+			cand->operating_carrier = rach_fields->channel_abs_num;
+		}
+	}
 	
 	/* Reset trigger count when a candidate is first added or updated */
 	cand->trigger_count_remaining = ctx->role_ctx.pt.initial_count_to_trigger;
@@ -3296,6 +3319,7 @@ static void pt_process_page_indication(void)
 
 static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
 					   const dect_mac_cluster_beacon_ie_fields_t *cb_fields,
+					   const dect_mac_rach_info_ie_fields_t *rach_fields,
 					   uint32_t ft_long_id, uint16_t ft_short_id,
 					   int16_t rssi_q7_1, uint16_t beacon_rx_carrier)
 {
@@ -3311,7 +3335,7 @@ static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
 		return;
 	}
 
-	pt_update_mobility_candidate(beacon_rx_carrier, rssi_q7_1, ft_long_id, ft_short_id);
+	pt_update_mobility_candidate(beacon_rx_carrier, rssi_q7_1, ft_long_id, ft_short_id, rach_fields);
 
 	/* Find the updated candidate to evaluate it */
 	for (int i = 0; i < MAX_MOBILITY_CANDIDATES; i++) {
@@ -3391,11 +3415,36 @@ static void pt_initiate_handover_action(dect_mac_context_t *ctx,
 	ctx->role_ctx.pt.target_ft.short_rd_id = candidate->short_rd_id;
 	ctx->role_ctx.pt.target_ft.operating_carrier = candidate->operating_carrier;
 	ctx->role_ctx.pt.target_ft.rssi_2 = candidate->rssi_2;
-	memcpy(&ctx->role_ctx.pt.current_ft_rach_params, &candidate->rach_params_from_beacon,
-	       sizeof(dect_ft_rach_params_t));
 
-printk("[MOBILITY_CANDIDATE_DBG] Stored new candidate in slot. Parsed RACH channel_abs_num: %u\n",
-		       candidate->rach_params_from_beacon.channel_abs_num);
+	/* Correctly copy parsed RACH Info fields */
+	memcpy(&ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields, 
+	       &candidate->rach_params_from_beacon,
+	       sizeof(dect_mac_rach_info_ie_fields_t));
+
+	/* Calculate derived RACH parameters for the new target FT */
+	const dect_mac_rach_info_ie_fields_t *rach_fields = &candidate->rach_params_from_beacon;
+	
+	if (rach_fields->channel_field_present &&
+	    rach_fields->channel_abs_num != 0 &&
+	    rach_fields->channel_abs_num != 0xFFFF) {
+		ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel = rach_fields->channel_abs_num;
+	} else {
+		ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel = candidate->operating_carrier;
+	}
+
+	if (rach_fields->cwmin_sig_code <= 7) {
+		ctx->role_ctx.pt.current_ft_rach_params.cw_min_val = 8 * (1U << rach_fields->cwmin_sig_code);
+	} else {
+		ctx->role_ctx.pt.current_ft_rach_params.cw_min_val = 8 * (1U << ctx->config.rach_cw_min_idx);
+	}
+	if (rach_fields->cwmax_sig_code <= 7) {
+		ctx->role_ctx.pt.current_ft_rach_params.cw_max_val = 8 * (1U << rach_fields->cwmax_sig_code);
+	} else {
+		ctx->role_ctx.pt.current_ft_rach_params.cw_max_val = 8 * (1U << ctx->config.rach_cw_max_idx);
+	}
+
+	printk("[MOBILITY_CANDIDATE_DBG] Stored new candidate. Target carrier: %u, RACH carrier: %u\n",
+	       candidate->operating_carrier, ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel);
 
 	/* Invalidate the candidate so we don't try to switch to it again immediately */
 	candidate->is_valid = false;

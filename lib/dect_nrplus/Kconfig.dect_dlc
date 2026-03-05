@@ -5,6 +5,8 @@
 menuconfig DECT_DLC_LAYER
 	bool "DECT NR+ DLC Layer Support"
 	default n
+	select NET_BUF
+	select DECT_MAC_LAYER
 	# default y if DECT_MAC_LAYER
 	# depends on DECT_MAC_LAYER || ZTEST
 	help
@@ -12,6 +14,8 @@ menuconfig DECT_DLC_LAYER
 	  This layer is responsible for routing, segmentation, and reassembly
 	  of data packets as per ETSI TS 103 636-5. It sits between the
 	  CVG layer and the MAC layer.
+	  Uses Zephyr net_buf pools for zero-copy data transfer. Requires
+	  CONFIG_NET_BUF_USER_DATA_SIZE >= 16 to hold dect_buf_meta_t.
 
 # if DECT_DLC_LAYER
 
@@ -70,6 +74,30 @@ config DECT_DLC_DEFAULT_SDU_LIFETIME_MS
 	  via the DLC Timers Configuration Control IE.
 
 
+# --- P1.9: net_buf Data Pool Configuration ---
+
+config DECT_DLC_NET_BUF_FRAG_SIZE
+	int "DLC net_buf fragment size (bytes)"
+	default 256
+	range 128 1640
+	help
+	  Size of each net_buf fragment in the shared DLC/CVG pool.
+	  256 bytes covers a single-slot DECT PDU. Larger SDUs are chained.
+
+config DECT_DLC_NET_BUF_COUNT
+	int "DLC net_buf pool total fragment count"
+	default 48
+	range 16 256
+	help
+	  Total fragments in the DLC+CVG data pool.
+	  RAM = NET_BUF_COUNT * NET_BUF_FRAG_SIZE. Default: 48*256 = 12 KB.
+
+config NET_BUF_USER_DATA_SIZE
+	int "DLC net_buf data size"
+	default 16
+	range 16 256
+	help
+	  Size of the user data field in each net_buf fragment.
 
 
 if ZTEST

@@ -22,7 +22,9 @@ config DECT_CRYPTO_PSA
 	select PSA_CRYPTO_INIT
 	select PSA_WANT_ALG_CTR
 	select PSA_WANT_ALG_CMAC
+	select PSA_WANT_ALG_ECB_NO_PADDING
 	select PSA_WANT_KEY_TYPE_AES
+	select PSA_WANT_AES_KEY_SIZE_128
 	help
 	  Use PSA Crypto API for cryptographic operations.
 	  This is the default and recommended backend.

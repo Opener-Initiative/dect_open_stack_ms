@@ -186,6 +186,9 @@ void dect_mac_start(void)
 		return;
 	}
 
+	/* Give the modem a small amount of time to stabilize after activation before first OP */
+	k_msleep(20);
+
 	/* Enable STF cover sequence for improved robustness (TS 103 636-3 Cl. 6.3.7) */
 	err = nrf_modem_dect_phy_stf_cover_seq_control(true, true);
 	if (err) {

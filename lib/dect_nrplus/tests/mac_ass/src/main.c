@@ -396,7 +396,7 @@ static void dect_mac_assoc_after(void *fixture)
 }
 
 /* --- Test Cases --- */
-ZTEST(dect_mac_assoc, test_5_pt_ft_association)
+ZTEST(dect_mac_assoc, test_pt_ft_association)
 {
     printk("\n--- RUNNING TEST: %s ---\n", __func__);
 

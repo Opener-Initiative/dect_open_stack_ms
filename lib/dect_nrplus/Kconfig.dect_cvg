@@ -5,8 +5,7 @@
 menuconfig DECT_CVG_LAYER
 	bool "DECT NR+ CVG Layer Support"
 	default n
-	default y if DECT_DLC_LAYER
-	# depends on DECT_DLC_LAYER || ZTEST
+	select DECT_DLC_LAYER
 	help
 	  Enable the DECT NR+ Convergence (CVG) layer.
 	  This layer is responsible for end-to-end services like

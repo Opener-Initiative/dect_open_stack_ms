@@ -6,6 +6,7 @@
 #include <string.h>
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/random/random.h>
+#include <zephyr/net_buf.h>
 #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)		
 #include <psa/crypto.h>
 #endif
@@ -68,12 +69,23 @@ int dect_cvg_get_iid_parts(uint32_t *sink_id, uint32_t *device_id)
 
 #define CVG_MAX_IN_FLIGHT_SDUS 16
 #define CVG_MAX_REASSEMBLY_SESSIONS 4
-#define CVG_REASSEMBLY_BUF_SIZE	    (4096)
 #define CVG_REASSEMBLY_TIMEOUT_MS   5000
 #define CVG_APP_BUFFER_COUNT 8
 
+/* CVG shares the DLC net_buf pool declared in dect_dlc.c.
+ * No separate CVG slab is needed — the ref-counting in net_buf handles
+ * lifetimes across both layers without copies. We access it via getter since
+ * NET_BUF_POOL_FIXED_DEFINE makes it statically scoped.
+ */
+
+/**
+ * @brief CVG in-flight SDU context for ARQ tracking.
+ *
+ * sdu_buf holds a net_buf reference kept alive across retransmissions.
+ * On ACK or lifetime expiry, net_buf_unref() releases all fragments.
+ */
 typedef struct {
-	mac_sdu_t *sdu;
+	struct net_buf *sdu_buf; /**< net_buf ref carrying the CVG SDU payload */
 	uint16_t sequence_number;
 	uint32_t dest_long_id;
 	uint16_t endpoint_id;
@@ -83,10 +95,16 @@ typedef struct {
 	struct k_timer lifetime_timer;
 } cvg_inflight_sdu_ctx_t;
 
+/**
+ * @brief CVG reassembly session.
+ *
+ * Segment data is accumulated into a net_buf chain instead of a flat
+ * static buffer, saving up to 4 × 4096 = 16 KB of static RAM.
+ */
 typedef struct {
 	bool is_active;
 	uint16_t sequence_number;
-	uint8_t reassembly_buf[CVG_REASSEMBLY_BUF_SIZE];
+	struct net_buf *buf;       /**< Fragment chain being assembled */
 	size_t total_sdu_len;
 	size_t bytes_received;
 	struct k_timer timeout_timer;
@@ -111,10 +129,13 @@ typedef struct {
     uint16_t last_ack_sent_sn;
     uint32_t peer_hpc;
 	struct {
-		mac_sdu_t *sdu;
+		struct net_buf *sdu_buf;  /**< net_buf holding the reordered SDU payload */
 		bool is_valid;
 	} rx_reordering_buffer[CVG_MAX_IN_FLIGHT_SDUS];
 } cvg_flow_context_t;
+
+/** @brief CVG fragment size — must match DLC_PKT_BUF_FRAG_SIZE in dect_dlc.c */
+#define CVG_PKT_BUF_FRAG_SIZE 256
 
 
 
@@ -146,7 +167,7 @@ typedef struct {
 } cvg_arq_event_t;
 
 K_MEM_SLAB_DEFINE(g_cvg_arq_event_slab, sizeof(cvg_arq_event_t), CVG_MAX_IN_FLIGHT_SDUS * 2, 4);
-K_MEM_SLAB_DEFINE(g_cvg_app_sdu_slab, sizeof(mac_sdu_t), CVG_APP_BUFFER_COUNT, 4);
+/* g_cvg_app_sdu_slab removed: CVG now uses dlc_rx_pool net_buf fragments */
 
 #if IS_ENABLED(CONFIG_ZTEST)
 K_QUEUE_DEFINE(g_app_to_cvg_tx_queue);
@@ -166,7 +187,9 @@ typedef struct {
 	void *fifo_reserved;
 	uint16_t endpoint_id;
 	uint32_t dest_long_id;
-	mac_sdu_t *app_sdu_buf;
+	struct net_buf *sdu_buf;  /**< net_buf carrying the CVG SDU payload */
+	bool is_retransmission;
+	uint16_t sequence_number;
 } cvg_tx_queue_item_t;
 
 K_MEM_SLAB_DEFINE(g_cvg_tx_item_slab, sizeof(cvg_tx_queue_item_t), CVG_APP_BUFFER_COUNT, 4);
@@ -328,27 +351,23 @@ static int build_cvg_data_ie_pdu(uint8_t *target_buf, size_t target_buf_len,
 
 static int send_cvg_arq_feedback(uint32_t dest_long_id, bool ack, uint8_t feedback_info_code, uint16_t sn)
 {
-	uint8_t pdu_buf[sizeof(cvg_header_t) + sizeof(cvg_ie_arq_feedback_base_t)];
-	size_t pdu_len = 0;
+	cvg_ie_arq_feedback_base_t fb_base;
+	size_t pdu_len = sizeof(fb_base);
 
-	cvg_header_t *cvg_hdr = (cvg_header_t *)pdu_buf;
-	cvg_hdr->ext_mt_f2c_or_type = ((CVG_EXT_NO_LEN_FIELD & 0x03) << 6) |
+	/* Use Format 1 Header (MT=0) as defined in IE structure */
+	fb_base.header.ext_mt_f2c_or_type = ((CVG_EXT_NO_LEN_FIELD & 0x03) << 6) |
 				     ((0 & 0x01) << 5) | (CVG_IE_TYPE_ARQ_FEEDBACK & 0x1F);
-	pdu_len += sizeof(cvg_header_t);
-
-	cvg_ie_arq_feedback_base_t *fb_base = (cvg_ie_arq_feedback_base_t *)(pdu_buf + pdu_len);
+	
 	uint8_t an_bit = ack ? 0 : 1;
-
-	fb_base->an_fbinfo_sn_msb =
+	fb_base.an_fbinfo_sn_msb =
 		((an_bit & 0x01) << 7) | ((feedback_info_code & 0x07) << 4) |
 		((uint8_t)(sn >> 8) & 0x0F);
-	fb_base->sequence_number_lsb = (uint8_t)(sn & 0xFF);
-	pdu_len += sizeof(cvg_ie_arq_feedback_base_t);
+	fb_base.sequence_number_lsb = (uint8_t)(sn & 0xFF);
 
 	LOG_DBG("CVG_ARQ_TX: Sending %s for SN %u (fb_info %u) to 0x%08X.", ack ? "ACK" : "NACK",
 		sn, feedback_info_code, dest_long_id);
 
-	return dlc_send_data(DLC_SERVICE_TYPE_0_TRANSPARENT, dest_long_id, pdu_buf, pdu_len,
+	return dlc_send_data(DLC_SERVICE_TYPE_0_TRANSPARENT, dest_long_id, (uint8_t *)&fb_base, pdu_len,
 			     (uint8_t)CVG_QOS_CONTROL);
 }
 #if !defined(CONFIG_ZTEST)
@@ -396,11 +415,11 @@ static void cvg_handle_ack_action(int cvg_inflight_idx)
 		LOG_INF("CVG_ARQ: ACK received for CVG SDU with SN %u.", sdu_ctx->sequence_number);
 		k_timer_stop(&sdu_ctx->lifetime_timer);
 
-		if (sdu_ctx->sdu) {
-			printk("[ACK_HANDLER_DBG] About to free sdu_ctx->sdu at address: %p\n", (void *)sdu_ctx->sdu);
+		if (sdu_ctx->sdu_buf) {
+			printk("[ACK_HANDLER_DBG] About to unref sdu_ctx->sdu_buf at address: %p\n", (void *)sdu_ctx->sdu_buf);
 
-			k_mem_slab_free(&g_cvg_app_sdu_slab, (void *)sdu_ctx->sdu);
-			sdu_ctx->sdu = NULL;
+			net_buf_unref(sdu_ctx->sdu_buf);
+			sdu_ctx->sdu_buf = NULL;
 		}
 		sdu_ctx->is_active = false;
 		k_sem_give(&flow->tx_window_sem); // Give back a credit to the flow control window
@@ -524,7 +543,7 @@ static void cvg_tx_thread_entry(void *p1, void *p2, void *p3)
 		printk("[CVG TX] Got item from FIFO\n");
 
 		cvg_flow_context_t *flow = &g_default_cvg_flow_ctx;
-		mac_sdu_t *app_sdu = tx_item->app_sdu_buf;
+		struct net_buf *app_sdu = tx_item->sdu_buf;
 		int err = 0;
 		uint16_t current_sn = 0;
 		bool is_reliable_service = (flow->service_type >= CVG_SERVICE_TYPE_3_FC);
@@ -533,21 +552,29 @@ static void cvg_tx_thread_entry(void *p1, void *p2, void *p3)
 
 		printk("[CVG TX] flow->service_type:%d >= %d\n", flow->service_type, CVG_SERVICE_TYPE_3_FC);
 
+		uint8_t app_payload[CONFIG_DECT_MAC_SDU_MAX_SIZE];
+		size_t app_payload_len = net_buf_frags_len(app_sdu);
+		net_buf_linearize(app_payload, sizeof(app_payload), app_sdu, 0, app_payload_len);
 
 		/* --- Common Logic for Reliable Services (Flow Control & SN) --- */
 		if (is_reliable_service) {
-			/* Take a credit from the flow control window. This will block if the window is full. */
-			k_sem_take(&flow->tx_window_sem, K_FOREVER);
+			if (!tx_item->is_retransmission) {
+				/* Take a credit from the flow control window. This will block if the window is full. */
+				k_sem_take(&flow->tx_window_sem, K_FOREVER);
 
-			printk("[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...\n");
-			k_mutex_lock(&flow->flow_mutex, K_FOREVER);
-			printk("[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.\n");
+				printk("[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...\n");
+				k_mutex_lock(&flow->flow_mutex, K_FOREVER);
+				printk("[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.\n");
 
-			current_sn = flow->tx_sequence_number;
-			flow->tx_sequence_number = (current_sn + 1) & 0x0FFF;
+				current_sn = flow->tx_sequence_number;
+				flow->tx_sequence_number = (current_sn + 1) & 0x0FFF;
 
-			printk("[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...\n");
-			k_mutex_unlock(&flow->flow_mutex);
+				printk("[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...\n");
+				k_mutex_unlock(&flow->flow_mutex);
+			} else {
+				current_sn = tx_item->sequence_number;
+				printk("[CVG TX] Retransmitting SN %u\n", current_sn);
+			}
 		} else {
 			printk("[MUTEX_DBG] cvg_tx_thread_entry: NOT is_reliable_service...\n");
 		}
@@ -558,42 +585,26 @@ static void cvg_tx_thread_entry(void *p1, void *p2, void *p3)
 			uint8_t mic[5];
 			uint8_t iv[16];
 
-			/* Note: For security, the original payload is stored for re-TX before it's encrypted. */
-			/* A more optimized implementation might avoid this copy. */
-			mac_sdu_t *sdu_for_arq = NULL;
-			if (is_reliable_service) {
-				sdu_for_arq = dect_mac_buffer_alloc(K_NO_WAIT);
-				if (!sdu_for_arq) {
-					err = -ENOMEM;
-					LOG_ERR("CVG_TX_SEC: Failed to alloc buffer for ARQ copy");
-					goto free_and_continue;
-				}
-				memcpy(sdu_for_arq->data, app_sdu->data, app_sdu->len);
-				sdu_for_arq->len = app_sdu->len;
-			}
-
-			/* Calculate MIC on original SDU */
-			err = dect_mac_security_calculate_mic(app_sdu->data, app_sdu->len,
+			/* Calculate MIC on original stack payload */
+			err = dect_mac_security_calculate_mic(app_payload, app_payload_len,
 							    flow->integrity_key, mic);
 			if (err) {
 				LOG_ERR("CVG_TX_SEC: MIC calculation failed: %d", err);
-				if (sdu_for_arq) dect_mac_buffer_free(sdu_for_arq);
 				goto free_and_continue;
 			}
 
-			/* Append MIC to SDU data */
-			memcpy(app_sdu->data + app_sdu->len, mic, sizeof(mic));
-			app_sdu->len += sizeof(mic);
+			/* Append MIC to local payload data */
+			memcpy(app_payload + app_payload_len, mic, sizeof(mic));
+			app_payload_len += sizeof(mic);
 
-			/* Build IV and encrypt SDU+MIC */
+			/* Build IV and encrypt local payload */
 			dect_mac_security_build_iv(iv, dect_mac_get_own_long_id(),
 						   tx_item->dest_long_id, dect_mac_get_hpc(),
 						   current_sn);
-			err = dect_mac_security_crypt_payload(app_sdu->data, app_sdu->len,
+			err = dect_mac_security_crypt_payload(app_payload, app_payload_len,
 							    flow->cipher_key, iv, true);
 			if (err) {
 				LOG_ERR("CVG_TX_SEC: Encryption failed: %d", err);
-				if (sdu_for_arq) dect_mac_buffer_free(sdu_for_arq);
 				goto free_and_continue;
 			}
 
@@ -605,12 +616,6 @@ static void cvg_tx_thread_entry(void *p1, void *p2, void *p3)
 			sec_ie->rsv_keyidx_ivtype = 0; /* Key Index 0, IV Type 0 */
 			sec_ie->hpc_be = sys_cpu_to_be32(dect_mac_get_hpc());
 			pdu_offset += sizeof(cvg_ie_security_t);
-
-			/* Replace the original SDU with the unencrypted copy for the ARQ job */
-			if (is_reliable_service && sdu_for_arq) {
-				dect_mac_buffer_free(app_sdu);
-				app_sdu = sdu_for_arq;
-			}
 		}
 #endif /* IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
 
@@ -624,8 +629,8 @@ static void cvg_tx_thread_entry(void *p1, void *p2, void *p3)
 		}
 
 		pdu_len = build_cvg_data_ie_pdu(cvg_pdu_buf + pdu_offset,
-						sizeof(cvg_pdu_buf) - pdu_offset, app_sdu->data,
-						app_sdu->len, current_sn);
+						sizeof(cvg_pdu_buf) - pdu_offset, app_payload,
+						app_payload_len, current_sn);
 
 		if (pdu_len < 0) {
 			err = pdu_len;
@@ -636,36 +641,37 @@ static void cvg_tx_thread_entry(void *p1, void *p2, void *p3)
 
 		err = dlc_send_data(DLC_SERVICE_TYPE_3_SEGMENTATION_ARQ, tx_item->dest_long_id,
 				    cvg_pdu_buf, pdu_len, (uint8_t)flow->configured_qos);
-printk("2    oooooooooooooooooooooooooooooooooooooooooooooooooo\n");
 free_and_continue:
 		if (err != 0) {
 			if (is_reliable_service) {
 				k_sem_give(&flow->tx_window_sem);
 			}
-printk("3   oooooooooooooooooooooooooooooooooooooooooooooooooo\n");
-			k_mem_slab_free(&g_cvg_app_sdu_slab, (void *)app_sdu);
+			net_buf_unref(app_sdu);
 		} else {
-			if (is_reliable_service) {
+			if (is_reliable_service && !tx_item->is_retransmission) {
 				/* Store SDU for potential re-TX */
 				int buffer_index = current_sn % CVG_MAX_IN_FLIGHT_SDUS;
 				cvg_inflight_sdu_ctx_t *sdu_ctx =
 					&flow->tx_in_flight_sdu[buffer_index];
 
-				sdu_ctx->sdu = app_sdu; /* The job now owns the buffer */
+				if (sdu_ctx->is_active && sdu_ctx->sdu_buf) {
+					net_buf_unref(sdu_ctx->sdu_buf);
+				}
+
+				sdu_ctx->sdu_buf = app_sdu; /* The job now owns the buffer ref */
 				sdu_ctx->sequence_number = current_sn;
 				sdu_ctx->dest_long_id = tx_item->dest_long_id;
 				sdu_ctx->endpoint_id = tx_item->endpoint_id;
 				sdu_ctx->retries = 0;
 				sdu_ctx->is_active = true;
+
 				k_timer_start(&sdu_ctx->lifetime_timer,
 					      K_MSEC(flow->configured_lifetime_ms), K_NO_WAIT);
-			} else {
-printk("4   oooooooooooooooooooooooooooooooooooooooooooooooooo\n");				
+			} else if (!is_reliable_service) {
 				/* For non-reliable service, we are done with the buffer */
-				k_mem_slab_free(&g_cvg_app_sdu_slab, (void *)app_sdu);
+				net_buf_unref(app_sdu);
 			}
 		}
-printk("5   oooooooooooooooooooooooooooooooooooooooooooooooooo\n");	
 		k_mem_slab_free(&g_cvg_tx_item_slab, (void *)tx_item);
 	}
 }
@@ -740,6 +746,20 @@ static void cvg_rx_thread_entry(void *p1, void *p2, void *p3)
 
 				const cvg_ie_data_base_t *data_base = (const cvg_ie_data_base_t *)(pdu_ptr + sizeof(cvg_header_t));
 				uint16_t sn = cvg_ie_data_base_get_sn(data_base);
+
+				/* Duplicate Removal Logic */
+				if (g_default_cvg_flow_ctx.service_type >= CVG_SERVICE_TYPE_1_SEQ_NUM) {
+					uint16_t diff = (sn - g_default_cvg_flow_ctx.rx_expected_sn) & 0x0FFF;
+					if (diff > 2048) { /* SN is in the past (duplicate or very old) */
+						printk("[CVG_RX] Dropping duplicate/old SN %u (expected %u)\n", 
+							sn, g_default_cvg_flow_ctx.rx_expected_sn);
+						ie_consumed_len = remaining_len;
+						break;
+					}
+					/* Update expected SN to the next one */
+					g_default_cvg_flow_ctx.rx_expected_sn = (sn + 1) & 0x0FFF;
+				}
+
 				printk("[CVG_RX_ACK_GEN_DBG] Received data packet with SN=%u. Preparing to send ACK.\n", sn);
 
 #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)
@@ -807,21 +827,16 @@ if (payload_ptr && payload_len > 0) {
     }
 }
 
-mac_sdu_t *app_sdu = NULL;
-printk("[DECT RX DELIVERY] Attempting to allocate SDU buffer from g_cvg_app_sdu_slab...\n");
+struct net_buf *app_sdu = net_buf_alloc_len(dect_dlc_get_rx_pool(), payload_len, K_NO_WAIT);
+printk("[DECT RX DELIVERY] net_buf_alloc_len result: app_sdu pointer: %p\n", app_sdu);
 
-// CORRECTED slab_alloc syntax - using address-of operator properly
-int alloc_result = k_mem_slab_alloc(&g_cvg_app_sdu_slab, (void **)&app_sdu, K_NO_WAIT);
-printk("[DECT RX DELIVERY] k_mem_slab_alloc result: %d, app_sdu pointer: %p\n", alloc_result, app_sdu);
-
-if (alloc_result == 0) {
+if (app_sdu) {
     printk("[DECT RX DELIVERY] SUCCESS: SDU buffer allocated at %p\n", app_sdu);
     printk("[DECT RX DELIVERY] Copying %zu bytes from payload to SDU buffer...\n", payload_len);
     
-    memcpy(app_sdu->data, payload_ptr, payload_len);
-    app_sdu->len = payload_len;
+    net_buf_add_mem(app_sdu, payload_ptr, payload_len);
     
-    printk("[DECT RX DELIVERY] SDU buffer prepared: len=%u\n", app_sdu->len);
+    printk("[DECT RX DELIVERY] SDU buffer prepared: len=%zu\n", net_buf_frags_len(app_sdu));
     
     // Verify the copied data
     if (payload_len > 0) {
@@ -879,77 +894,7 @@ printk("[DECT RX DELIVERY] Completed payload delivery process\n");
 
 
 
-#if !defined(CONFIG_ZTEST)
-static int __maybe_unused build_cvg_pdu(uint8_t *target_buf, size_t target_buf_len,
-			 const cvg_tx_queue_item_t *tx_item,
-			 cvg_flow_context_t *flow, uint16_t sequence_number)
-{
-	mac_sdu_t *app_sdu = tx_item->app_sdu_buf;
-	size_t pdu_offset = 0;
-	int pdu_len = 0;
 
-#if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)
-	if (flow->security_enabled) {
-		uint8_t mic[5];
-		uint8_t iv[16];
-		int err = 0;
-	
-		dect_mac_context_t *mac_ctx = dect_mac_get_active_context();
-
-		/* This function needs a copy of the SDU to avoid modifying the original in the HARQ buffer */
-		uint8_t temp_sdu_data[app_sdu->len];
-
-		memcpy(temp_sdu_data, app_sdu->data, app_sdu->len);
-		size_t temp_sdu_len = app_sdu->len;
-
-		err = dect_mac_security_calculate_mic(temp_sdu_data, temp_sdu_len,
-						      flow->integrity_key, mic);
-		if (err) {
-			return err;
-		}
-
-		/* Append MIC to temp buffer */
-		memcpy(temp_sdu_data + temp_sdu_len, mic, sizeof(mic));
-		temp_sdu_len += sizeof(mic);
-
-		dect_mac_security_build_iv(iv, dect_mac_get_own_long_id(),
-					   tx_item->dest_long_id, dect_mac_get_hpc(),
-					   sequence_number);
-		err = dect_mac_security_crypt_payload(temp_sdu_data, temp_sdu_len,
-						      flow->cipher_key, iv, true);
-		if (err) {
-			return err;
-		}
-
-		/* Prepend Security IE */
-		cvg_ie_security_t *sec_ie = (cvg_ie_security_t *)(target_buf);
-
-		sec_ie->header.ext_mt_f2c_or_type =
-			((CVG_EXT_NO_LEN_FIELD & 0x03) << 6) | (CVG_IE_TYPE_SECURITY & 0x1F);
-		sec_ie->rsv_keyidx_ivtype = 0;
-		sec_ie->hpc_be = sys_cpu_to_be32(mac_ctx->hpc);
-		pdu_offset += sizeof(cvg_ie_security_t);
-	}
-#endif /* IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
-
-	if (tx_item->endpoint_id != 0) {
-		cvg_ie_ep_mux_t *ep_mux = (cvg_ie_ep_mux_t *)(target_buf + pdu_offset);
-		ep_mux->header.ext_mt_f2c_or_type =
-			((CVG_EXT_NO_LEN_FIELD & 0x03) << 6) | (CVG_IE_TYPE_EP_MUX & 0x1F);
-		ep_mux->endpoint_mux_be = sys_cpu_to_be16(tx_item->endpoint_id);
-		pdu_offset += sizeof(cvg_ie_ep_mux_t);
-	}
-
-	pdu_len = build_cvg_data_ie_pdu(target_buf + pdu_offset, target_buf_len - pdu_offset,
-					app_sdu->data, app_sdu->len, sequence_number);
-
-	if (pdu_len < 0) {
-		return pdu_len;
-	}
-
-	return pdu_len + pdu_offset;
-}
-#endif /* #if !defined(CONFIG_ZTEST) */
 
 static void cvg_arq_service_thread_entry(void *p1, void *p2, void *p3)
 {
@@ -1000,9 +945,11 @@ static void cvg_arq_service_thread_entry(void *p1, void *p2, void *p3)
 				/* Re-queue for TX thread */
 				cvg_tx_queue_item_t *tx_item;
 				if (k_mem_slab_alloc(&g_cvg_tx_item_slab, (void **)&tx_item, K_NO_WAIT) == 0) {
-					tx_item->app_sdu_buf = sdu_ctx->sdu;
+					tx_item->sdu_buf = sdu_ctx->sdu_buf;
 					tx_item->dest_long_id = sdu_ctx->dest_long_id;
 					tx_item->endpoint_id = sdu_ctx->endpoint_id;
+					tx_item->is_retransmission = true;
+					tx_item->sequence_number = sdu_ctx->sequence_number;
 					/* NOTE: This re-queues the original buffer. The TX thread must not free it. */
 					k_queue_append(&g_app_to_cvg_tx_queue, tx_item);
 				}
@@ -1053,12 +1000,12 @@ int dect_cvg_init(void)
 
 	for (int i = 0; i < CVG_MAX_IN_FLIGHT_SDUS; i++) {
         g_default_cvg_flow_ctx.tx_in_flight_sdu[i].is_active = false;
-        g_default_cvg_flow_ctx.tx_in_flight_sdu[i].sdu = NULL;
+        g_default_cvg_flow_ctx.tx_in_flight_sdu[i].sdu_buf = NULL;
         k_timer_init(&g_default_cvg_flow_ctx.tx_in_flight_sdu[i].lifetime_timer,
                      cvg_tx_sdu_lifetime_expiry_handler, NULL);
         g_default_cvg_flow_ctx.tx_in_flight_sdu[i].lifetime_timer.user_data = (void *)0xFFFF;
         g_default_cvg_flow_ctx.rx_reordering_buffer[i].is_valid = false;
-        g_default_cvg_flow_ctx.rx_reordering_buffer[i].sdu = NULL;
+        g_default_cvg_flow_ctx.rx_reordering_buffer[i].sdu_buf = NULL;
     }
 
 	/* Initialize layers below. This is safe to call multiple times. */
@@ -1172,11 +1119,12 @@ __attribute__((weak)) int dect_cvg_send(uint16_t endpoint_id, uint32_t dest_long
 	}
 	printk("[DECT CVG SEND] Successfully allocated TX queue item at %p\n", tx_item);
 
-	mac_sdu_t *sdu_buf = NULL;
+	struct net_buf *sdu_buf = NULL;
 
-	printk("[DECT CVG SEND] Attempting to allocate app SDU buffer from slab...\n");
-	if (k_mem_slab_alloc(&g_cvg_app_sdu_slab, (void **)&sdu_buf, K_NO_WAIT) != 0) {
-		printk("[DECT CVG SEND] FAILED: Could not allocate app SDU buffer (slab full)...\n");
+	printk("[DECT CVG SEND] Attempting to allocate app SDU buffer from net_buf pool...\n");
+	sdu_buf = net_buf_alloc_len(dect_dlc_get_rx_pool(), app_sdu_len, K_NO_WAIT);
+	if (!sdu_buf) {
+		printk("[DECT CVG SEND] FAILED: Could not allocate app SDU buffer (pool full)...\n");
 		LOG_WRN("CVG_SEND: Could not allocate app sdu buffer for TX queue.");
 		k_mem_slab_free(&g_cvg_tx_item_slab, (void **)&tx_item);
 		printk("[DECT CVG SEND] Freed TX queue item due to SDU buffer allocation failure\n");
@@ -1186,17 +1134,18 @@ __attribute__((weak)) int dect_cvg_send(uint16_t endpoint_id, uint32_t dest_long
 
 	// Copy application data to the SDU buffer
 	printk("[DECT CVG SEND] Copying %zu bytes from app_sdu to SDU buffer...\n", app_sdu_len);
-	memcpy(sdu_buf->data, app_sdu, app_sdu_len);
-	sdu_buf->len = app_sdu_len;
-	printk("[DECT CVG SEND] SDU buffer prepared: len=%u\n", sdu_buf->len);
+	net_buf_add_mem(sdu_buf, app_sdu, app_sdu_len);
+	printk("[DECT CVG SEND] SDU buffer prepared: len=%zu\n", net_buf_frags_len(sdu_buf));
 
 	// Set up the TX queue item
-	tx_item->app_sdu_buf = sdu_buf;
+	tx_item->sdu_buf = sdu_buf;
 	tx_item->endpoint_id = endpoint_id;
 	tx_item->dest_long_id = dest_long_id;
+	tx_item->is_retransmission = false;
+	tx_item->sequence_number = 0;
 
 	printk("[DECT CVG SEND] TX queue item configured:\n");
-	printk("[DECT CVG SEND]   - app_sdu_buf: %p\n", tx_item->app_sdu_buf);
+	printk("[DECT CVG SEND]   - sdu_buf: %p\n", tx_item->sdu_buf);
 	printk("[DECT CVG SEND]   - endpoint_id: 0x%04X\n", tx_item->endpoint_id);
 	printk("[DECT CVG SEND]   - dest_long_id: 0x%08X\n", tx_item->dest_long_id);
 
@@ -1228,50 +1177,51 @@ int dect_cvg_receive(uint8_t *app_sdu_buf, size_t *len_inout, k_timeout_t timeou
     }
 
     printk("[DECT CVG RECEIVE] Waiting for data from g_cvg_to_app_rx_queue...\n");
-    mac_sdu_t *sdu_buf = k_queue_get(&g_cvg_to_app_rx_queue, timeout);
+    struct net_buf *sdu_buf = k_queue_get(&g_cvg_to_app_rx_queue, timeout);
     if (!sdu_buf) {
         printk("[DECT CVG RECEIVE] Timeout or no data available in FIFO\n");
         return -EAGAIN; // Timeout
     }
     
+    size_t sdu_buf_len = net_buf_frags_len(sdu_buf);
     printk("[DECT CVG RECEIVE] Retrieved SDU buffer from FIFO: %p\n", sdu_buf);
-    printk("[DECT CVG RECEIVE] SDU buffer content: len=%u\n", sdu_buf->len);
+    printk("[DECT CVG RECEIVE] SDU buffer content: len=%zu\n", sdu_buf_len);
     
     // Log first few bytes of received data for debugging
-    if (sdu_buf->len > 0) {
+    if (sdu_buf_len > 0) {
         printk("[DECT CVG RECEIVE] SDU data (first 16 bytes): ");
-        for (size_t i = 0; i < (sdu_buf->len < 16 ? sdu_buf->len : 16); i++) {
+        for (size_t i = 0; i < (sdu_buf_len < 16 ? sdu_buf_len : 16); i++) {
             printk("%02x ", sdu_buf->data[i]);
         }
         printk("\n");
     }
 
     // Check if provided buffer is large enough
-    if (*len_inout < sdu_buf->len) {
-        printk("[DECT CVG RECEIVE] Buffer too small: provided=%zu, needed=%u\n", 
-               *len_inout, sdu_buf->len);
-        *len_inout = sdu_buf->len; // Report required size
+    if (*len_inout < sdu_buf_len) {
+        printk("[DECT CVG RECEIVE] Buffer too small: provided=%zu, needed=%zu\n", 
+               *len_inout, sdu_buf_len);
+        *len_inout = sdu_buf_len; // Report required size
         printk("[DECT CVG RECEIVE] Returning required size: %zu, putting SDU back in FIFO\n", *len_inout);
         k_queue_prepend(&g_cvg_to_app_rx_queue, sdu_buf); // Put it back
         return -EMSGSIZE;
     }
 
     // Copy data to application buffer
-    printk("[DECT CVG RECEIVE] Copying %u bytes from SDU buffer to app buffer...\n", sdu_buf->len);
-    *len_inout = sdu_buf->len;
-    memcpy(app_sdu_buf, sdu_buf->data, sdu_buf->len);
+    printk("[DECT CVG RECEIVE] Copying %zu bytes from SDU buffer to app buffer...\n", sdu_buf_len);
+    *len_inout = sdu_buf_len;
+    net_buf_linearize(app_sdu_buf, *len_inout, sdu_buf, 0, sdu_buf_len);
     
     // Log the copied data for verification
-    if (sdu_buf->len > 0) {
+    if (sdu_buf_len > 0) {
         printk("[DECT CVG RECEIVE] Copied data to app buffer (first 16 bytes): ");
-        for (size_t i = 0; i < (sdu_buf->len < 16 ? sdu_buf->len : 16); i++) {
+        for (size_t i = 0; i < (sdu_buf_len < 16 ? sdu_buf_len : 16); i++) {
             printk("%02x ", app_sdu_buf[i]);
         }
         printk("\n");
     }
 
-    printk("[DECT CVG RECEIVE] Freeing SDU buffer %p back to slab...\n", sdu_buf);
-    k_mem_slab_free(&g_cvg_app_sdu_slab, (void *)sdu_buf);
+    printk("[DECT CVG RECEIVE] Calling net_buf_unref %p...\n", sdu_buf);
+    net_buf_unref(sdu_buf);
     
     printk("[DECT CVG RECEIVE] Successfully received %zu bytes, ending dect_cvg_receive\n", *len_inout);
     return 0;

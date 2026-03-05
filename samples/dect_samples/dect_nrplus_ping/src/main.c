@@ -8,11 +8,10 @@
 
 /* This is the ONLY header needed to interact with the DECT NR+ stack */
 #include <dect_stack_api.h>
-// #include "../../../lib/dect_nrplus/include/dect_stack_api.h"
 
-// #include <nrf_modem_dect_phy.h>
-// #include <modem/nrf_modem_lib.h>
-
+#if !defined(CONFIG_BOARD_NATIVE_SIM)
+#include <modem/nrf_modem_lib.h>
+#endif
 
 LOG_MODULE_REGISTER(dect_ping_sample, LOG_LEVEL_INF);
 
@@ -30,8 +29,18 @@ int main(void)
 {
 	LOG_INF("Starting DECT NR+ Ping Sample...");
 	printk("Starting DECT NR+ Ping Sample...");
+	
+	int err;
 
-	int err = dect_stack_init();
+#if !defined(CONFIG_BOARD_NATIVE_SIM)
+	err = nrf_modem_lib_init();
+	if (err) {
+		LOG_ERR("Failed to initialize modem library: %d", err);
+		return 0;
+	}
+#endif
+
+	err = dect_stack_init();
 	if (err) {
 		LOG_ERR("Failed to initialize DECT NR+ stack: %d", err);
 		printk("Failed to initialize DECT NR+ stack: %d", err);

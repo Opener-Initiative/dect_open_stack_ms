@@ -1,4 +1,3 @@
-
 tests:
   testing.dect_nrplus.cvg.advanced:
     tags: dect_nrplus cvg arq fc
