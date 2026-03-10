@@ -182,9 +182,9 @@ endmenu # DECT NR+ Stack Logging Levels
 # This ensures their main symbols (e.g., DECT_MAC_LAYER) are defined
 # before being used as dependencies in menus below.
 
-source "../nrf/lib/dect_nrplus/Kconfig.dect_mac"
-source "../nrf/lib/dect_nrplus/Kconfig.dect_dlc"
-source "../nrf/lib/dect_nrplus/Kconfig.dect_cvg"
-source "../nrf/lib/dect_nrplus/Kconfig.dect_cdd"
-source "../nrf/lib/dect_nrplus/Kconfig.dect_security"
-source "../nrf/drivers/net/dect_nrplus/Kconfig.dect_nrplus"
+rsource "Kconfig.dect_mac"
+rsource "Kconfig.dect_dlc"
+rsource "Kconfig.dect_cvg"
+rsource "Kconfig.dect_cdd"
+rsource "Kconfig.dect_security"
+rsource "../../drivers/net/dect_nrplus/Kconfig.dect_nrplus"

@@ -10,5 +10,5 @@
 # CMakeLists.txt that calls zephyr_library().
 
 # Source the main menu and options for the DECT NR+ stack.
-source "../nrf/lib/dect_nrplus/Kconfig.dect_module"
-source "../nrf/lib/dect_nrplus/Kconfig.dect_nrplus"
+rsource "Kconfig.dect_module"
+rsource "Kconfig.dect_nrplus"
