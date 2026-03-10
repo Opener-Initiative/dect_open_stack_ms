@@ -1,0 +1,10 @@
+{
+    "image": "ghcr.io/zephyrproject-rtos/ci:v0.28.9",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools-extension-pack"
+            ]
+        }
+    }
+}
