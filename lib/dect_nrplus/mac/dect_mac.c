@@ -142,19 +142,21 @@ int dect_mac_init(struct k_queue *rx_queue_from_dlc, dlc_tx_status_cb_t status_c
 
 	dect_mac_data_path_register_dlc_callback(status_cb);
 
-// #if IS_ENABLED(CONFIG_DECT_MAC_ROLE_FT)
-// 	dect_mac_role_t my_role = MAC_ROLE_FT;
-// #elif IS_ENABLED(CONFIG_DECT_MAC_ROLE_PT)
-// 	dect_mac_role_t my_role = MAC_ROLE_PT;
-// #else
-// #error "A DECT MAC role must be selected in Kconfig"
-// #endif
+#if !IS_ENABLED(CONFIG_ZTEST)	
+#if IS_ENABLED(CONFIG_DECT_MAC_ROLE_FT)
+	dect_mac_role_t my_role = MAC_ROLE_FT;
+#elif IS_ENABLED(CONFIG_DECT_MAC_ROLE_PT)
+	dect_mac_role_t my_role = MAC_ROLE_PT;
+#else
+#error "A DECT MAC role must be selected in Kconfig"
+#endif
 
-// 	err = dect_mac_core_init(my_role, CONFIG_DECT_MAC_PROVISIONED_LONG_RD_ID);
-// 	if (err) {
-// 		LOG_ERR("MAC Core init failed: %d", err);
-// 		return err;
-// 	}
+	err = dect_mac_core_init(my_role, CONFIG_DECT_MAC_PROVISIONED_LONG_RD_ID);
+	if (err) {
+		LOG_ERR("MAC Core init failed: %d", err);
+		return err;
+	}
+#endif
 
 #if IS_ENABLED(CONFIG_DECT_MAC_OWN_THREAD)
 	dect_mac_thread_id = k_thread_create(&dect_mac_thread_data, dect_mac_stack_area,

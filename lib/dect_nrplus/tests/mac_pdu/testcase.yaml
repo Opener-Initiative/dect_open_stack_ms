@@ -1,6 +1,6 @@
 
 tests:
-  mac_pdu.serialization:
+  testing.dect_nrplus.mac_pdu.serialization:
     tags: dect_nrplus mac pdu
     harness: ztest
     platform_allow: 

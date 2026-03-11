@@ -31,6 +31,27 @@
 
 LOG_MODULE_REGISTER(dect_mac_phy_ctrl, CONFIG_DECT_MAC_PHY_CTRL_LOG_LEVEL);
 
+uint16_t dect_mac_channel_num_to_arfcn(uint16_t channel_num)
+{
+	if (channel_num == 0) {
+		LOG_ERR("ARFCN_CONV: Attempted to use logical Channel 0 (Invalid).");
+		return 0; // Invalid/Safe fallback
+	}
+
+	uint16_t base_arfcn = 0;
+
+#if defined(CONFIG_DECT_MAC_BAND_US_UPCS)
+	base_arfcn = 1703;
+#else
+	base_arfcn = 1657; // Default to EU Band 1
+#endif
+
+	/* Logical Channel k (1-indexed) maps to ARFCN n:
+	 * n = base_arfcn + (k - 1)
+	 */
+	return (uint16_t)(base_arfcn + (channel_num - 1));
+}
+
 
 static union nrf_modem_dect_phy_hdr g_phy_pcc_tx_constructor_buf;
 static uint8_t g_phy_pdc_tx_constructor_buf_ctrl[MAX_MAC_PDU_SIZE_FOR_PCC_CALC];
@@ -179,6 +200,8 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 	/* Pass start_time_modem_ticks directly. The mock PHY (and real PHY API) treats
 	 * start_time as a raw modem time value; 0 = immediate start.
 	 * This matches the convention used by the TX path (phy_op_target_start_time). */
+	uint16_t arfcn = dect_mac_channel_num_to_arfcn(carrier);
+
 	struct nrf_modem_dect_phy_rx_params rx_params = {
 		.start_time = start_time_modem_ticks,
 		.handle = phy_op_handle,
@@ -188,15 +211,15 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 			NRF_MODEM_DECT_PHY_RSSI_INTERVAL_OFF,
 		.link_id = NRF_MODEM_DECT_PHY_LINK_UNSPECIFIED,
 		.rssi_level = 0,
-		.carrier = carrier,
+		.carrier = arfcn,
 		.duration = duration_modem_units,
 		.filter = { .short_network_id = (uint8_t)(ctx->network_id_32bit & 0xFF),
 			    .is_short_network_id_used = 1,
 			    .receiver_identity = (expected_receiver_id) }
 	};
 
-	printk("PHY_CTRL_RX: Sending RX. Hdl: %u, C: %u, Mode: %d, Dur: %u TU, RxID_Filter: 0x%04X, OpT: %s, StartTime(ticks): %llu\n",
-		phy_op_handle, carrier, mode, duration_modem_units, expected_receiver_id,
+	printk("PHY_CTRL_RX: Sending RX. Hdl: %u, C:%u (ARFCN:%u), Mode:%d, Dur:%u TU, RxID_Filter:0x%04X, OpT:%s, StartTime(ticks):%llu\n",
+		phy_op_handle, carrier, arfcn, mode, duration_modem_units, expected_receiver_id,
 		dect_pending_op_to_str(op_type), start_time_modem_ticks);
 
 	int ret = nrf_modem_dect_phy_rx(&rx_params);
@@ -364,13 +387,15 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 					   full_mac_pdu_len, target_receiver_short_id, is_beacon, mu_code,
 					   feedback, op_type);
 
+	uint16_t arfcn = dect_mac_channel_num_to_arfcn(carrier);
+
 	struct nrf_modem_dect_phy_tx_params tx_params = {
 		.start_time = phy_op_target_start_time,
 		.handle = phy_op_handle,
 		.network_id = ctx->network_id_32bit,
 		.phy_type = is_beacon ? 0 : 1,
 		.lbt_rssi_threshold_max = use_lbt ? ctx->config.rssi_threshold_min_dbm : 0,
-		.carrier = carrier,
+		.carrier = arfcn,
 		.lbt_period = use_lbt ? NRF_MODEM_DECT_LBT_PERIOD_MIN : 0,
 		.phy_header = &g_phy_pcc_tx_constructor_buf,
 		.bs_cqi = NRF_MODEM_DECT_PHY_BS_CQI_NOT_USED,
@@ -453,15 +478,17 @@ int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_modem_
 	printk("[PHY_CTRL_SET_PENDING] Set pending op to Type: %s, Handle: %u\n",
 	       dect_pending_op_to_str(op_type), phy_op_handle);
 
+	uint16_t arfcn = dect_mac_channel_num_to_arfcn(carrier);
+
     struct nrf_modem_dect_phy_rssi_params rssi_params = {
         .start_time = 0, // Immediate start for scans initiated by MAC logic
         .handle = phy_op_handle,
-        .carrier = carrier,
+        .carrier = arfcn,
         .duration = duration_modem_units,
         .reporting_interval = reporting_interval
     };
-    LOG_INF("PHY_CTRL_RSSI: Starting RSSI. Hdl: %u, C: %u, Dur: %u TU, RepInt: %d, OpT: %s",
-            phy_op_handle, carrier, duration_modem_units, reporting_interval, dect_pending_op_to_str(op_type));
+    LOG_INF("PHY_CTRL_RSSI: Starting RSSI. Hdl:%u, C:%u (ARFCN:%u), Dur:%u TU, RepInt:%d, OpT:%s",
+            phy_op_handle, carrier, arfcn, duration_modem_units, reporting_interval, dect_pending_op_to_str(op_type));
 
 printk("[PHY_CTRL_RSSI_DBG] About to call nrf_modem_dect_phy_rssi...\n");
 

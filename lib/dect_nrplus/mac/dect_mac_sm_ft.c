@@ -1479,7 +1479,6 @@ static void ft_schedule_rach_listen_action(void)
     //         listen_duration_modem_units, rach_listen_start_time);
 
 printk("[FT_PM] before the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d \n", ctx->pending_op_type);
-dect_mac_core_clear_pending_op();
 	uint32_t phy_op_handle;
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
     int ret = dect_mac_phy_ctrl_start_rx(
@@ -1688,16 +1687,13 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
 				// LOG_DBG("FT SM: Beacon TX SFN %u successful.", ctx->role_ctx.ft.sfn_for_last_beacon_tx);
             }
 
-            if (ctx->state == MAC_STATE_FT_BEACONING && false) {
-				printk("\n fffffffffffffffffffffffffffffffffffffffuDGE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n\n\n\n");
-                ft_schedule_rach_listen_action();
-            }
-			/* It is now safe to clear the pending state from the beacon TX.
-			* The new pending state will be set by ft_schedule_rach_listen_action.
-			*/
             printk("[FT_SM_STATE] Before clear (BEACON): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
             dect_mac_core_clear_pending_op();
             printk("[FT_SM_STATE] After clear (BEACON): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));			
+
+            if (ctx->state == MAC_STATE_FT_BEACONING) {
+                ft_schedule_rach_listen_action();
+            }
             break;
         case PENDING_OP_FT_RACH_RX_WINDOW:
              LOG_DBG("FT SM: RACH RX window op completed (err %d). Next RACH listen after next beacon cycle.", event->err);
@@ -2650,6 +2646,46 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 		res_alloc_fields_to_send.repetition_value = CONFIG_DECT_MAC_FT_DEFAULT_SCHEDULE_REPEAT_FRAMES;
 		res_alloc_fields_to_send.validity_value = CONFIG_DECT_MAC_FT_DEFAULT_SCHEDULE_VALIDITY_FRAMES;
 		res_alloc_fields_to_send.sfn_val = (ctx->role_ctx.ft.sfn + CONFIG_DECT_MAC_FT_SCHEDULE_START_SFN_OFFSET) & 0xFF;
+
+		/* --- UPDATE INTERNAL FT SCHEDULE --- */
+		dect_mac_schedule_t *ft_peer_sched = &ctx->role_ctx.ft.peer_schedules[peer_slot_idx];
+		memset(ft_peer_sched, 0, sizeof(dect_mac_schedule_t));
+		ft_peer_sched->is_active = true;
+		ft_peer_sched->alloc_type = res_alloc_fields_to_send.alloc_type_val;
+		ft_peer_sched->channel = res_alloc_fields_to_send.channel_present 
+			? res_alloc_fields_to_send.channel_val 
+			: ctx->role_ctx.ft.operating_carrier;
+		
+		ft_peer_sched->dl_start_subslot = res_alloc_fields_to_send.start_subslot_val_res1;
+		ft_peer_sched->dl_duration_subslots = res_alloc_fields_to_send.length_val_res1 + 1;
+		ft_peer_sched->dl_length_is_slots = res_alloc_fields_to_send.length_type_is_slots_res1;
+		if (ft_peer_sched->dl_length_is_slots) {
+			ft_peer_sched->dl_duration_subslots *= get_subslots_per_etsi_slot_for_mu(ctx->own_phy_params.mu);
+		}
+
+		ft_peer_sched->ul_start_subslot = res_alloc_fields_to_send.start_subslot_val_res2;
+		ft_peer_sched->ul_duration_subslots = res_alloc_fields_to_send.length_val_res2 + 1;
+		ft_peer_sched->ul_length_is_slots = res_alloc_fields_to_send.length_type_is_slots_res2;
+		if (ft_peer_sched->ul_length_is_slots) {
+			ft_peer_sched->ul_duration_subslots *= get_subslots_per_etsi_slot_for_mu(ctx->own_phy_params.mu);
+		}
+
+		ft_peer_sched->repeat_type = res_alloc_fields_to_send.repeat_val;
+		ft_peer_sched->repetition_value = res_alloc_fields_to_send.repetition_value;
+		ft_peer_sched->validity_value = res_alloc_fields_to_send.validity_value;
+		ft_peer_sched->sfn_of_initial_occurrence = res_alloc_fields_to_send.sfn_val;
+		ft_peer_sched->schedule_init_modem_time = ctx->last_known_modem_time;
+
+		/* Calculate next occurrence */
+		uint16_t primary_ss = (ft_peer_sched->dl_duration_subslots > 0) ? ft_peer_sched->dl_start_subslot : ft_peer_sched->ul_start_subslot;
+		ft_peer_sched->next_occurrence_modem_time = calculate_target_modem_time(
+			ctx, ctx->ft_sfn_zero_modem_time_anchor, 0, res_alloc_fields_to_send.sfn_val,
+			primary_ss, ctx->own_phy_params.mu, ctx->own_phy_params.beta);
+		
+		update_next_occurrence(ctx, ft_peer_sched, ctx->last_known_modem_time, ctx->own_phy_params.mu);
+
+		LOG_INF("FT_SM: Unicast DL/UL Schedule for PT 0x%04X idx %d ACTIVATED. NextOcc: %llu", 
+			pt_tx_short_rd_id, peer_slot_idx, ft_peer_sched->next_occurrence_modem_time);
 
 		ft_send_association_response_action(peer_slot_idx, &resp_fields,
 						    &ft_cap_fields_to_send,

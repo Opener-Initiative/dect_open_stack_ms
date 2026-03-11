@@ -23,6 +23,15 @@
 
 
 /**
+ * @brief Converts a 1-indexed logical channel number to an absolute channel number (ARFCN)
+ *        based on the configured operating band.
+ *
+ * @param channel_num Logical channel index (1-10).
+ * @return The 13-bit ARFCN for the carrier.
+ */
+uint16_t dect_mac_channel_num_to_arfcn(uint16_t channel_num);
+
+/**
  * @brief Initializes the MAC PHY Control module.
  *        Currently, this function may be empty if all necessary state is managed
  *        within the global MAC context or if no specific module initialization is required.

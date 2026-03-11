@@ -1,0 +1,11 @@
+tests:
+  testing.dect_nrplus.cvg_security.crypto:
+    tags: dect_nrplus cvg security
+    harness: ztest
+    platform_allow:
+      - nrf9151dk/nrf9151/ns
+      - nrf9161dk/nrf9161/ns
+    integration_platforms:
+      - nrf9151dk
+      - nrf9161dk
+    timeout: 20

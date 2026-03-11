@@ -10,6 +10,7 @@
 #include <dect_stack_api.h>
 
 #if !defined(CONFIG_BOARD_NATIVE_SIM)
+#include <nrf_modem_dect_phy.h>
 #include <modem/nrf_modem_lib.h>
 #endif
 
@@ -32,18 +33,21 @@ int main(void)
 	
 	int err;
 
-#if !defined(CONFIG_BOARD_NATIVE_SIM)
+#if defined(CONFIG_NRF_MODEM_LIB)
+	printk("*********************************************STARTING MODEM LIB************************************\n");
 	err = nrf_modem_lib_init();
 	if (err) {
-		LOG_ERR("Failed to initialize modem library: %d", err);
-		return 0;
+		LOG_ERR("[PHY_IF] Modem init failed, err %d", err);
+		return err;
 	}
-#endif
+	LOG_INF("[PHY_IF] nRF Modem Library initialized.");
+#endif /*  */
+
+
 
 	err = dect_stack_init();
 	if (err) {
 		LOG_ERR("Failed to initialize DECT NR+ stack: %d", err);
-		printk("Failed to initialize DECT NR+ stack: %d", err);
 		return 0;
 	}
 

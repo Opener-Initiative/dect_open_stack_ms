@@ -1,5 +1,5 @@
 tests:
-  dlc.sar:
+  testing.dect_nrplus.dlc.sar:
     tags: dect_nrplus dlc
     platform_allow: 
       - native_sim

@@ -68,6 +68,159 @@ printk("dect_mac_security_setup %d \n", status);
 
 /* --- Test Cases --- */
 
+/* ========================================================================= *
+ *                      MAC SECURITY NEGATIVE TESTS                          *
+ * ========================================================================= */
+
+/**
+ * @brief Negative Test: MIC Calculation with Tampered Payload
+ * Proves that if a single bit of the payload changes over the air, 
+ * the resulting MIC will be completely different, failing authentication.
+ */
+ZTEST(dect_mac_security, test_neg_mic_tampered_payload)
+{
+	uint8_t tampered_msg[16];
+	uint8_t calculated_mic[5];
+	int ret;
+
+	/* Copy the NIST test message and flip exactly one bit */
+	memcpy(tampered_msg, nist_cmac_msg, sizeof(nist_cmac_msg));
+	tampered_msg[0] ^= 0x01; 
+
+	ret = security_calculate_mic(tampered_msg, sizeof(tampered_msg),
+					 nist_cmac_key, calculated_mic);
+	zassert_ok(ret, "security_calculate_mic failed with code %d", ret);
+
+	/* ASSERTION: The new MIC must NOT match the expected NIST MIC */
+	zassert_false(memcmp(calculated_mic, nist_cmac_expected_mic_truncated, sizeof(calculated_mic)) == 0,
+			  "SECURITY FAILED: Tampered payload produced a valid MIC!");
+			  
+	LOG_INF("[PASS] 1-bit payload modification resulted in completely invalid MIC.");
+}
+
+/**
+ * @brief Negative Test: MIC Calculation with Incorrect Key
+ * Proves that if a device tries to authenticate a packet using the wrong 
+ * session integrity key, the MIC will not match.
+ */
+ZTEST(dect_mac_security, test_neg_mic_wrong_key)
+{
+	uint8_t wrong_key[16];
+	uint8_t calculated_mic[5];
+	int ret;
+
+	/* Copy the NIST test key and flip exactly one bit */
+	memcpy(wrong_key, nist_cmac_key, sizeof(nist_cmac_key));
+	wrong_key[15] ^= 0xFF; 
+
+	ret = security_calculate_mic(nist_cmac_msg, sizeof(nist_cmac_msg),
+					 wrong_key, calculated_mic);
+	zassert_ok(ret, "security_calculate_mic failed with code %d", ret);
+
+	/* ASSERTION: The new MIC must NOT match the expected NIST MIC */
+	zassert_false(memcmp(calculated_mic, nist_cmac_expected_mic_truncated, sizeof(calculated_mic)) == 0,
+			  "SECURITY FAILED: Wrong key produced a valid MIC!");
+			  
+	LOG_INF("[PASS] Invalid integrity key resulted in completely invalid MIC.");
+}
+
+/**
+ * @brief Negative Test: AES-CTR Ciphertext Corruption
+ * AES-CTR mode is malleable. If an attacker flips a bit in the ciphertext, 
+ * decryption will not explicitly "fail", but that exact bit will be flipped 
+ * in the resulting plaintext. This proves that corrupted ciphertext results 
+ * in corrupted plaintext (which the MIC would subsequently catch).
+ */
+ZTEST(dect_mac_security, test_neg_ctr_corrupted_ciphertext)
+{
+	uint8_t buffer[16];
+	uint8_t iv[16];
+	int ret;
+
+	/* 1. Encrypt the standard plaintext */
+	memcpy(buffer, rfc_ctr_plaintext, sizeof(buffer));
+	memcpy(iv, rfc_ctr_iv, sizeof(iv));
+	ret = security_crypt_payload(buffer, sizeof(buffer), rfc_ctr_key, iv, true);
+	zassert_ok(ret, "Encryption failed");
+
+	/* 2. Simulate over-the-air corruption: Flip a bit in the ciphertext */
+	buffer[5] ^= 0x01;
+
+	/* 3. Decrypt the corrupted ciphertext */
+	memcpy(iv, rfc_ctr_iv, sizeof(iv)); /* Reset IV for decryption */
+	ret = security_crypt_payload(buffer, sizeof(buffer), rfc_ctr_key, iv, false);
+	zassert_ok(ret, "Decryption failed");
+
+	/* ASSERTION: The decrypted buffer must NOT match the original plaintext */
+	zassert_false(memcmp(buffer, rfc_ctr_plaintext, sizeof(buffer)) == 0,
+			  "SECURITY FAILED: Corrupted ciphertext decrypted into valid plaintext!");
+			  
+	LOG_INF("[PASS] Ciphertext corruption successfully corrupted the resulting plaintext.");
+}
+
+/**
+ * @brief Negative Test: IV Uniqueness and Sequence Numbers
+ * In AES-CTR, reusing an IV is a catastrophic security failure.
+ * This test proves that incrementing the Packet Sequence Number (PSN) 
+ * generates a completely different IV, which in turn generates completely 
+ * different ciphertext for the exact same plaintext.
+ */
+ZTEST(dect_mac_security, test_neg_iv_uniqueness_prevents_replay)
+{
+	uint8_t iv_packet_1[16];
+	uint8_t iv_packet_2[16];
+	uint8_t ciphertext_1[16];
+	uint8_t ciphertext_2[16];
+	
+	/* Same connection details, but PSN increments from 1 to 2 */
+	security_build_iv(iv_packet_1, 0x11223344, 0xAABBCCDD, 0x00000001, 1);
+	security_build_iv(iv_packet_2, 0x11223344, 0xAABBCCDD, 0x00000001, 2);
+
+	/* 1. Prove the IVs are distinct */
+	zassert_false(memcmp(iv_packet_1, iv_packet_2, 16) == 0, 
+	              "SECURITY FAILED: IVs are identical despite different PSNs!");
+
+	/* 2. Encrypt the same plaintext with both IVs */
+	memcpy(ciphertext_1, rfc_ctr_plaintext, 16);
+	security_crypt_payload(ciphertext_1, 16, rfc_ctr_key, iv_packet_1, true);
+
+	memcpy(ciphertext_2, rfc_ctr_plaintext, 16);
+	security_crypt_payload(ciphertext_2, 16, rfc_ctr_key, iv_packet_2, true);
+
+	/* 3. Prove the ciphertexts are distinct */
+	zassert_false(memcmp(ciphertext_1, ciphertext_2, 16) == 0, 
+	              "SECURITY FAILED: Identical ciphertext produced despite different IVs! (CTR IV reuse)");
+	
+	LOG_INF("[PASS] PSN increment generated unique IVs and distinct ciphertexts.");
+}
+
+/**
+ * @brief Negative Test: Timing-Safe Comparison
+ * Verifies that the custom constant-time array comparison function correctly
+ * rejects arrays that are almost identical but differ at the end.
+ */
+ZTEST(dect_mac_security, test_neg_timing_safe_compare)
+{
+	uint8_t valid_mac[DECT_MAC_AUTH_MAC_SIZE] =   { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22 };
+	uint8_t forged_mac[DECT_MAC_AUTH_MAC_SIZE] =  { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x00 };
+
+	/* Only the very last byte differs */
+	bool result = dect_mac_security_timing_safe_equal(valid_mac, forged_mac, DECT_MAC_AUTH_MAC_SIZE);
+
+	zassert_false(result, "SECURITY FAILED: Timing-safe compare returned true for different arrays!");
+	
+	LOG_INF("[PASS] Timing-safe compare correctly rejected forged MAC.");
+}
+
+/* ========================================================================= *
+ *                       MAC SECURITY POSITIVE TESTS                         *
+ * ========================================================================= */
+
+/**
+ * @brief Test the IV Construction Logic
+ * Verifies that the IV is constructed correctly by concatenating the TX ID,
+ * RX ID, HPC, and Packet Sequence Number (PSN) in the correct order and bit positions.
+ */
 ZTEST(dect_mac_security, test_iv_build)
 {
 	uint8_t iv[16];
@@ -88,6 +241,11 @@ ZTEST(dect_mac_security, test_iv_build)
 	zassert_mem_equal(iv, expected_iv, sizeof(expected_iv), "IV was not built correctly");
 }
 
+/**
+ * @brief Test the MAC (CMAC) Calculation
+ * Verifies that the Message Integrity Code (MIC) is calculated correctly
+ * using the AES-128 CMAC algorithm based on NIST SP 800-38B test vectors.
+ */
 ZTEST(dect_mac_security, test_mic_calculation)
 {
 	uint8_t mic_out[5];
@@ -100,6 +258,11 @@ ZTEST(dect_mac_security, test_mic_calculation)
 			  "Calculated MIC does not match NIST test vector");
 }
 
+/**
+ * @brief Test the AES-CTR Encryption and Decryption Pipeline
+ * Verifies that the CTR mode encryption produces the expected ciphertext
+ * and that the same function can decrypt it back to the original plaintext.
+ */
 ZTEST(dect_mac_security, test_ctr_encryption_decryption)
 {
 	uint8_t buffer[16];
@@ -125,7 +288,11 @@ ZTEST(dect_mac_security, test_ctr_encryption_decryption)
 			  "Decrypted buffer does not match original plaintext");
 }
 
-
+/**
+ * @brief Diagnostic Test: Direct PSA API Call
+ * A low-level diagnostic test to verify that the PSA crypto API can be called
+ * directly from the test code, bypassing the abstraction layer.
+ */
 ZTEST(dect_mac_security, test_direct_psa_api_call)
 {
     psa_status_t status;

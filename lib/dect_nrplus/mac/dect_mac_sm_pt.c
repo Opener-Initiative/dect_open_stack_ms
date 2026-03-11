@@ -387,7 +387,7 @@ void pt_rach_response_window_timer_expired_action(void)
 void dect_mac_sm_pt_keep_alive_timer_expired_action(void) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
     if (ctx->state == MAC_STATE_ASSOCIATED) {
-        if (ctx->pending_op_type == PENDING_OP_NONE) {
+        if (ctx->pending_op_type == PENDING_OP_NONE || ctx->pending_op_type == PENDING_OP_PT_DATA_RX) {
             pt_send_keep_alive_action();
         } else {
             LOG_WRN("PT SM: Keep-alive time, but op %s pending. Will retry on next expiry.",

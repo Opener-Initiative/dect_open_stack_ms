@@ -168,7 +168,7 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
             remaining = k_timer_remaining_get(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
             if (remaining > 0) {
                 next_timer_ticks = MIN(next_timer_ticks, remaining);
-                printk("[SIMULATION] PT keep-alive timer running, expires in %u ticks\n", remaining);
+                printk("[SIMULATION] PT keep-alive timer running, expires in %llu ticks\n", remaining);
             }
         }
         
@@ -177,7 +177,7 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
             remaining = k_timer_remaining_get(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
             if (remaining > 0) {
                 next_timer_ticks = MIN(next_timer_ticks, remaining);
-                printk("[SIMULATION] FT beacon timer running, expires in %u ticks\n", remaining);
+                printk("[SIMULATION] FT beacon timer running, expires in %llu ticks\n", remaining);
             }
         }
         

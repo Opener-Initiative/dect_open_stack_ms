@@ -139,6 +139,12 @@ void dect_mac_reset_context(dect_mac_context_t *ctx)
 		ctx->pcc_transaction_cache[i].is_valid = false;
 	}
 
+	/* 4. Stop HARQ retransmission timers */
+	for (int i = 0; i < MAX_HARQ_PROCESSES; i++) {
+		k_timer_stop(&ctx->harq_tx_processes[i].retransmission_timer);
+		ctx->harq_tx_processes[i].is_active = false;
+	}
+
 	/* 4. Reset sequence numbers and security flags */
 	ctx->psn = 0;
 	ctx->hpc = 1; 
@@ -332,6 +338,10 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
     printk("[CORE_INIT_DBG] 1. Context retrieved.\n");
     memset(ctx, 0, sizeof(dect_mac_context_t));
     printk("[CORE_INIT_DBG] 2. Context zeroed.\n");
+
+	/* Note: Spinlocks (ctx->lock, ctx->harq_lock) are already zeroed by memset above, 
+	 * which is a valid initial state (unlocked, no owner) for Zephyr spinlocks.
+	 */
 
     ctx->role = role;
     LOG_INF("MAC Core: No Long RD ID provisioned. Generating a random one. %d", provisioned_long_rd_id);

@@ -1,0 +1,27 @@
+2026-02-19 22:23:20,248 - twister - INFO - Using Ninja..
+2026-02-19 22:23:20,497 - twister - INFO - Zephyr version: v4.0.99-ncs1-2
+2026-02-19 22:23:20,507 - twister - DEBUG - Running cmake script /home/bob/ncs/v3-zlink-U/zephyr/cmake/verify-toolchain.cmake
+2026-02-19 22:23:20,507 - twister - DEBUG - Calling cmake: /home/bob/ncs/toolchains/7cbc0036f4/usr/local/bin/cmake -DFORMAT=json -P /home/bob/ncs/v3-zlink-U/zephyr/cmake/verify-toolchain.cmake
+2026-02-19 22:23:21,660 - twister - DEBUG - Finished running /home/bob/ncs/v3-zlink-U/zephyr/cmake/verify-toolchain.cmake
+2026-02-19 22:23:21,660 - twister - INFO - Using 'zephyr' toolchain.
+2026-02-19 22:23:26,001 - twister - DEBUG - Reading testsuite configuration files under /home/bob/ncs/v3-zlink-U/nrf/lib/dect_nrplus/app/tests...
+2026-02-19 22:23:26,009 - twister - ERROR - Twister call stack dump:
+  File "/home/bob/ncs/toolchains/7cbc0036f4/usr/local/bin/west", line 8, in <module>
+    sys.exit(main())
+  File "/home/bob/ncs/toolchains/7cbc0036f4/usr/local/lib/python3.12/site-packages/west/app/main.py", line 1085, in main
+    app.run(argv or sys.argv[1:])
+  File "/home/bob/ncs/toolchains/7cbc0036f4/usr/local/lib/python3.12/site-packages/west/app/main.py", line 244, in run
+    self.run_command(argv, early_args)
+  File "/home/bob/ncs/toolchains/7cbc0036f4/usr/local/lib/python3.12/site-packages/west/app/main.py", line 505, in run_command
+    self.run_extension(args.command, argv)
+  File "/home/bob/ncs/toolchains/7cbc0036f4/usr/local/lib/python3.12/site-packages/west/app/main.py", line 654, in run_extension
+    self.cmd.run(args, unknown, self.topdir, manifest=self.manifest,
+  File "/home/bob/ncs/toolchains/7cbc0036f4/usr/local/lib/python3.12/site-packages/west/commands.py", line 194, in run
+    self.do_run(args, unknown)
+  File "/home/bob/ncs/v3-zlink-U/zephyr/scripts/west_commands/twister_cmd.py", line 61, in do_run
+    ret = main(options, default_options)
+  File "/home/bob/ncs/v3-zlink-U/zephyr/scripts/pylib/twister/twisterlib/twister_main.py", line 124, in main
+    tplan.discover()
+  File "/home/bob/ncs/v3-zlink-U/zephyr/scripts/pylib/twister/twisterlib/testplan.py", line 198, in discover
+    raise TwisterRuntimeError("No testsuites found at the specified location...")
+

@@ -313,19 +313,3 @@ void update_next_occurrence(dect_mac_context_t *ctx, dect_mac_schedule_t *schedu
 		schedule->next_occurrence_modem_time);
 }
 
-uint16_t dect_mac_freq_to_channel_num(uint32_t freq_khz)
-{
-	/* Formula for EU band from ETSI TS 103 636-2, Table 5.4.2-1 */
-	/* TODO: Add support for other bands */
-	if (freq_khz < 1881792) {
-		return 0;
-	}
-	return (uint16_t)((freq_khz - 1881792) / 1728);
-}
-
-uint32_t dect_mac_channel_num_to_freq(uint16_t channel_num)
-{
-	/* Formula for EU band from ETSI TS 103 636-2, Table 5.4.2-1 */
-	/* TODO: Add support for other bands */
-	return 1881792 + ((uint32_t)channel_num * 1728);
-}

@@ -45,6 +45,24 @@ static inline uint32_t modem_ticks_to_us_phy_if(uint32_t ticks) {
     return (uint32_t)(((uint64_t)ticks * 1000U) / NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 }
 
+static uint16_t dect_mac_arfcn_to_channel_num(uint16_t arfcn)
+{
+	uint16_t base_arfcn = 0;
+
+#if defined(CONFIG_DECT_MAC_BAND_US_UPCS)
+	base_arfcn = 1703;
+#else
+	base_arfcn = 1657; // Default to EU Band 1
+#endif
+
+	if (arfcn < base_arfcn) {
+		LOG_WRN("ARFCN_CONV: ARFCN %u is below base ARFCN %u for current band.", arfcn, base_arfcn);
+		return 0;
+	}
+
+	return (uint16_t)(arfcn - base_arfcn + 1);
+}
+
 /**
  * @brief The single event handler callback registered with the nRF modem DECT PHY library.
  *
@@ -186,6 +204,9 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 	case NRF_MODEM_DECT_PHY_EVT_RSSI:
 		msg_to_queue.type = MAC_EVENT_PHY_RSSI_RESULT;
 		memcpy(&msg_to_queue.data.rssi, &event->rssi, sizeof(event->rssi));
+		
+		/* Convert absolute carrier (ARFCN) back to logical channel number for MAC state machines */
+		msg_to_queue.data.rssi.carrier = dect_mac_arfcn_to_channel_num(event->rssi.carrier);
 		break;
 
 	case NRF_MODEM_DECT_PHY_EVT_INIT:
@@ -317,7 +338,10 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 
 int dect_mac_phy_if_init(void)
 {
-    int err = nrf_modem_dect_phy_event_handler_set(phy_event_handler_callback);
+	int err;
+
+printk("********************************************* STARTING nrf_modem_dect_phy_event_handler_set ************************************\n");
+    err = nrf_modem_dect_phy_event_handler_set(phy_event_handler_callback);
     if (err) {
         LOG_ERR("[PHY_IF]  Failed to set nRF DECT PHY event handler, err: %d", err);
     } else {
@@ -329,8 +353,10 @@ int dect_mac_phy_if_init(void)
     return err;
 }
 
+void dect_mac_phy_ctrl_init(void){
 
-
+	return;
+}
 
 static int count_active_handles(void)
 {

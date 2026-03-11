@@ -46,11 +46,28 @@ static nrf_modem_dect_phy_event_handler_t g_event_handler = NULL;
 static mock_phy_context_t *g_all_phys[MAX_NODES];
 static size_t g_num_all_phys = 0;
 
-/* --- Forward declarations for internal functions --- */
+static void init_rf_environment(void);
 static void mock_phy_send_event(const struct nrf_modem_dect_phy_event *event);
 static int find_free_timeline_slot(mock_phy_context_t *ctx);
 static uint64_t get_timeline_end_time(mock_phy_context_t *ctx);
-static void init_rf_environment(void);
+
+static uint16_t mock_arfcn_to_index(uint16_t arfcn)
+{
+	uint16_t base_arfcn = 0;
+#if defined(CONFIG_DECT_MAC_BAND_US_UPCS)
+	base_arfcn = 1703;
+#else
+	base_arfcn = 1657; // Default to EU Band 1
+#endif
+
+	/* If the carrier looks like an ARFCN, translate to logical index.
+	 * Otherwise, assume it's already a logical index (for backward compatibility with tests).
+	 */
+	if (arfcn >= base_arfcn) {
+		return arfcn - base_arfcn + 1;
+	}
+	return arfcn;
+}
 
 /* ========================================================================
  * PUBLIC MOCK CONFIGURATION API
@@ -58,9 +75,10 @@ static void init_rf_environment(void);
 
 void mock_phy_test_set_noise_floor(uint16_t carrier, int8_t dbm)
 {
-    if (carrier < MOCK_MAX_CARRIERS) {
-        g_mock_carrier_noise_dbm[carrier] = dbm;
-        printk("[MOCK_CONFIG] Carrier %u noise floor set to %d dBm\n", carrier, dbm);
+    uint16_t idx = mock_arfcn_to_index(carrier);
+    if (idx < MOCK_MAX_CARRIERS) {
+        g_mock_carrier_noise_dbm[idx] = dbm;
+        printk("[MOCK_CONFIG] Carrier %u (Idx %u) noise floor set to %d dBm\n", carrier, idx, dbm);
     }
 }
 
@@ -310,7 +328,8 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
             bool collision = false;
             if (g_mock_collisions_enabled) {
                 for (int k = 0; k < MOCK_RX_QUEUE_MAX_PACKETS; k++) {
-                    if (k != next_pkt_idx && ctx->rx_queue[k].active && ctx->rx_queue[k].carrier == pkt->carrier) {
+                    if (k != next_pkt_idx && ctx->rx_queue[k].active && 
+                        mock_arfcn_to_index(ctx->rx_queue[k].carrier) == mock_arfcn_to_index(pkt->carrier)) {
                         bool overlaps = (pkt->reception_time_us < (ctx->rx_queue[k].reception_time_us + ctx->rx_queue[k].duration_us)) &&
                                         (ctx->rx_queue[k].reception_time_us < (pkt->reception_time_us + pkt->duration_us));
                         if (overlaps) { 
@@ -331,7 +350,7 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
                 mock_scheduled_operation_t *rx_op = &ctx->timeline[j];
 
                 if (rx_op->active && rx_op->running && rx_op->type == MOCK_OP_TYPE_RX) {
-                    if (pkt->carrier == rx_op->carrier) {
+                    if (mock_arfcn_to_index(pkt->carrier) == mock_arfcn_to_index(rx_op->carrier)) {
                         mock_phy_set_active_context(ctx);
                         rx_op_found = true;
 
@@ -387,13 +406,14 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
             mock_phy_set_active_context(ctx);
             
             if (op->type == MOCK_OP_TYPE_RSSI) {
+                uint16_t channel_idx = mock_arfcn_to_index(op->carrier);
 
-                if(ctx->mac_ctx->role_ctx.ft.operating_carrier == op->carrier) {
-                    g_mock_carrier_noise_dbm[op->carrier] = -120;
-                    printk("[MOCK_TIMELINE] FT operating carrier is %d at %d dbm\n", ctx->mac_ctx->role_ctx.ft.operating_carrier, g_mock_carrier_noise_dbm[op->carrier]);
+                if(ctx->mac_ctx->role_ctx.ft.operating_carrier == channel_idx) {
+                    g_mock_carrier_noise_dbm[channel_idx] = -120;
+                    printk("[MOCK_TIMELINE] FT operating carrier index %d at %d dbm\n", channel_idx, g_mock_carrier_noise_dbm[channel_idx]);
                 }
 
-                int8_t rssi_val = (op->carrier < MOCK_MAX_CARRIERS) ? g_mock_carrier_noise_dbm[op->carrier] : -60;
+                int8_t rssi_val = (channel_idx < MOCK_MAX_CARRIERS) ? g_mock_carrier_noise_dbm[channel_idx] : -60;
                 memset(g_mock_rssi_buffer, rssi_val, MOCK_RSSI_MAX_SAMPLES);
                 
                 struct nrf_modem_dect_phy_event rssi_evt = {
