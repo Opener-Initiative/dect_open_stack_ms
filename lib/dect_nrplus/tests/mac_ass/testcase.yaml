@@ -1,5 +1,5 @@
 tests:
-  mac_ass.basic:
+  testing.dect_nrplus.mac_ass.basic:
     tags: dect_nrlus
     platform_allow: 
       - native_sim

@@ -1,5 +1,5 @@
 tests:
-  testing.dect_nrplus.stack.integration:
+  testing.dect_nrplus.stack.integration_2:
     tags: dect_nrplus stack
     platform_allow: 
       - native_sim

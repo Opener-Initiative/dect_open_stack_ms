@@ -500,7 +500,6 @@ static void dect_mac_ass_extra_after(void *fixture)
     mock_phy_set_active_context(&g_phy_ctx_ft);
     nrf_modem_dect_phy_deactivate();
     mock_phy_complete_reset(&g_phy_ctx_ft);
-
     
     /* Reset shared resources to ensure test isolation */
 	dect_mac_phy_if_reset_handle_map();

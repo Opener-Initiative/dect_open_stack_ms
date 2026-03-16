@@ -288,16 +288,30 @@ typedef struct {
  * Contains the received/reassembled DLC SDU (which is a CVG PDU) and the
  * DLC service type that was applicable to its reception/processing by the DLC.
  */
+// typedef struct {
+// 	void *fifo_reserved;            /**< For k_queue internal use */
+//     mac_sdu_t *sdu_buf;        /**< net_buf carrying the CVG PDU payload, with DECT metadata in user_data */
+// 	// struct net_buf *sdu_buf;        /**< net_buf carrying the CVG PDU payload, with DECT metadata in user_data */
+// 	bool is_app_sdu;                /**< Kept for back-compat; always true in the net_buf path */
+// 	dlc_service_type_t dlc_service_type;
+
+// 	/* Scheduler Metadata */
+// 	net_tick_t entry_timestamp;     /**< Time when packet entered the queue */
+// 	uint8_t priority;               /**< Priority lane (DLC_LANE_*) */
+// 	void *origin_queue;             /**< Pointer to the source k_queue */
+// } dlc_rx_delivery_item_t;
+
 typedef struct {
-	void *fifo_reserved;            /**< For k_queue internal use */
-	struct net_buf *sdu_buf;        /**< net_buf carrying the CVG PDU payload, with DECT metadata in user_data */
-	bool is_app_sdu;                /**< Kept for back-compat; always true in the net_buf path */
-	dlc_service_type_t dlc_service_type;
+	void *fifo_reserved; /* For k_queue internal use */
+	/* mac_sdu_t *sdu_buf;  Buffer containing the CVG PDU (DLC SDU payload) */
+	void *sdu_buf; /* Generic pointer to a slab-allocated buffer */
+	bool is_app_sdu; /* Flag to indicate if sdu_buf is a dlc_app_sdu_t or mac_sdu_t */
+	dlc_service_type_t dlc_service_type; /* The DLC service type of this SDU */
 
 	/* Scheduler Metadata */
-	net_tick_t entry_timestamp;     /**< Time when packet entered the queue */
-	uint8_t priority;               /**< Priority lane (DLC_LANE_*) */
-	void *origin_queue;             /**< Pointer to the source k_queue */
+	net_tick_t entry_timestamp; /**< Time when packet entered the queue */
+	uint8_t priority;           /**< Priority level */
+	void *origin_queue;         /**< Pointer to the source k_queue */
 } dlc_rx_delivery_item_t;
 
 
