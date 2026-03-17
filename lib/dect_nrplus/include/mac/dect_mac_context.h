@@ -36,6 +36,7 @@ struct mac_sdu;
 #define MAX_MOBILITY_CANDIDATES 5
 #define MAX_SUBSLOTS_IN_FRAME_NOMINAL 48 // For 10ms frame, 5 symbols/subslot, symbol dur ~41.67us => subslot ~208.3us
 #define FRAME_DURATION_MS_NOMINAL 10
+#define FRAME_DURATION_TICKS ((uint32_t)FRAME_DURATION_MS_NOMINAL * NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ)
 #define SUB_SLOTS_PER_ETSI_SLOT 24  // An ETSI slot is 24 subslots. A frame has 2 slots.
 
 #define NOMINAL_SLOT_DURATION_MS 10 // Assuming 1 slot = 1 frame for some calculations

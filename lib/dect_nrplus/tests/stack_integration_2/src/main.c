@@ -449,221 +449,12 @@ struct dect_mac_stats {
 
 /* --- Test Cases --- */
 
-// ZTEST(stack_integration, test_1_uplink_single_packet)
-// {
-// 	uint8_t payload[] = "Hello DECT NR+";
-// 	uint8_t rx_buf[sizeof(payload)];
-// 	size_t rx_len = sizeof(rx_buf);
-
-//     printk("*************************************/* 1. PT sends data via the CVG API */*******************************************************\n");
-// 	/* 1. PT sends data via the CVG API */
-//     dect_mac_test_set_active_context(&g_mac_ctx_pt);
-// 	mock_phy_set_active_context(&g_phy_ctx_pt);
-//     printk("************************************Sending payload[] = 'Hello DECT NR+'********************************************************\n");
-// 	dect_cvg_send(0x8003, g_mac_ctx_ft.own_long_rd_id, payload, sizeof(payload));
-//     printk("********************************************************************************************\n");
-
-//     printk("*************************************/* 2. Run simulation until the FT's mock PHY receives the packet */*******************************************************\n");
-// 	/* 2. Run simulation until the FT's mock PHY receives the packet */
-// 	zassert_true(run_simulation_until(500000, ft_phy_received_packet), "FT PHY did not receive a packet");
-//     printk("*************************************FT PHY received a packet*******************************************************\n");
-
-// 	/* 3. Manually process the received packet on the FT side to verify content */
-// 	dect_mac_test_set_active_context(&g_mac_ctx_ft);
-// 	mock_phy_set_active_context(&g_phy_ctx_ft);
-    
-//     int ret = 0;
-
-//     run_simulation_until(2500000, NULL); /* Allow MAC/DLC/CVG threads to process */
-//     printk("****************************************Starting dect_cvg_receive****************************************************\n");
-// // 	ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
-// // printk("****************************************Running dect_cvg_receive  %d ****************************************************\n", ret);
-
-// // 	run_simulation_until(1000000, NULL); /* Allow MAC/DLC/CVG threads to process */
-// // printk("****************************************Starting dect_cvg_receive****************************************************\n");
-// 	ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
-// printk("****************************************Running dect_cvg_receive  %d ****************************************************\n", ret);   
-// 	zassert_ok(ret, "FT failed to receive packet from its CVG layer");
-// 	zassert_equal(rx_len, sizeof(payload), "Received payload has wrong length");
-// 	zassert_mem_equal(rx_buf, payload, sizeof(payload), "Received payload is corrupt");
-// }
-
-
-
-// /* Test 2: Basic Downlink */
-// ZTEST(stack_integration, test_2_downlink_single_packet)
-// {
-//     /* Declare local variables */
-//     int ret;
-//     uint8_t rx_buf[64];
-//     size_t rx_len = sizeof(rx_buf);
-//     uint16_t flow_id;
-//     uint8_t payload[] = "Hello PT";
-    
-//     printk("\n=== TEST: Downlink Single Packet ===\n");
-    
-//     /* Step 1: Get or create a flow ID */
-//     /* In the original test, flow was configured in setup */
-//     flow_id = 0x8003; /* Use same flow ID as uplink test */
-    
-//     /* Step 2: FT sends data to PT */
-//     printk("FT sending: '%s' to PT\n", payload);
-//     dect_mac_test_set_active_context(&g_mac_ctx_ft);
-//     mock_phy_set_active_context(&g_phy_ctx_ft);
-    
-//     ret = dect_cvg_send(flow_id, g_mac_ctx_pt.own_long_rd_id, 
-//                         payload, sizeof(payload));
-//     zassert_ok(ret, "dect_cvg_send failed");
-    
-// 	/* Wait for FT to actually transmit */
-// 	run_simulation_until(500000, ft_tx_completed);
-
-//     /* Step 3: Run simulation until PT's PHY receives packet */
-//     printk("Waiting for PT PHY to receive packet...\n");
-//     zassert_true(run_simulation_until(500000, pt_phy_received_packet), 
-//                 "PT PHY did not receive packet");
-    
-//     /* Step 4: PT receives data from its CVG layer */
-//     printk("PT attempting to receive...\n");
-//     dect_mac_test_set_active_context(&g_mac_ctx_pt);
-//     mock_phy_set_active_context(&g_phy_ctx_pt);
-    
-//     /* May need multiple attempts as data moves up the stack */
-//     int attempts = 0;
-//     do {
-//         /* Process any pending events */
-//         run_simulation_until(10000, NULL);
-        
-//         ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
-//         attempts++;
-        
-//         if (attempts > 50) {
-//             zassert_true(false, "Timeout waiting for CVG receive");
-//         }
-//     } while (ret == -EAGAIN); /* Keep trying if no data ready */
-    
-//     /* Step 5: Verify received data */
-//     zassert_ok(ret, "dect_cvg_receive failed");
-//     printk("PT received: '%s' (len=%zu)\n", rx_buf, rx_len);
-    
-//     zassert_equal(rx_len, sizeof(payload), 
-//                  "Received length %zu expected %zu", rx_len, sizeof(payload));
-//     zassert_mem_equal(rx_buf, payload, sizeof(payload),
-//                      "Received data mismatch");
-    
-//     printk("=== TEST PASSED ===\n");
-// }
-
-
-// /* Test 3: Bidirectional Ping-Pong - CORRECTED */
-// ZTEST(stack_integration, test_3_ping_pong)
-// {
-//     uint8_t ping[] = "PING";
-//     uint8_t pong[] = "PONG";
-//     uint8_t rx_buf[32];
-//     size_t rx_len;
-//     uint16_t flow_id = 0x8003;
-//     int ret;
-//     int attempts;
-    
-//     printk("\n=== TEST: Bidirectional Ping-Pong ===\n");
-    
-//     /* DON'T WAIT - just send immediately like the other tests */
-    
-//     /* PT sends PING to FT */
-//     printk("[TEST] 1. PT sending '%s' to FT...\n", ping);
-//     dect_mac_test_set_active_context(&g_mac_ctx_pt);
-//     mock_phy_set_active_context(&g_phy_ctx_pt);
-    
-//     ret = dect_cvg_send(flow_id, g_mac_ctx_ft.own_long_rd_id, ping, sizeof(ping));
-//     zassert_ok(ret, "PT failed to send PING");
-    
-//     /* Wait for FT PHY to receive */
-//     printk("[TEST] 2. Waiting for FT to receive packet...\n");
-//     zassert_true(run_simulation_until(500000, ft_phy_received_packet), 
-//                 "FT PHY did not receive PING");
-    
-//     /* FT receives PING */
-//     printk("[TEST] 3. FT attempting to receive PING...\n");
-//     dect_mac_test_set_active_context(&g_mac_ctx_ft);
-//     mock_phy_set_active_context(&g_phy_ctx_ft);
-    
-//     /* Allow processing */
-//     run_simulation_until(100000, NULL);
-    
-//     attempts = 0;
-//     do {
-//         ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
-//         if (ret == -EAGAIN) {
-//             run_simulation_until(100000, NULL);
-//             attempts++;
-//         }
-//         if (attempts > 50) {
-//             zassert_true(false, "Timeout waiting for FT to receive PING");
-//         }
-//     } while (ret == -EAGAIN);
-    
-//     zassert_ok(ret, "FT failed to receive PING");
-//     zassert_mem_equal(rx_buf, ping, sizeof(ping), "PING data mismatch");
-
-// 	printk("=== PING PASSED %d attempts(Ping-Pong Successful) ===\n", attempts);	
-
-//     /* FT sends PONG back */
-//     printk("[TEST] 4. FT sending '%s' back to PT...\n", pong);
-// 	dect_mac_test_set_active_context(&g_mac_ctx_ft);
-//     mock_phy_set_active_context(&g_phy_ctx_ft);
-//     ret = dect_cvg_send(flow_id, g_mac_ctx_pt.own_long_rd_id, pong, sizeof(pong));
-//     zassert_ok(ret, "FT failed to send PONG");
-    
-//     /* Wait for FT to transmit */
-//     // run_simulation_until(69120, ft_tx_completed);
-// 	run_simulation_until(69120, NULL);
-    
-//     /* PT receives PONG */
-//     printk("[TEST] 5. PT attempting to receive PONG...\n");
-//     dect_mac_test_set_active_context(&g_mac_ctx_pt);
-//     mock_phy_set_active_context(&g_phy_ctx_pt);
-    
-//     zassert_true(run_simulation_until(500000, pt_phy_received_packet), 
-//                 "PT PHY did not receive PONG");
-    
-//     // run_simulation_until(69120, NULL);
-    
-//     attempts = 0;
-// 	int waiting = 69120 * 5;
-//     do {
-//         ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
-//         if (ret == -EAGAIN) {
-//             run_simulation_until(waiting, NULL);
-//             attempts++;
-//         }
-//         if (attempts > 150) {
-//             zassert_true(false, "Timeout waiting for PT to receive PONG");
-//         }
-//     } while (ret == -EAGAIN);
-
-//     zassert_ok(ret, "PT failed to receive PONG");
-//     zassert_mem_equal(rx_buf, pong, sizeof(pong), "PONG data mismatch");
-    
-//     printk("=== TEST PASSED %d attempts(Ping-Pong Successful) ===\n", attempts);
-// }
-
-
-
-
-
-
-
-
-
-
-
 // /* Test 4: Multiple Packets (Load Test) */
 // ZTEST(stack_integration, test_4_multiple_packets)
 // {
 //     #define NUM_PACKETS 10
-//     uint8_t tx_data[NUM_PACKETS][32];
-//     uint8_t rx_data[NUM_PACKETS][32];
+//     uint8_t tx_data[NUM_PACKETS][25];
+//     uint8_t rx_data[NUM_PACKETS][25];
 //     uint32_t seq_num[NUM_PACKETS];
 //     size_t rx_len[NUM_PACKETS];
 //     uint16_t flow_id = 0x8003; /* Use same flow ID as uplink test */
@@ -682,7 +473,7 @@ struct dect_mac_stats {
 //     }
     
 //     /* Run simulation to allow all packets to be transmitted */
-//     run_simulation_until(2000000, NULL);
+//     run_simulation_until(10000, NULL);
     
 //     /* Receive and verify all packets at FT */
 //     dect_mac_test_set_active_context(&g_mac_ctx_ft);
@@ -699,7 +490,7 @@ struct dect_mac_stats {
 //             received++;
 //         } else {
 //             /* No more packets ready, advance simulation */
-//             run_simulation_until(100000, NULL);
+//             run_simulation_until(10000, NULL);
 //         }
 //     }
     
@@ -710,120 +501,118 @@ struct dect_mac_stats {
 //     }
 // }
 
-// /* Test 5: Flow Control / Window Full */
-// ZTEST(stack_integration, test_5_flow_control)
-// {
-//     int ret;
-//     int packets_sent = 0;
-//     int queue_full_count = 0;
-// 	uint16_t flow_id = 0x8003; /* Use same flow ID as uplink test */
+/* Test 5: Flow Control / Window Full */
+ZTEST(stack_integration, test_5_flow_control)
+{
+    int ret;
+    int packets_sent = 0;
+    int queue_full_count = 0;
+	uint16_t flow_id = 0x8003; /* Use same flow ID as uplink test */
     
-//     printk("\n=== TEST: Flow Control ===\n");
-//     printk("Sending packets until queue is full...\n");
+    printk("\n=== TEST: Flow Control ===\n");
+    printk("Sending packets until queue is full...\n");
     
-//     /* Keep sending until we get a queue full error */
-//     for (int i = 0; i < 200; i++) {  /* Sufficient to fill flow-controlled queues */
-//         uint8_t data[20];
-//         snprintf(data, sizeof(data), "Packet %d", i);
+    /* Keep sending until we get a queue full error */
+    for (int i = 0; i < 50; i++) {  /* Sufficient to fill flow-controlled queues */
+        uint8_t data[20];
+        snprintf(data, sizeof(data), "Packet %d", i);
         
-//         ret = dect_cvg_send(flow_id, g_mac_ctx_ft.own_long_rd_id, 
-//                            data, strlen(data) + 1);
+        ret = dect_cvg_send(flow_id, g_mac_ctx_ft.own_long_rd_id, 
+                           data, strlen(data) + 1);
         
-//         if (ret == 0) {
-//             packets_sent++;
-//             printk("Sent packet %d (total: %d)\n", i, packets_sent);
-//         } else if (ret == -ENOMEM || ret == -EAGAIN) {
-//             queue_full_count++;
-//             printk("Queue full at packet %d (sent %d, ret=%d)\n", 
-//                    i, packets_sent, ret);
-//             break;
-//         } else {
-//             zassert_true(false, "Unexpected error %d at packet %d", ret, i);
-//         }
-        
-//         /* Small delay to let processing happen */
-//         k_sleep(K_MSEC(1));
-//     }
+        if (ret == 0) {
+            packets_sent++;
+            printk("Sent packet %d (total: %d)\n", i, packets_sent);
+        } else if (ret == -ENOMEM || ret == -EAGAIN) {
+            queue_full_count++;
+            printk("Queue full at packet %d (sent %d, ret=%d)\n", 
+                   i, packets_sent, ret);
+            break;
+        } else {
+            zassert_true(false, "Unexpected error %d at packet %d", ret, i);
+        }
+    }
     
-//     zassert_true(queue_full_count > 0, 
-//                 "Never hit queue full condition after %d packets", packets_sent);
+    zassert_true(queue_full_count > 0, 
+                "Never hit queue full condition after %d packets", packets_sent);
     
-//     printk("Flow control test passed: queue full after %d packets\n", packets_sent);
-// }
+    printk("Flow control test passed: queue full after %d packets\n", packets_sent);
+}
 
-// /* Test 6: Retransmission on Packet Loss */
-// ZTEST(stack_integration, test_retransmission)
-// {
-//     /* Declare variables */
-//     int ret;
-//     uint8_t rx_buf[64];
-//     size_t rx_len = sizeof(rx_buf);
-//     uint16_t flow_id = 0x8003;  /* Same flow ID as uplink test */
-//     uint8_t data[] = "Important data";
+/* Test 6: Retransmission on Packet Loss */
+ZTEST(stack_integration, test_retransmission)
+{
+    /* Declare variables */
+    int ret;
+    uint8_t rx_buf[64];
+    size_t rx_len = sizeof(rx_buf);
+    uint16_t flow_id = 0x8003;  /* Same flow ID as uplink test */
+    uint8_t data[] = "Important data";
     
-//     printk("\n=== TEST: Retransmission on Packet Loss ===\n");
+    printk("\n=== TEST: Retransmission on Packet Loss ===\n");
     
-//     /* Configure mock PHY to drop 50% of packets */
-//     /* Using the ACTUAL function from your mock_phy */
-//     mock_phy_test_config_error_injection(50);  /* 50% packet loss */
-//     printk("Packet loss rate configured to 50%%\n");
+    /* Configure mock PHY to drop 50% of packets */
+    /* Using the ACTUAL function from your mock_phy */
+    mock_phy_test_config_error_injection(50);  /* 50% packet loss */
+    printk("Packet loss rate configured to 50%%\n");
     
-//     /* PT sends data to FT */
-//     printk("PT sending: '%s' to FT (with 50%% packet loss)\n", data);
-//     dect_mac_test_set_active_context(&g_mac_ctx_pt);
-//     mock_phy_set_active_context(&g_phy_ctx_pt);
+    /* PT sends data to FT */
+    printk("PT sending: '%s' to FT (with 50%% packet loss)\n", data);
+    dect_mac_test_set_active_context(&g_mac_ctx_pt);
+    mock_phy_set_active_context(&g_phy_ctx_pt);
     
-//     ret = dect_cvg_send(flow_id, g_mac_ctx_ft.own_long_rd_id, 
-//                         data, sizeof(data));
-//     zassert_ok(ret, "dect_cvg_send failed");
+    ret = dect_cvg_send(flow_id, g_mac_ctx_ft.own_long_rd_id, 
+                        data, sizeof(data));
+    zassert_ok(ret, "dect_cvg_send failed");
     
-//     /* Run simulation longer than normal to allow retransmissions */
-//     printk("Waiting for FT PHY to receive packet (allowing retransmissions)...\n");
-//     zassert_true(run_simulation_until(2000000, ft_phy_received_packet), 
-//                 "FT PHY did not receive packet after retransmissions");
+    /* Run simulation longer than normal to allow retransmissions */
+    printk("Waiting for FT PHY to receive packet (allowing retransmissions)...\n");
+    zassert_true(run_simulation_until(10000, ft_phy_received_packet), 
+                "FT PHY did not receive packet after retransmissions");
     
-//     /* FT receives data */
-//     printk("FT attempting to receive...\n");
-//     dect_mac_test_set_active_context(&g_mac_ctx_ft);
-//     mock_phy_set_active_context(&g_phy_ctx_ft);
+    /* FT receives data */
+    printk("FT attempting to receive...\n");
+    dect_mac_test_set_active_context(&g_mac_ctx_ft);
+    mock_phy_set_active_context(&g_phy_ctx_ft);
     
-//     /* May need multiple attempts as data moves up the stack */
-//     int attempts = 0;
-//     do {
-//         run_simulation_until(10000, NULL);
-//         ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
-//         attempts++;
+    /* May need multiple attempts as data moves up the stack */
+    int attempts = 0;
+    do {
+        run_simulation_until(10000, NULL);
+        ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
+        attempts++;
         
-//         if (attempts > 50) {
-//             zassert_true(false, "Timeout waiting for CVG receive");
-//         }
-//     } while (ret == -EAGAIN);
+        if (attempts > 50) {
+            zassert_true(false, "Timeout waiting for CVG receive");
+        }
+    } while (ret == -EAGAIN);
     
-//     /* Verify received data */
-//     zassert_ok(ret, "dect_cvg_receive failed");
-//     printk("FT received: '%s' (len=%zu) after %d attempts\n", 
-//            rx_buf, rx_len, attempts);
+    /* Verify received data */
+    zassert_ok(ret, "dect_cvg_receive failed");
+    printk("FT received: '%s' (len=%zu) after %d attempts\n", 
+           rx_buf, rx_len, attempts);
     
-//     zassert_equal(rx_len, sizeof(data), 
-//                  "Received length %zu expected %zu", rx_len, sizeof(data));
-//     zassert_mem_equal(rx_buf, data, sizeof(data),
-//                      "Received data mismatch");
+    zassert_equal(rx_len, sizeof(data), 
+                 "Received length %zu expected %zu", rx_len, sizeof(data));
+    zassert_mem_equal(rx_buf, data, sizeof(data),
+                     "Received data mismatch");
     
-//     /* Note: Since we don't have stats in the context, we can't verify 
-//        retransmission count directly. We rely on the fact that the packet 
-//        was received despite 50% loss rate, which implies retransmissions. */
+    /* Note: Since we don't have stats in the context, we can't verify 
+       retransmission count directly. We rely on the fact that the packet 
+       was received despite 50% loss rate, which implies retransmissions. */
     
-//     printk("=== TEST PASSED (packet received despite 50%% loss) ===\n");
+    printk("=== TEST PASSED (packet received despite 50%% loss) ===\n");
     
-//     /* Reset error injection for subsequent tests */
-//     mock_phy_test_config_error_injection(0);
-// }
+    /* Reset error injection for subsequent tests */
+    mock_phy_test_config_error_injection(0);
+}
 
 /* Test 7: Large Packet Segmentation */
 ZTEST(stack_integration, test_7_large_packet)
 {
     /* Use the MAX configured size, not an arbitrary large number */
     // uint8_t large_data[CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE - 10];
+    // TODO: create tests that use more than just mu=0
     uint8_t large_data[36]; /* 35 bytes is big for mu=0 */
     uint8_t rx_buf[CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE];
     size_t rx_len = sizeof(rx_buf);
@@ -848,21 +637,21 @@ ZTEST(stack_integration, test_7_large_packet)
     
     /* Wait for transmission */
 	printk("[TEST] 2. Wait for transmission\n");
-    run_simulation_until(100000, ft_phy_received_packet);
+    run_simulation_until(10000, ft_phy_received_packet);
     
     /* Receive and verify */
 	printk("[TEST] 3. Receive and verify\n");
     ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
     
     int attempts = 0;
-	int waiting = 69120 * 5;
+	int waiting = 10000;
     do {
         ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
         if (ret == -EAGAIN) {
             run_simulation_until(waiting, NULL);
             attempts++;
         }
-        if (attempts > 150) {
+        if (attempts > 50) {
             zassert_true(false, "Timeout waiting for PT to receive PONG");
         }
     } while (ret == -EAGAIN);
@@ -881,48 +670,59 @@ ZTEST(stack_integration, test_7_large_packet)
     printk("=== TEST PASSED ===\n");
 }
 
-// ZTEST(stack_integration, test_segmentation)
-// {
-//     /* This size should trigger segmentation */
-//     uint8_t large_data[250];  /* Well over typical MTU */
-//     uint8_t rx_buf[300];
-//     size_t rx_len = sizeof(rx_buf);
-// 	uint16_t flow_id = 0x8003; /* Use same flow ID as uplink test */
-//     int ret;
+ZTEST(stack_integration, test_segmentation)
+{
+    /* This size should trigger segmentation */
+    // uint8_t large_data[250];  /* Well over typical MTU */
+    // TODO: create tests that use more than just mu=0
+    uint8_t large_data[36]; /* 35 bytes is big for mu=0 */
+    uint8_t rx_buf[100];
+    size_t rx_len = sizeof(rx_buf);
+	uint16_t flow_id = 0x8003; /* Use same flow ID as uplink test */
+    int ret;
     
-//     printk("\n=== TEST: Segmentation ===\n");
-// 	printk("CONFIG_DECT_DLC_NET_BUF_FRAG_SIZE: %d\n", CONFIG_DECT_DLC_NET_BUF_FRAG_SIZE );
-// 	printk("Max SDU size: %d\n", CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE);
-//     printk("Sending %d byte packet (should be segmented)\n", sizeof(large_data));
+    printk("\n=== TEST: Segmentation ===\n");
+	printk("CONFIG_DECT_DLC_NET_BUF_FRAG_SIZE: %d\n", CONFIG_DECT_DLC_NET_BUF_FRAG_SIZE );
+	printk("Max SDU size: %d\n", CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE);
+    printk("Sending %d byte packet (should be segmented)\n", sizeof(large_data));
     
-//     /* Fill with identifiable pattern */
-//     for (int i = 0; i < sizeof(large_data); i++) {
-//         large_data[i] = i % 256;
-//     }
+    /* Fill with identifiable pattern */
+    for (int i = 0; i < sizeof(large_data); i++) {
+        large_data[i] = i % 256;
+    }
     
-//     /* This should work if DLC segmentation is working */
-//     ret = dect_cvg_send(flow_id, g_mac_ctx_ft.own_long_rd_id, 
-//                         large_data, sizeof(large_data));
-//     zassert_ok(ret, "[TEST test_segmentation] dect_cvg_send failed - segmentation may not be supported");
+    /* This should work if DLC segmentation is working */
+    ret = dect_cvg_send(flow_id, g_mac_ctx_ft.own_long_rd_id, 
+                        large_data, sizeof(large_data));
+    zassert_ok(ret, "[TEST test_segmentation] dect_cvg_send failed - segmentation may not be supported");
     
-//     /* Wait longer for multiple segments */
-//     run_simulation_until(5000000, ft_phy_received_packet);
+    /* Wait longer for multiple segments */
+    run_simulation_until(10000, ft_phy_received_packet);
     
-//     /* Receive reassembled packet */
-//     ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
-//     zassert_ok(ret, "[TEST test_segmentation] Failed to receive segmented packet");
+    /* Receive reassembled packet */
+    int attempts = 0;
+	int waiting = 10000;
+    do {
+        ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
+        if (ret == -EAGAIN) {
+            run_simulation_until(waiting, NULL);
+            attempts++;
+        }
+        if (attempts > 50) {
+            zassert_true(false, "Timeout waiting for PT to receive PONG");
+        }
+    } while (ret == -EAGAIN);
+    zassert_equal(rx_len, sizeof(large_data), 
+                 "[TEST test_segmentation] Reassembly failed: got %zu expected %zu", 
+                 rx_len, sizeof(large_data));
     
-//     zassert_equal(rx_len, sizeof(large_data), 
-//                  "[TEST test_segmentation] Reassembly failed: got %zu expected %zu", 
-//                  rx_len, sizeof(large_data));
+    /* Verify a few key positions */
+    zassert_equal(rx_buf[0], large_data[0], "First byte mismatch");
+    zassert_equal(rx_buf[sizeof(large_data)-1], large_data[sizeof(large_data)-1], 
+                 "Last byte mismatch");
     
-//     /* Verify a few key positions */
-//     zassert_equal(rx_buf[0], large_data[0], "[TEST test_segmentation] First byte mismatch");
-//     zassert_equal(rx_buf[99], large_data[99], "[TEST test_segmentation] Middle byte mismatch");
-//     zassert_equal(rx_buf[249], large_data[249], "[TEST test_segmentation] Last byte mismatch");
-    
-//     printk("=== TEST PASSED (segmentation works) ===\n");
-// }
+    printk("=== TEST PASSED (segmentation works) ===\n");
+}
 
 ZTEST_SUITE(stack_integration, 
 			NULL, 

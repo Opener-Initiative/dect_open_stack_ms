@@ -1162,14 +1162,8 @@ printk("[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: %d (%d) \n", clearte
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
 
 	ctx->role_ctx.ft.sfn_for_last_beacon_tx = ctx->role_ctx.ft.sfn;
-	uint64_t beacon_target_start_time;
-	uint32_t frame_duration_ticks_val = 0;
+	uint64_t beacon_target_start_time;	uint32_t frame_duration_ticks_val = FRAME_DURATION_TICKS;
 
-	if (NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ > 0) {
-		frame_duration_ticks_val =
-			(uint32_t)FRAME_DURATION_MS_NOMINAL *
-			(NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ / 1000U);
-	}
 
 #if IS_ENABLED(CONFIG_ZTEST)
 	if (frame_duration_ticks_val == 0) {
@@ -1717,6 +1711,10 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
 
 				dect_mac_rand_get((uint8_t *)&phy_rx_op_handle,
 						  sizeof(phy_rx_op_handle));
+
+				/* Clear the previous pending operation before starting the new one */
+				dect_mac_core_clear_pending_op();
+
 				int ret = dect_mac_phy_ctrl_start_rx(
 					ctx->role_ctx.ft.operating_carrier, 0, /* Continuous RX */
 					NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, phy_rx_op_handle,
@@ -3008,7 +3006,7 @@ void ft_service_schedules(void)
 		dect_mac_schedule_t *group_sched_template = &ctx->role_ctx.ft.group_schedule;
 		if (group_sched_template->is_active && pt_peer->group_id != 0) {
 			uint64_t repetition_ticks = 0;
-			uint32_t frame_ticks = (uint32_t)FRAME_DURATION_MS_NOMINAL * (NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ / 1000U);
+			uint32_t frame_ticks = FRAME_DURATION_TICKS;
 			if (group_sched_template->repeat_type == RES_ALLOC_REPEAT_FRAMES_GROUP) {
 				repetition_ticks = (uint64_t)group_sched_template->repetition_value * frame_ticks;
 			} else {

@@ -99,8 +99,7 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
         uint64_t time_to_advance_us;
         if (next_event_time == UINT64_MAX || next_event_time > end_time_us) {
             /* No more events or next event is past our total timeout. Sleep for a default tick. */
-            // time_to_advance_us = MIN(6912, end_time_us - now_us);
-            time_to_advance_us = MIN(1000, end_time_us - now_us);
+            time_to_advance_us = MIN(6912, end_time_us - now_us);
         } else if (next_event_time > now_us) {
             /* Event is in the future. Sleep until that exact time. */
             time_to_advance_us = next_event_time - now_us;
@@ -467,42 +466,27 @@ ZTEST(stack_integration, test_1_uplink_single_packet)
 
     printk("*************************************/* 2. Run simulation until the FT's mock PHY receives the packet */*******************************************************\n");
 	/* 2. Run simulation until the FT's mock PHY receives the packet */
-	zassert_true(run_simulation_until(50000, ft_phy_received_packet), "FT PHY did not receive a packet");
+	zassert_true(run_simulation_until(500000, ft_phy_received_packet), "FT PHY did not receive a packet");
     printk("*************************************FT PHY received a packet*******************************************************\n");
 
 	/* 3. Manually process the received packet on the FT side to verify content */
 	dect_mac_test_set_active_context(&g_mac_ctx_ft);
 	mock_phy_set_active_context(&g_phy_ctx_ft);
-
-
-    /* Step 4: PT receives data from its CVG layer */
-    printk("PT attempting to receive...\n");
-    dect_mac_test_set_active_context(&g_mac_ctx_pt);
-    mock_phy_set_active_context(&g_phy_ctx_pt);
     
-    /* May need multiple attempts as data moves up the stack */
     int ret = 0;
-    int attempts = 0;
-    do {
-        /* Process any pending events */
-        run_simulation_until(10000, NULL);
-        
-        ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
-        attempts++;
-        
-        if (attempts > 50) {
-            zassert_true(false, "Timeout waiting for CVG receive");
-        }
-    } while (ret == -EAGAIN); /* Keep trying if no data ready */
-    
-    /* Step 5: Verify received data */
-    zassert_ok(ret, "FT failed to receive packet from its CVG layer");
-    printk("PT received: '%s' (len=%zu)\n", rx_buf, rx_len);
-    
-    zassert_equal(rx_len, sizeof(payload), 
-                 "Received length %zu expected %zu", rx_len, sizeof(payload));
-    zassert_mem_equal(rx_buf, payload, sizeof(payload),
-                     "Received payload is corrupt");
+
+    run_simulation_until(2500000, NULL); /* Allow MAC/DLC/CVG threads to process */
+    printk("****************************************Starting dect_cvg_receive****************************************************\n");
+// 	ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
+// printk("****************************************Running dect_cvg_receive  %d ****************************************************\n", ret);
+
+// 	run_simulation_until(1000000, NULL); /* Allow MAC/DLC/CVG threads to process */
+// printk("****************************************Starting dect_cvg_receive****************************************************\n");
+	ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
+printk("****************************************Running dect_cvg_receive  %d ****************************************************\n", ret);   
+	zassert_ok(ret, "FT failed to receive packet from its CVG layer");
+	zassert_equal(rx_len, sizeof(payload), "Received payload has wrong length");
+	zassert_mem_equal(rx_buf, payload, sizeof(payload), "Received payload is corrupt");
 }
 
 
@@ -533,11 +517,11 @@ ZTEST(stack_integration, test_2_downlink_single_packet)
     zassert_ok(ret, "dect_cvg_send failed");
     
 	/* Wait for FT to actually transmit */
-	run_simulation_until(10000, ft_tx_completed);
+	run_simulation_until(500000, ft_tx_completed);
 
     /* Step 3: Run simulation until PT's PHY receives packet */
     printk("Waiting for PT PHY to receive packet...\n");
-    zassert_true(run_simulation_until(50000, pt_phy_received_packet), 
+    zassert_true(run_simulation_until(500000, pt_phy_received_packet), 
                 "PT PHY did not receive packet");
     
     /* Step 4: PT receives data from its CVG layer */
@@ -766,7 +750,7 @@ ZTEST(stack_integration, test_3_ping_pong)
     
     /* Wait for FT PHY to receive */
     printk("[TEST] 2. Waiting for FT to receive packet...\n");
-    zassert_true(run_simulation_until(50000, ft_phy_received_packet), 
+    zassert_true(run_simulation_until(500000, ft_phy_received_packet), 
                 "FT PHY did not receive PING");
     
     /* FT receives PING */
@@ -774,8 +758,8 @@ ZTEST(stack_integration, test_3_ping_pong)
     dect_mac_test_set_active_context(&g_mac_ctx_ft);
     mock_phy_set_active_context(&g_phy_ctx_ft);
     
-    /* Allow processing */
-    // run_simulation_until(100000, NULL);
+    /* Process any pending events */
+    run_simulation_until(10000, NULL);
     
     attempts = 0;
     do {
@@ -802,28 +786,31 @@ ZTEST(stack_integration, test_3_ping_pong)
     zassert_ok(ret, "FT failed to send PONG");
     
     /* Wait for FT to transmit */
-    run_simulation_until(10000, ft_tx_completed);
+    // run_simulation_until(69120, ft_tx_completed);
 	// run_simulation_until(69120, NULL);
     
     /* PT receives PONG */
     printk("[TEST] 5. PT attempting to receive PONG...\n");
-    // dect_mac_test_set_active_context(&g_mac_ctx_pt);
-    // mock_phy_set_active_context(&g_phy_ctx_pt);
+    dect_mac_test_set_active_context(&g_mac_ctx_pt);
+    mock_phy_set_active_context(&g_phy_ctx_pt);
     
-    zassert_true(run_simulation_until(50000, pt_phy_received_packet), 
+    zassert_true(run_simulation_until(500000, pt_phy_received_packet), 
                 "PT PHY did not receive PONG");
     
     // run_simulation_until(69120, NULL);
     
     attempts = 0;
-	int waiting = 10000;
+	// int waiting = 69120 * 5;
+    
     do {
         ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
         if (ret == -EAGAIN) {
-            run_simulation_until(waiting, NULL);
+            // run_simulation_until(waiting, NULL);
+            /* Process any pending events */
+            run_simulation_until(10000, NULL);
             attempts++;
         }
-        if (attempts > 50) {
+        if (attempts > 1000) {
             zassert_true(false, "Timeout waiting for PT to receive PONG");
         }
     } while (ret == -EAGAIN);

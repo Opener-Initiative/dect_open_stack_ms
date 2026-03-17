@@ -166,9 +166,11 @@ bool pt_get_next_tx_opportunity(uint64_t *out_start_time, uint16_t *out_carrier,
 		return false;
 	}
 
+	uint64_t current_time_us = k_ticks_to_us_floor64(k_uptime_ticks());
+	uint64_t current_time_ticks = modem_us_to_ticks(current_time_us, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+
 	uint8_t peer_mu = ctx->role_ctx.pt.associated_ft.peer_mu;
-	// update_next_occurrence(ctx, sched, ctx->last_known_modem_time, peer_mu);
-	update_next_occurrence(ctx, sched, k_ticks_to_us_floor64(k_uptime_ticks()), peer_mu);	
+	update_next_occurrence(ctx, sched, current_time_ticks, peer_mu);	
 
 	if (!sched->is_active) {
 		printk("  - !sched->is_active \n");
@@ -183,26 +185,26 @@ bool pt_get_next_tx_opportunity(uint64_t *out_start_time, uint16_t *out_carrier,
 			ctx->phy_latency.scheduled_operation_startup_us,
 		NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 
-	uint64_t earliest_start = k_ticks_to_us_floor64(k_uptime_ticks()) + 
-		modem_ticks_to_us(prep_latency_ticks, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+	uint64_t earliest_start_ticks = current_time_ticks + prep_latency_ticks;
 
 	/* If another operation just ended or will end, ensure transition guard band */
 	if (ctx->last_phy_op_end_time > 0) {
-		uint64_t transition_earliest = ctx->last_phy_op_end_time + 
-			modem_ticks_to_us(transition_ticks, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
-		if (transition_earliest > earliest_start) {
-			earliest_start = transition_earliest;
+		/* last_phy_op_end_time is in ticks (from completion event handler) */
+		uint64_t transition_earliest_ticks = ctx->last_phy_op_end_time + transition_ticks;
+		if (transition_earliest_ticks > earliest_start_ticks) {
+			earliest_start_ticks = transition_earliest_ticks;
 		}
 	}
 
-	if (sched->next_occurrence_modem_time >= earliest_start) {
+	if (sched->next_occurrence_modem_time >= earliest_start_ticks) {
 		*out_start_time = sched->next_occurrence_modem_time;
 		*out_carrier = sched->channel;
 		*out_schedule = *sched;
-		printk("  - out_start_time:%lluus \n", sched->next_occurrence_modem_time);
+		printk("  - out_start_time:%llu ticks \n", sched->next_occurrence_modem_time);
 		return true;
 	}
-	printk("[ERROR] pt_get_next_tx_opportunity return FALSE (earliest %llu)\n", earliest_start);
+	printk("[ERROR] pt_get_next_tx_opportunity return FALSE (earliest %llu ticks, next_occ %llu ticks)\n", 
+	       earliest_start_ticks, sched->next_occurrence_modem_time);
 	return false;
 }
 
@@ -1408,7 +1410,7 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 			 * This is the point of synchronization. The PT adopts the FT's SFN and
 			 * time anchor as its own to ensure all future schedule calculations are correct.
 			 */
-			uint64_t frame_duration_ticks = k_us_to_ticks_ceil64(FRAME_DURATION_MS_NOMINAL * 1000);
+			uint64_t frame_duration_ticks = FRAME_DURATION_TICKS;
 			ctx->ft_sfn_zero_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
 			ctx->current_sfn_at_anchor_update = cb_fields_parsed.sfn;
 			ctx->role_ctx.ft.sfn = cb_fields_parsed.sfn;
@@ -1776,8 +1778,7 @@ static void pt_process_identified_beacon_and_attempt_assoc(dect_mac_context_t *c
         printk("PT_BEACON_PROC: Target FT operating_carrier set to: %u \n", ctx->role_ctx.pt.target_ft.operating_carrier);
 		LOG_INF("PT_BEACON_PROC: Target FT operating_carrier set to: %u", ctx->role_ctx.pt.target_ft.operating_carrier);
 
-        uint32_t frame_duration_ticks = (uint32_t)FRAME_DURATION_MS_NOMINAL *
-                                        (NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ / 1000U);
+        uint32_t frame_duration_ticks = FRAME_DURATION_TICKS;
 
         uint64_t new_sfn0_estimate = beacon_pcc_rx_time -
                                      ((uint64_t)cb_fields->sfn * frame_duration_ticks);
@@ -2375,9 +2376,7 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 			// /* Synchronize the PT's SFN with the FT's SFN from the beacon */
 			// ctx->role_ctx.ft.sfn = ctx->current_sfn_at_anchor_update;
 			
-			uint32_t frame_duration_ticks_val =
-				(uint32_t)FRAME_DURATION_MS_NOMINAL *
-				(NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ / 1000U);
+			uint32_t frame_duration_ticks_val = FRAME_DURATION_TICKS;
 			if (frame_duration_ticks_val == 0) {
 				LOG_ERR("PT_SCHED: Frame duration ticks is 0!");
 				return;
@@ -2759,7 +2758,7 @@ static void pt_process_group_assignment_ie(const uint8_t *payload, uint16_t len)
 				ul_sched->is_active = true;
 
 				uint64_t repetition_ticks = 0;
-				uint32_t frame_ticks = (uint32_t)FRAME_DURATION_MS_NOMINAL * (NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ / 1000U);
+				uint32_t frame_ticks = FRAME_DURATION_TICKS;
 				if (ul_sched->repeat_type == RES_ALLOC_REPEAT_FRAMES_GROUP) {
 					repetition_ticks = (uint64_t)ul_sched->repetition_value * frame_ticks;
 				} else {
