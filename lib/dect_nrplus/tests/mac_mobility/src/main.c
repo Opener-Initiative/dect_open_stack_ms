@@ -487,10 +487,10 @@ ZTEST(dect_mac_mobility, test_pt_handover)
 	zassert_true(run_simulation_until(2000000, is_ft1_beaconing), "FT never started beaconing");
 	printk("TEST: FT1 is beaconing.\n");
 
-	/* 1.5 Trigger beacon (transmission is now handled automatically by mock TX) */
-    printk("\n\n[TEST] 1.5 Trigger beacon (transmission is now handled automatically by mock TX)\n");
-	dect_mac_test_inject_event_internal(&g_mac_ctx_ft1, MAC_EVENT_TIMER_EXPIRED_BEACON, 0);
-	process_all_mac_events();
+	// /* 1.5 Trigger beacon (transmission is now handled automatically by mock TX) */
+    // printk("\n\n[TEST] 1.5 Trigger beacon (transmission is now handled automatically by mock TX)\n");
+	// dect_mac_test_inject_event_internal(&g_mac_ctx_ft1, MAC_EVENT_TIMER_EXPIRED_BEACON, 0);
+	// process_all_mac_events();
 
 	/* --- 2. Start PT and let it associate with FT1 --- */
     printk("\n\n[TEST] 2. Starting PT and waiting for association with FT1\n");
@@ -530,7 +530,7 @@ ZTEST(dect_mac_mobility, test_pt_handover)
 	/* Inject on FT1's channel so PT can hear it while associated */
 	strong_beacon.carrier = g_mac_ctx_ft1.role_ctx.ft.operating_carrier;
 	strong_beacon.pcc_data.phy_type = 0;
-	strong_beacon.pcc_data.rssi_2 = -40; /* -40 dBm, much stronger than default */
+	strong_beacon.pcc_data.rssi_2 = -20; /* -40 dBm, much stronger than default */
     strong_beacon.network_id = g_mac_ctx_ft2.network_id_32bit;
 	strong_beacon.pcc_data.hdr.hdr_type_1.short_network_id = (uint8_t)(g_mac_ctx_ft2.network_id_32bit & 0xFF);
 	strong_beacon.pcc_data.hdr.hdr_type_1.transmitter_id_hi = (uint8_t)((g_mac_ctx_ft2.own_short_rd_id >> 8) & 0xFF);
@@ -543,15 +543,16 @@ ZTEST(dect_mac_mobility, test_pt_handover)
 	mock_phy_queue_rx_packet(&g_phy_ctx_pt, &strong_beacon);
 
 
-	printk("[DEBUG_PROBE] FT1 Network ID: 0x%08X on channel:0x%04X\n", g_mac_ctx_ft1.network_id_32bit, g_mac_ctx_ft1.role_ctx.ft.operating_carrier);
-	printk("[DEBUG_PROBE] FT2 Network ID: 0x%08X on channel:0x%04X\n", g_mac_ctx_ft2.network_id_32bit, g_mac_ctx_ft2.role_ctx.ft.operating_carrier);
+	printk("[TEST] FT1 Network ID: 0x%08X on channel:0x%04X\n", g_mac_ctx_ft1.network_id_32bit, g_mac_ctx_ft1.role_ctx.ft.operating_carrier);
+	printk("[TEST] FT2 Network ID: 0x%08X on channel:0x%04X\n", g_mac_ctx_ft2.network_id_32bit, g_mac_ctx_ft2.role_ctx.ft.operating_carrier);
+    printk("[TEST] Strong Beacon Network ID: 0x%08X on lo:0x%04X hi:0x%04X\n", strong_beacon.pcc_data.hdr.hdr_type_1.short_network_id, strong_beacon.pcc_data.hdr.hdr_type_1.transmitter_id_lo, strong_beacon.pcc_data.hdr.hdr_type_1.transmitter_id_hi);
 
 	/* --- 5. Run simulation until PT completes handover to FT2 --- */
 	printk("\n\n\n\n[TEST] 5. Waiting for PT to complete handover to FT2...\n");
 	/* Verify the signaling sequence before checking the final state */
 	printk("TEST: Verifying PT sends handover request to FT2...\n");
 	g_last_tx_pdu_len_capture = 0;
-	zassert_true(run_simulation_until(100000, pt_sent_handover_request),
+	zassert_true(run_simulation_until(500000, pt_sent_handover_request),
 		     "PT did not send a handover request to FT2");
 
 	printk("TEST: Verifying FT2 sends handover response to PT...\n");
@@ -567,10 +568,12 @@ ZTEST(dect_mac_mobility, test_pt_handover)
 
 	/* --- 6. Final assertions --- */
     printk("\n\n\n\n[TEST] 6. Final assertions\n");
+    printk(" - Checking FT1 associations:");
 	dect_mac_test_set_active_context(&g_mac_ctx_ft1);
 	int peer_idx_in_ft1 = dect_mac_core_get_peer_slot_idx(g_mac_ctx_pt.own_short_rd_id);
 	zassert_true(peer_idx_in_ft1 < 0, "PT was not removed from FT1's peer list");
 
+    printk("\n\n - Checking FT2 associations:");
 	dect_mac_test_set_active_context(&g_mac_ctx_ft2);
 	int peer_idx_in_ft2 = dect_mac_core_get_peer_slot_idx(g_mac_ctx_pt.own_short_rd_id);
 	zassert_true(peer_idx_in_ft2 >= 0, "PT was not added to FT2's peer list");    

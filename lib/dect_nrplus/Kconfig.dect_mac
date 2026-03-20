@@ -215,6 +215,14 @@ endif # DECT_MAC_SECURITY_ENABLE
         help
           Interval at which an associated PT performs a background scan for other FTs.
 
+    config DECT_MAC_PT_MOBILITY_RSSI_BOOST_FOR_TEST
+        bool "Mobility: Boost Candidate RSSI for Handover Testing"
+        default n
+        depends on DECT_MAC_PT_MOBILITY_ENABLE && ZTEST
+        help
+          FOR TEST USE ONLY. Adds +50dB (100 in Q7.1) to candidate FT RSSI
+          to force a handover when any other FT beacon is seen.
+
     config DECT_MAC_PT_PAGING_CYCLE_MS
         int "PT Paging Cycle Listen Interval (ms)"
         default 1280 # Example: 1.28 seconds (ETSI DRF=8)
@@ -330,12 +338,12 @@ endif # DECT_MAC_SECURITY_ENABLE
 
     config DECT_MAC_FT_CLUSTER_BEACON_MS
         int "FT Cluster Beacon Interval (ms)"
-        default 100
+        default 2000
         help
           Interval for FT Cluster Beacon (10,50,100,500,1k,1.5k,2k,4k,8k,16k,32k ms).
     config DECT_MAC_FT_NETWORK_BEACON_MS
         int "FT Network Beacon Interval (ms)"
-        default 1000
+        default 2000
         help
           Interval for FT Network Beacon (50,100,500,1k,1.5k,2k,4k ms).
     config DECT_MAC_FT_MAX_ASSOCIATED_PTS

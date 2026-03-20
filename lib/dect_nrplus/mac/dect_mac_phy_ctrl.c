@@ -457,7 +457,7 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 }
 
 
-int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_modem_units,
+int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_subslots,
                                       enum nrf_modem_dect_phy_rssi_interval reporting_interval,
                                       uint32_t phy_op_handle, pending_op_type_t op_type) {
 
@@ -484,11 +484,11 @@ int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_modem_
         .start_time = 0, // Immediate start for scans initiated by MAC logic
         .handle = phy_op_handle,
         .carrier = arfcn,
-        .duration = duration_modem_units,
+        .duration = duration_subslots,
         .reporting_interval = reporting_interval
     };
-    LOG_INF("PHY_CTRL_RSSI: Starting RSSI. Hdl:%u, C:%u (ARFCN:%u), Dur:%u TU, RepInt:%d, OpT:%s",
-            phy_op_handle, carrier, arfcn, duration_modem_units, reporting_interval, dect_pending_op_to_str(op_type));
+    LOG_INF("PHY_CTRL_RSSI: Starting RSSI. Hdl:%u, C:%u (ARFCN:%u), Dur:%u subslots, RepInt:%d, OpT:%s",
+            phy_op_handle, carrier, arfcn, duration_subslots, reporting_interval, dect_pending_op_to_str(op_type));
 
 printk("[PHY_CTRL_RSSI_DBG] About to call nrf_modem_dect_phy_rssi...\n");
 

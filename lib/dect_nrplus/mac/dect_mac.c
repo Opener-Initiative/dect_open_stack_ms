@@ -188,6 +188,9 @@ void dect_mac_start(void)
 		return;
 	}
 
+	/* Wait for the activate callback to release the semaphore */
+	k_sem_take(&phy_init_sem, K_FOREVER);
+
 	/* Give the modem a small amount of time to stabilize after activation before first OP */
 	k_msleep(20);
 

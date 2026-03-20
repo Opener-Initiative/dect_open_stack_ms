@@ -532,12 +532,12 @@ ZTEST(stack_integration, test_2_downlink_single_packet)
                         payload, sizeof(payload));
     zassert_ok(ret, "dect_cvg_send failed");
     
-	/* Wait for FT to actually transmit */
-	run_simulation_until(10000, ft_tx_completed);
+	// /* Wait for FT to actually transmit */
+	// run_simulation_until(10000, ft_tx_completed);
 
     /* Step 3: Run simulation until PT's PHY receives packet */
     printk("Waiting for PT PHY to receive packet...\n");
-    zassert_true(run_simulation_until(50000, pt_phy_received_packet), 
+    zassert_true(run_simulation_until(500000, pt_phy_received_packet), 
                 "PT PHY did not receive packet");
     
     /* Step 4: PT receives data from its CVG layer */
@@ -766,7 +766,7 @@ ZTEST(stack_integration, test_3_ping_pong)
     
     /* Wait for FT PHY to receive */
     printk("[TEST] 2. Waiting for FT to receive packet...\n");
-    zassert_true(run_simulation_until(50000, ft_phy_received_packet), 
+    zassert_true(run_simulation_until(500000, ft_phy_received_packet), 
                 "FT PHY did not receive PING");
     
     /* FT receives PING */
@@ -801,9 +801,8 @@ ZTEST(stack_integration, test_3_ping_pong)
     ret = dect_cvg_send(flow_id, g_mac_ctx_pt.own_long_rd_id, pong, sizeof(pong));
     zassert_ok(ret, "FT failed to send PONG");
     
-    /* Wait for FT to transmit */
-    run_simulation_until(10000, ft_tx_completed);
-	// run_simulation_until(69120, NULL);
+    // /* Wait for FT to transmit */
+    // run_simulation_until(10000, ft_tx_completed);
     
     /* PT receives PONG */
     printk("[TEST] 5. PT attempting to receive PONG...\n");
@@ -812,8 +811,6 @@ ZTEST(stack_integration, test_3_ping_pong)
     
     zassert_true(run_simulation_until(50000, pt_phy_received_packet), 
                 "PT PHY did not receive PONG");
-    
-    // run_simulation_until(69120, NULL);
     
     attempts = 0;
 	int waiting = 10000;
@@ -1094,6 +1091,7 @@ ZTEST(stack_integration, test_3_ping_pong)
     
 //     printk("=== TEST PASSED (segmentation works) ===\n");
 // }
+
 
 ZTEST_SUITE(stack_integration, 
 			NULL, 

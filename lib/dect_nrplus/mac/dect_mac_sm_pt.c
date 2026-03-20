@@ -401,6 +401,9 @@ void dect_mac_sm_pt_keep_alive_timer_expired_action(void) {
 
 void dect_mac_sm_pt_mobility_scan_timer_expired_action(void)
 {
+    if (!IS_ENABLED(CONFIG_DECT_MAC_PT_MOBILITY_ENABLE)) {
+        return;
+    }
     dect_mac_context_t *ctx = dect_mac_get_active_context();
 
     if (ctx->state != MAC_STATE_ASSOCIATED) { // Only scan for mobility if associated
@@ -464,7 +467,7 @@ void dect_mac_sm_pt_start_operation(void)
 	uint32_t phy_op_handle;
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
 
-	int ret = dect_mac_phy_ctrl_start_rx(scan_carrier, 0,
+	int ret = dect_mac_phy_ctrl_start_rx(scan_carrier, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ * 1000,
 					   NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS,
 					   phy_op_handle, 0xFFFF,
 					   PENDING_OP_PT_SCAN, 0);
@@ -1258,7 +1261,7 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 	printk("[DEBUG_PROBE] PT's PDC handler received a BEACON PDC from FT 0x%08X. Current PT state: %s\n",
                ft_long_id, dect_mac_state_to_str(ctx->state));
 		
-		if (ctx->state == MAC_STATE_ASSOCIATED && ft_long_id != ctx->role_ctx.pt.associated_ft.long_rd_id) {
+		if (IS_ENABLED(CONFIG_DECT_MAC_PT_MOBILITY_ENABLE) && ctx->state == MAC_STATE_ASSOCIATED && ft_long_id != ctx->role_ctx.pt.associated_ft.long_rd_id) {
 			/* This is a beacon from another FT. Evaluate for mobility. */
 			printk("/* This is a beacon from another FT. Evaluate for mobility. */ \n");
 			printk("[DEBUG_PROBE] PT in ASSOCIATED state received a beacon from FT 0x%08X.\n", ft_long_id);
@@ -1402,28 +1405,42 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 		uint16_t beacon_rx_carrier = ctx->current_rx_op_carrier;
 
 		if (cb_found && rach_found) {
-			/* The PT must adopt the Network ID of the FT it is associating with. */
-			ctx->network_id_32bit = ft_network_id;
-			printk("[PT_BEACON_PROC] PT Network ID adopted: 0x%08X\n", ctx->network_id_32bit);
-
-			/*
-			 * This is the point of synchronization. The PT adopts the FT's SFN and
-			 * time anchor as its own to ensure all future schedule calculations are correct.
-			 */
-			uint64_t frame_duration_ticks = FRAME_DURATION_TICKS;
-			ctx->ft_sfn_zero_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
-			ctx->current_sfn_at_anchor_update = cb_fields_parsed.sfn;
-			ctx->role_ctx.ft.sfn = cb_fields_parsed.sfn;
-			LOG_INF("PT_SYNC: Synchronized to FT. SFN is now %u, anchor time is %llu.",
-				ctx->role_ctx.ft.sfn, ctx->ft_sfn_zero_modem_time_anchor);
-				
-
 			if (ctx->state == MAC_STATE_PT_SCANNING || ctx->state == MAC_STATE_PT_BEACON_PDC_WAIT) {
+				/* Initial discovery: adopt Network ID and SFN from the first suitable beacon found */
+				ctx->network_id_32bit = ft_network_id;
+				printk("[PT_BEACON_PROC] PT Network ID adopted (Scan): 0x%08X\n", ctx->network_id_32bit);
+
+				uint64_t frame_duration_ticks = FRAME_DURATION_TICKS;
+				ctx->ft_sfn_zero_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
+				ctx->current_sfn_at_anchor_update = cb_fields_parsed.sfn;
+				ctx->role_ctx.ft.sfn = cb_fields_parsed.sfn;
+				LOG_INF("PT_SYNC: Initial sync to FT 0x%08X. SFN is now %u, anchor time is %llu.",
+					ft_long_id, ctx->role_ctx.ft.sfn, ctx->ft_sfn_zero_modem_time_anchor);
+
 				pt_process_identified_beacon_and_attempt_assoc(
 					ctx, &cb_fields_parsed, &rach_fields_parsed, ft_long_id,
 					ft_sender_short_id_from_pcc, assoc_pcc_event->rssi_2,
 					beacon_rx_carrier, pcc_reception_modem_time);
+
+			} else if (ctx->state == MAC_STATE_PT_ASSOCIATING || ctx->state == MAC_STATE_PT_WAIT_ASSOC_RESP) {
+				/* During association: Only sync if the beacon is from our TARGET FT */
+				if (ft_long_id == ctx->role_ctx.pt.target_ft.long_rd_id) {
+					ctx->network_id_32bit = ft_network_id;
+					uint64_t frame_duration_ticks = FRAME_DURATION_TICKS;
+					ctx->ft_sfn_zero_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
+					ctx->current_sfn_at_anchor_update = cb_fields_parsed.sfn;
+					ctx->role_ctx.ft.sfn = cb_fields_parsed.sfn;
+					LOG_DBG("PT_SYNC: Target FT sync update. SFN %u.", ctx->role_ctx.ft.sfn);
+				}
 			} else if (ctx->state == MAC_STATE_ASSOCIATED) {
+				/* Connected: sync with our associated FT */
+				if (ft_long_id == ctx->role_ctx.pt.associated_ft.long_rd_id) {
+					ctx->network_id_32bit = ft_network_id;
+					uint64_t frame_duration_ticks = FRAME_DURATION_TICKS;
+					ctx->ft_sfn_zero_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
+					ctx->current_sfn_at_anchor_update = cb_fields_parsed.sfn;
+					ctx->role_ctx.ft.sfn = cb_fields_parsed.sfn;
+				}
 				pt_evaluate_mobility_candidate(ctx, &cb_fields_parsed, 
 								rach_found ? &rach_fields_parsed : NULL,
 								ft_long_id, ft_sender_short_id_from_pcc,
@@ -1435,7 +1452,12 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 
 	/* --- Unicast PDU Processing Logic --- */
 	printk("/* --- Unicast PDU Processing Logic --- */ -> ctx->state[%d]  \n", ctx->state);
+	printk("[PT_UNICAST_MATCH] State: %s. PCC Sender: 0x%04X, Target FT: 0x%04X (valid: %d)\n",
+	       dect_mac_state_to_str(ctx->state), ft_sender_short_id_from_pcc, 
+	       ctx->role_ctx.pt.target_ft.short_rd_id, ctx->role_ctx.pt.target_ft.is_valid);
+
 	dect_mac_peer_info_t *active_ft_peer_ctx = NULL;
+
 	if ((ctx->state == MAC_STATE_PT_WAIT_ASSOC_RESP ||
 	     ctx->state == MAC_STATE_PT_WAIT_AUTH_CHALLENGE ||
 	     ctx->state == MAC_STATE_PT_WAIT_AUTH_SUCCESS ||
@@ -1592,7 +1614,7 @@ process_feedback:;
 
 	if (active_ft_peer_ctx && ctx->state == MAC_STATE_ASSOCIATED) {
 		uint8_t harq_proc_in_ft_tx = assoc_pcc_event->hdr.hdr_type_2.df_harq_process_num;
-		if (active_ft_peer_ctx->num_pending_feedback_items < 2) {
+				if (active_ft_peer_ctx->num_pending_feedback_items < 32) {
 			int fb_idx = active_ft_peer_ctx->num_pending_feedback_items++;
 			active_ft_peer_ctx->pending_feedback_to_send[fb_idx].valid = true;
 			active_ft_peer_ctx->pending_feedback_to_send[fb_idx].is_ack = pdc_process_ok_for_feedback;
@@ -1613,6 +1635,18 @@ process_feedback:;
 	uint32_t sender_long_id_final = 0;
 	if (mac_hdr_type_octet.mac_header_type == MAC_COMMON_HEADER_TYPE_UNICAST) {
 		const dect_mac_unicast_header_t *uch = (const dect_mac_unicast_header_t *)common_hdr_start_in_payload;
+		uint32_t receiver_long_id_be = uch->receiver_long_rd_id_be;
+		uint32_t receiver_long_id_cpu = sys_be32_to_cpu(receiver_long_id_be);
+
+		if (receiver_long_id_cpu != ctx->own_long_rd_id) {
+			printk("[PT_ADDR_FILTER] Discarding Unicast PDU. Recv:0x%08X, Own:0x%08X (Short:0x%04X)\n",
+			       receiver_long_id_cpu, ctx->own_long_rd_id, ctx->own_short_rd_id);
+			return;
+		}
+
+		printk("[PT_ADDR_FILTER] ACCEPTED Unicast PDU for us! Recv:0x%08X, Own:0x%08X (Short:0x%04X)\n",
+		       receiver_long_id_cpu, ctx->own_long_rd_id, ctx->own_short_rd_id);
+
 		sender_long_id_final = sys_be32_to_cpu(uch->transmitter_long_rd_id_be);
 
 		uint8_t ie_type; uint16_t ie_len; const uint8_t *ie_payload;
@@ -1720,23 +1754,20 @@ static void pt_process_identified_beacon_and_attempt_assoc(dect_mac_context_t *c
 
 
     bool select_this_ft = false;
-	/***************************************  UNUSED WARNING ***************************************/
-    // uint8_t new_ft_cost = 255;
 
-    /* TODO: Find the Route Info IE to get the cost */
-    /* This logic is now inside , which needs to be updated */
-    /* For now, assume route info is passed in or looked up differently */
-    /* Simplified logic: assume mesh is not primary factor for now */
     if (!ctx->role_ctx.pt.target_ft.is_valid) {
         select_this_ft = true;
         printk("PT_BEACON_PROC: No current target. Selecting FT 0x%04X (RSSI:%d).\n", ft_short_id, rssi_q7_1 );
 		LOG_INF("PT_BEACON_PROC: No current target. Selecting FT 0x%04X (RSSI:%d).", ft_short_id, rssi_q7_1 );
-    } else if (rssi_q7_1 > (ctx->role_ctx.pt.target_ft.rssi_2 + (RSSI_HYSTERESIS_DB * 2))) {
-        select_this_ft = true;
-        printk("PT_BEACON_PROC: New FT 0x%04X has better RSSI (%.1f > %d). Switching.\n",
-                ft_short_id, rssi_q7_1 / 2.0, ctx->role_ctx.pt.target_ft.rssi_2);
-        LOG_INF("PT_BEACON_PROC: New FT 0x%04X has better RSSI (%.1f > %d). Switching.",
-                ft_short_id, rssi_q7_1 / 2.0, ctx->role_ctx.pt.target_ft.rssi_2);				
+    } else if (ctx->state == MAC_STATE_PT_SCANNING) {
+		/* Only re-select/switch if we are still explicitly scanning and find a much better one */
+		if (rssi_q7_1 > (ctx->role_ctx.pt.target_ft.rssi_2 + (RSSI_HYSTERESIS_DB * 2))) {
+			select_this_ft = true;
+			printk("PT_BEACON_PROC: New FT 0x%04X has better RSSI (%.1f > %d). Switching.\n",
+					ft_short_id, rssi_q7_1 / 2.0, ctx->role_ctx.pt.target_ft.rssi_2);
+			LOG_INF("PT_BEACON_PROC: New FT 0x%04X has better RSSI (%.1f > %d). Switching.",
+					ft_short_id, rssi_q7_1 / 2.0, ctx->role_ctx.pt.target_ft.rssi_2);				
+		}
     }
 
 
@@ -2292,7 +2323,7 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 
 
 	if (resp_fields.ack_nack) {
-		printk("  - Association ACCEPTED by FT. (ctx->state:%d)\n", ctx->state);
+		printk("  - Association ACCEPTED by FT. NACK: %d (ctx->state:%d)\n", resp_fields.ack_nack, ctx->state);
 		if (!ft_cap_found || !res_alloc_found) {
 			LOG_ERR("PT_SM_ASSOC_RESP: ACK received but mandatory IEs missing (Cap:%d, Res:%d). Restarting scan.",
 				ft_cap_found, res_alloc_found);
@@ -3331,6 +3362,7 @@ static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
 		ctx->role_ctx.pt.associated_ft.rssi_2 = rssi_q7_1;
 		/* Update the trigger count based on the latest beacon from our FT */
 		ctx->role_ctx.pt.initial_count_to_trigger = cb_fields->count_to_trigger_code;
+		printk("[MOBILITY_DBG] Current FT Beacon recieved. \n");
 		return;
 	}
 
@@ -3344,7 +3376,8 @@ static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
 			/* RelQuality code (0-7) maps to 0,3,6,9... dB. Multiply by 2 for Q7.1 format. */
 			int16_t rssi_hysteresis = (int16_t)(cb_fields->rel_quality_code * 3 * 2);
 
-			if (IS_ENABLED(CONFIG_ZTEST)){
+			// if (IS_ENABLED(CONFIG_ZTEST)){
+			if (IS_ENABLED(CONFIG_DECT_MAC_PT_MOBILITY_RSSI_BOOST_FOR_TEST)){
 				// FORCE THE RSSI TO BE HIGHER
 				cand->rssi_2 = cand->rssi_2 + 100;
 			}
@@ -3355,7 +3388,7 @@ static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
 			int16_t hysteresis_dbm = rssi_hysteresis / 2;  // Q7.1 to dBm
 
 			/* Add your debug logging here */
-			printk("[DEBUG_PROBE] Evaluating handover decision:\n");
+			printk("[MOBILITY_DBG] Evaluating handover decision:\n");
 			printk("  - Slot %d. RACH channel_abs_num: %u\n", i, cand->rach_params_from_beacon.channel_abs_num);
 			printk("  - Candidate FT2 RSSI: %d dBm\n", candidate_rssi_dbm);
 			printk("  - Current FT1 RSSI:   %d dBm\n", current_rssi_dbm);
@@ -3367,7 +3400,7 @@ static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
 				(cand->rssi_2 > (ctx->role_ctx.pt.associated_ft.rssi_2 + rssi_hysteresis)) ? "TRUE" : "FALSE");
 
 			if (cand->rssi_2 > (ctx->role_ctx.pt.associated_ft.rssi_2 + rssi_hysteresis)) {
-				printk("[DEBUG_PROBE] Handover decision triggered:\n");
+				printk("[MOBILITY_DBG] Handover decision triggered:\n");
 				if (cand->trigger_count_remaining > 0) {
 					cand->trigger_count_remaining--;
 					LOG_INF("MOBILITY: Candidate FT 0x%04X is stronger. Trigger count now %u.",

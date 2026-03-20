@@ -92,22 +92,31 @@ uint64_t modem_us_to_ticks(uint64_t us, uint32_t tick_rate_khz);
 void dect_mac_sm_ft_beacon_timer_expired_action(void) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
 	printk("[FT_SM] dect_mac_sm_ft_beacon_timer_expired_action ctx->pending_op_type: %d\n", ctx->pending_op_type);
-    if (ctx->pending_op_type == PENDING_OP_NONE) {
-		printk("[FT_SM] ctx->pending_op_type == PENDING_OP_NONE -> ft_send_beacon_action() \n");
+
+    if (ctx->pending_op_type == PENDING_OP_NONE ||
+        ctx->pending_op_type == PENDING_OP_FT_RACH_RX_WINDOW) {
+        /* If a RACH listen window is open, cancel it — beacon TX has priority.
+         * The RX window will be re-armed immediately after the beacon completes. */
+        if (ctx->pending_op_type == PENDING_OP_FT_RACH_RX_WINDOW) {
+            LOG_INF("FT SM: Beacon time — cancelling RACH RX window to send beacon.");
+            dect_mac_phy_ctrl_cancel_op(ctx->pending_op_handle);
+            dect_mac_core_clear_pending_op();
+        }
+		printk("[FT_SM] sending beacon -> ft_send_beacon_action()\n");
         ft_send_beacon_action();
     } else {
+        /* Some other critical op is in-flight (e.g. assoc resp, data TX) — defer. */
         LOG_WRN("FT SM: Beacon time, but op %s pending. Skipping this beacon.",
                 dect_pending_op_to_str(ctx->pending_op_type));
         uint32_t short_delay_ms = ctx->config.ft_cluster_beacon_period_ms / 4;
-        if (short_delay_ms < 10) short_delay_ms = 10; // Minimum sensible retry delay
+        if (short_delay_ms < 10) short_delay_ms = 10;
         if (short_delay_ms == 0 && ctx->config.ft_cluster_beacon_period_ms > 0) {
-            short_delay_ms = ctx->config.ft_cluster_beacon_period_ms; // If period is very short, retry at full period
+            short_delay_ms = ctx->config.ft_cluster_beacon_period_ms;
         } else if (short_delay_ms == 0) {
-             short_delay_ms = 100; // Fallback if period was 0
+            short_delay_ms = 100;
         }
         k_timer_start(&ctx->role_ctx.ft.beacon_timer, K_MSEC(short_delay_ms), K_NO_WAIT);
     }
-	ft_send_beacon_action();
 }
 
 // --- FT Public Functions ---
@@ -149,21 +158,20 @@ void dect_mac_sm_ft_start_operation(void)
 
 	uint32_t phy_op_handle;
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
-	uint32_t scan_duration_total_subslots =
-		SCAN_MEAS_DURATION_SLOTS_CONFIG *
-		get_subslots_per_etsi_slot_for_mu(ctx->own_phy_params.mu);
-	uint32_t subslot_ticks = get_subslot_duration_ticks_for_mu(ctx->own_phy_params.mu);
-	uint64_t scan_duration_modem_units = (uint64_t)scan_duration_total_subslots * subslot_ticks;
+	uint32_t subslots_per_slot = get_subslots_per_etsi_slot_for_mu(ctx->own_phy_params.mu);
+	uint32_t scan_duration_total_subslots = SCAN_MEAS_DURATION_SLOTS_CONFIG * subslots_per_slot;
 
-	if (subslot_ticks == 0) {
-		scan_duration_modem_units =
-			modem_us_to_ticks(10000, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
-		LOG_WRN("FT_DCS_INIT: Subslot duration calc error, using default %lluus TU.",
-			scan_duration_modem_units);
+	/* The reporting interval is 24 slots (10ms). 
+	 * Ensure a minimum scan time of at least 20ms (48 slots) to guarantee termination
+	 * and sufficient samples.
+	 */
+	uint32_t min_scan_duration_subslots = 48 * subslots_per_slot;
+	if (scan_duration_total_subslots < min_scan_duration_subslots) {
+		scan_duration_total_subslots = min_scan_duration_subslots;
 	}
 
 	int ret = dect_mac_phy_ctrl_start_rssi_scan(
-		scan_carrier, scan_duration_modem_units, NRF_MODEM_DECT_PHY_RSSI_INTERVAL_24_SLOTS,
+		scan_carrier, scan_duration_total_subslots, NRF_MODEM_DECT_PHY_RSSI_INTERVAL_24_SLOTS,
 		phy_op_handle, PENDING_OP_FT_INITIAL_SCAN);
 
 	if (ret != 0) {
@@ -816,7 +824,6 @@ static void ft_select_operating_carrier_and_start_beaconing(
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
-	// printk("[FT_SM] In ft_select_operating_carrier_and_start_beaconing()\n");
 	LOG_INF("[FT_SM] In ft_select_operating_carrier_and_start_beaconing()\n");
 
 	if (ctx->state != MAC_STATE_FT_SCANNING) {
@@ -912,15 +919,25 @@ static void ft_start_beaconing_actions(void) {
     LOG_INF("FT SM: Entered BEACONING state on carrier %u.", ctx->role_ctx.ft.operating_carrier);
 
 
-	/* Start a continuous RX operation to listen for all incoming PT traffic (RACH and data) */
-	LOG_INF("FT SM: Starting continuous RX for PT traffic.");
+	/* Start an RX operation to listen for all incoming PT traffic (RACH and data).
+	 * NOTE: NCS 3.0.2 modem firmware requires duration > 0 for RX operations.
+	 * We use the beacon period as the window duration and re-arm in the beacon timer handler.
+	 */
+	LOG_INF("FT SM: Starting initial RX window for PT traffic (one beacon period).");
 	uint32_t phy_rx_op_handle;
+	uint32_t beacon_period_rx_ms = ctx->config.ft_cluster_beacon_period_ms;
+	if (beacon_period_rx_ms < 10) {
+		beacon_period_rx_ms = 100;
+	}
+	uint32_t rx_duration_modem_units = modem_us_to_ticks(
+		(uint64_t)beacon_period_rx_ms * 1000U,
+		NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 
 	dect_mac_rand_get((uint8_t *)&phy_rx_op_handle, sizeof(phy_rx_op_handle));
 	int ret = dect_mac_phy_ctrl_start_rx(
-		ctx->role_ctx.ft.operating_carrier, 0, /* Continuous RX */
+		ctx->role_ctx.ft.operating_carrier, rx_duration_modem_units,
 		NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, phy_rx_op_handle,
-		ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW, 0); /* Reuse RACH op type for general listen */
+		ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW, 0);
 
 	if (ret != 0) {
 		dect_mac_enter_error_state("Failed to start continuous FT RX");
@@ -958,7 +975,7 @@ static void ft_start_beaconing_actions(void) {
 // #endif /* IS_ENABLED(CONFIG_NET_L2_DECT_NRPLUS) */
 
     ctx->role_ctx.ft.sfn = 0; // FT starts its SFN count from 0
-    uint32_t first_beacon_tx_attempt_delay_ms = 50; // Small delay before trying to send the first beacon
+    uint32_t first_beacon_tx_attempt_delay_ms = 150; // Small delay before trying to send the first beacon
 
     // Initialize ft_sfn_zero_modem_time_anchor to 0.
     // It will be set accurately when the first beacon (SFN 0) is scheduled for transmission
@@ -1175,8 +1192,9 @@ printk("[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: %d (%d) \n", clearte
 		/* The next beacon should be at the start of the next frame */
 		beacon_target_start_time = current_frame_start_ticks + frame_duration_ticks_val + 1000 ;
 	}
+	printk("[FT_SM] MoKernel Time: ft_send_beacon_action -> beacon_target_start_time: %lluus \n", beacon_target_start_time);
 #else
-	printk("[FT_SM] ft_send_beacon_action -> frame_duration_ticks_val: %u \n", frame_duration_ticks_val);
+	printk("[FT_SM] ft_send_beacon_action -> frame_duration_ticks_val: %u ctx->last_known_modem_time: %llu \n", frame_duration_ticks_val, ctx->last_known_modem_time);
 	if (frame_duration_ticks_val == 0) {
 		beacon_target_start_time = 0;
 	} else if (ctx->ft_sfn_zero_modem_time_anchor == 0) {
@@ -1198,6 +1216,8 @@ printk("[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: %d (%d) \n", clearte
 			ctx->phy_latency.idle_to_active_tx_us +
 				ctx->phy_latency.scheduled_operation_startup_us,
 			NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+
+
 		if (ctx->last_known_modem_time > 0 &&
 		    beacon_target_start_time < (ctx->last_known_modem_time + min_prep_time_ticks)) {
 			uint64_t earliest_possible_start_from_now =
@@ -1220,9 +1240,10 @@ printk("[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: %d (%d) \n", clearte
 			ctx->role_ctx.ft.sfn_for_last_beacon_tx = ctx->role_ctx.ft.sfn;
 		}
 	}
+	printk("[FT_SM] Modem Ticks: ft_send_beacon_action -> beacon_target_start_time: %llu \n", beacon_target_start_time);
 #endif /* IS_ENABLED(CONFIG_ZTEST) */
 
-printk("[FT_SM] ft_send_beacon_action -> beacon_target_start_time: %lluus \n", beacon_target_start_time);
+
 
 	ret = dect_mac_phy_ctrl_start_tx_assembled(
 		ctx->role_ctx.ft.operating_carrier, pdu_sdu->data, pdu_sdu->len, 0xFFFF,
@@ -1636,17 +1657,16 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
 						
 				uint32_t phy_op_handle;
 				dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
-                uint32_t scan_duration_total_subslots = SCAN_MEAS_DURATION_SLOTS_CONFIG * get_subslots_per_etsi_slot_for_mu(ctx->own_phy_params.mu);
-                uint32_t subslot_ticks = get_subslot_duration_ticks_for_mu(ctx->own_phy_params.mu);
-                uint32_t scan_duration_modem_units = scan_duration_total_subslots * subslot_ticks;
-                if (subslot_ticks == 0 || scan_duration_modem_units < scan_duration_total_subslots) { // Use local var for safety
-                     scan_duration_modem_units = modem_us_to_ticks(10000, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+                uint32_t subslots_per_slot = get_subslots_per_etsi_slot_for_mu(ctx->own_phy_params.mu);
+                uint32_t scan_duration_total_subslots = SCAN_MEAS_DURATION_SLOTS_CONFIG * subslots_per_slot;
+                
+                uint32_t min_scan_duration_subslots = 48 * subslots_per_slot;
+                if (scan_duration_total_subslots < min_scan_duration_subslots) {
+                     scan_duration_total_subslots = min_scan_duration_subslots;
                 }
-
-				printk("  >> scan_duration_modem_units: %d.  \n", scan_duration_modem_units);
-
+                
                 int ret = dect_mac_phy_ctrl_start_rssi_scan(
-                    next_scan_carrier, scan_duration_modem_units,
+                    next_scan_carrier, scan_duration_total_subslots,
                     NRF_MODEM_DECT_PHY_RSSI_INTERVAL_24_SLOTS,
                     phy_op_handle, PENDING_OP_FT_INITIAL_SCAN);
                 if (ret != 0) {
@@ -1686,15 +1706,42 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
             printk("[FT_SM_STATE] After clear (BEACON): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));			
 
             if (ctx->state == MAC_STATE_FT_BEACONING) {
+                /* Re-arm the RACH RX window for the next beacon period so
+                 * the FT can receive PT RACH requests and data traffic.
+                 * The window spans one beacon period; the beacon timer handler
+                 * cancels it when the next beacon needs to be sent. */
+                uint32_t rach_period_ms = ctx->config.ft_cluster_beacon_period_ms;
+                if (rach_period_ms < 10) { rach_period_ms = 100; }
+                uint32_t rach_win_ticks = modem_us_to_ticks(
+                    (uint64_t)rach_period_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+                uint32_t rach_win_handle;
+                dect_mac_rand_get((uint8_t *)&rach_win_handle, sizeof(rach_win_handle));
+                (void)dect_mac_phy_ctrl_start_rx(
+                    ctx->role_ctx.ft.operating_carrier, rach_win_ticks,
+                    NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, rach_win_handle,
+                    ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW, 0);
+                /* Also trigger the IE-based RACH listen if parameters are configured */
                 ft_schedule_rach_listen_action();
             }
             break;
         case PENDING_OP_FT_RACH_RX_WINDOW:
-             LOG_DBG("FT SM: RACH RX window op completed (err %d). Next RACH listen after next beacon cycle.", event->err);
-            // Next RACH listen will be scheduled after next beacon if FT is still in beaconing state.
+             LOG_DBG("FT SM: RACH RX window op completed (err %d). Re-arming for next period.", event->err);
             printk("[FT_SM_STATE] Before clear (RACH_RX): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
             dect_mac_core_clear_pending_op();
             printk("[FT_SM_STATE] After clear (RACH_RX): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
+            /* Re-arm the RX window for the next beacon period if still beaconing */
+            if (ctx->state == MAC_STATE_FT_BEACONING && ctx->pending_op_type == PENDING_OP_NONE) {
+                uint32_t rearm_period_ms = ctx->config.ft_cluster_beacon_period_ms;
+                if (rearm_period_ms < 10) { rearm_period_ms = 100; }
+                uint32_t rearm_duration_ticks = modem_us_to_ticks(
+                    (uint64_t)rearm_period_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+                uint32_t rearm_handle;
+                dect_mac_rand_get((uint8_t *)&rearm_handle, sizeof(rearm_handle));
+                (void)dect_mac_phy_ctrl_start_rx(
+                    ctx->role_ctx.ft.operating_carrier, rearm_duration_ticks,
+                    NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, rearm_handle,
+                    ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW, 0);
+            }
             break;
 
         case PENDING_OP_FT_ASSOC_RESP:
@@ -1715,8 +1762,13 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
 				/* Clear the previous pending operation before starting the new one */
 				dect_mac_core_clear_pending_op();
 
+				uint32_t data_rx_period_ms = ctx->config.ft_cluster_beacon_period_ms;
+				if (data_rx_period_ms < 10) { data_rx_period_ms = 100; }
+				uint32_t data_rx_duration_ticks = modem_us_to_ticks(
+					(uint64_t)data_rx_period_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+
 				int ret = dect_mac_phy_ctrl_start_rx(
-					ctx->role_ctx.ft.operating_carrier, 0, /* Continuous RX */
+					ctx->role_ctx.ft.operating_carrier, data_rx_duration_ticks,
 					NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, phy_rx_op_handle,
 					ctx->own_short_rd_id, PENDING_OP_FT_DATA_RX, 0);
 				if (ret != 0) {
@@ -1786,6 +1838,15 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
 
 static void ft_handle_phy_rssi_ft(const struct nrf_modem_dect_phy_rssi_event *rssi_event) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
+
+	// CRITICAL: Update last known modem time from the RSSI event
+    if (rssi_event->meas_start_time > ctx->last_known_modem_time) {
+        ctx->last_known_modem_time = rssi_event->meas_start_time;
+        // ctx->last_modem_event_kernel_time = k_uptime_get();
+        printk("[RSSI_TIME] Updated modem time to %llu from RSSI event (carrier %u)\n", 
+               rssi_event->meas_start_time, rssi_event->carrier);
+    }
+
     if (ctx->state != MAC_STATE_FT_SCANNING || ctx->pending_op_type != PENDING_OP_FT_INITIAL_SCAN || rssi_event->handle != ctx->pending_op_handle) {
         LOG_WRN("FT_RSSI: Received RSSI result for unexpected op type %s, handle %u, or state %s.",
                 dect_pending_op_to_str(ctx->pending_op_type), rssi_event->handle, dect_mac_state_to_str(ctx->state));
@@ -1835,7 +1896,7 @@ static void ft_handle_phy_rssi_ft(const struct nrf_modem_dect_phy_rssi_event *rs
 // LOG_INF("Busy Count:%d , Vaild Count:%d,  Busy:%d%%", busy_sample_count, valid_sample_count, (busy_sample_count / valid_sample_count) * 100);
         if (valid_sample_count > 0) {
             ctx->role_ctx.ft.dcs_candidate_rssi_avg[current_scan_idx] = rssi_sum_q71 / valid_sample_count;
-            ctx->role_ctx.ft.dcs_candidate_busy_percent[current_scan_idx] = (busy_sample_count / valid_sample_count) * 100 ;
+            ctx->role_ctx.ft.dcs_candidate_busy_percent[current_scan_idx] = (busy_sample_count * 100) / valid_sample_count;
 			// LOG_INF("FT_DCS: Scan %u/%u Avg RSSI:%d dBm,  Buzy count:%d",
 			// 		current_scan_idx + 1, CONFIG_DECT_MAC_DCS_NUM_CHANNELS_TO_SCAN, ctx->role_ctx.ft.dcs_candidate_rssi_avg[current_scan_idx], busy_sample_count);
 			printk("[FT_SM] Stored scan result for idx %u: AvgRSSI: %d (Q7.1), Busy: %u%%\n",
@@ -2318,11 +2379,21 @@ process_feedback_ft_pdc_secure_rx_path:; /* Label must have a statement */
 
 	if (mac_hdr_type_octet.mac_header_type == MAC_COMMON_HEADER_TYPE_UNICAST) {
 		const dect_mac_unicast_header_t *uch = (const dect_mac_unicast_header_t *)common_hdr_start_in_payload;
+		uint32_t receiver_long_id_be = uch->receiver_long_rd_id_be;
+		uint32_t receiver_long_id_cpu = sys_be32_to_cpu(receiver_long_id_be);
+
+		if (receiver_long_id_cpu != ctx->own_long_rd_id) {
+			printk("[FT_ADDR_FILTER] Discarding Unicast PDU. Recv:0x%08X, Own:0x%08X (Short:0x%04X)\n",
+			       receiver_long_id_cpu, ctx->own_long_rd_id, ctx->own_short_rd_id);
+			return;
+		}
+
+		printk("[FT_ADDR_FILTER] ACCEPTED Unicast PDU for us! Recv:0x%08X, Own:0x%08X (Short:0x%04X)\n",
+		       receiver_long_id_cpu, ctx->own_long_rd_id, ctx->own_short_rd_id);
+
 		sender_long_id_final = sys_be32_to_cpu(uch->transmitter_long_rd_id_be);
 
-		uint8_t ie_type;
-		uint16_t ie_len;
-		const uint8_t *ie_payload;
+		uint8_t ie_type; uint16_t ie_len; const uint8_t *ie_payload;
 		int mux_hdr_len = parse_mac_mux_header(sdu_area_for_data_path, sdu_area_len_for_data_path, &ie_type, &ie_len, &ie_payload);
 
 
@@ -2373,7 +2444,7 @@ process_feedback_ft_pdc_secure_rx_path:; /* Label must have a statement */
 					const dect_mac_auth_initiate_ie_t *auth_init_ie = (const dect_mac_auth_initiate_ie_t *)ie_payload;
 					// int peer_idx = ft_find_and_init_peer_slot(sender_long_id_final, pt_sender_short_id_from_pcc, current_pcc_data.rssi_2);
 					int peer_idx = ft_find_and_init_peer_slot(sender_long_id_final, pt_sender_short_id_from_pcc, assoc_pcc_event->rssi_2);
-					if (peer_idx != -1) {
+					if (peer_idx >= 0) {
 						ctx->role_ctx.ft.connected_pts[peer_idx].pt_nonce = sys_be32_to_cpu(auth_init_ie->pt_nonce_be);
 						ft_send_auth_challenge_action(peer_idx);
 					}
@@ -2496,7 +2567,7 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 		ft_find_and_init_peer_slot(pt_tx_long_rd_id, pt_tx_short_rd_id, rssi_from_pcc);
 
 	if (peer_slot_idx < 0) {
-		LOG_WRN("FT is full. Rejecting association from PT 0x%08X.", pt_tx_long_rd_id);
+		LOG_WRN("FT_SM_ASSOC: FT is full. Rejecting association from PT 0x%08X.", pt_tx_long_rd_id);
 		dect_mac_assoc_resp_ie_t reject_fields = {
 			.ack_nack = false,
 			// .reject_cause = ASSOC_REJECT_CAUSE_OTHER,
@@ -2507,6 +2578,7 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 					       &reject_fields);
 		return;
 	}
+	LOG_WRN("FT_SM_ASSOC: FT is accepting association from PT 0x%08X. slot %d", pt_tx_long_rd_id, peer_slot_idx);
 
 	dect_mac_peer_info_t *pt_peer_ctx = &ctx->role_ctx.ft.connected_pts[peer_slot_idx];
 
@@ -2515,16 +2587,16 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 	/* Act on Setup Cause */
 	switch (req_fields.setup_cause_val) {
 	case ASSOC_CAUSE_INITIAL_ASSOCIATION:
-		LOG_DBG("FT_ASSOC: Processing as Initial Association.");
+		LOG_DBG("FT_SM_ASSOC: Processing as Initial Association.");
 		break;
 	case ASSOC_CAUSE_MOBILITY:
-		LOG_INF("FT_ASSOC: PT 0x%04X is associating due to mobility.", pt_tx_short_rd_id);
+		LOG_INF("FT_SM_ASSOC: PT 0x%04X is associating due to mobility.", pt_tx_short_rd_id);
 		break;
 	case ASSOC_CAUSE_REASSOC_AFTER_ERROR:
-		LOG_WRN("FT_ASSOC: PT 0x%04X is re-associating after an error.", pt_tx_short_rd_id);
+		LOG_WRN("FT_SM_ASSOC: PT 0x%04X is re-associating after an error.", pt_tx_short_rd_id);
 		break;
 	default:
-		LOG_DBG("FT_ASSOC: Unhandled setup cause %u.", req_fields.setup_cause_val);
+		LOG_DBG("FT_SM_ASSOC: Unhandled setup cause %u.", req_fields.setup_cause_val);
 		break;
 	}
 
@@ -2548,7 +2620,7 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)
 	if (ctx->config.ft_policy_secure_on_assoc) {
 		if (!ctx->master_psk_provisioned) {
-			LOG_WRN("FT_ASSOC: Rejecting PT 0x%04X. Policy requires security, but no PSK is provisioned.",
+			LOG_WRN("FT_SM_ASSOC: Rejecting PT 0x%04X. Policy requires security, but no PSK is provisioned.",
 				pt_tx_short_rd_id);
 			resp_fields.ack_nack = false;
 			resp_fields.reject_cause = ASSOC_REJECT_CAUSE_NON_SECURED_NOT_ACCEPTED;
@@ -2562,9 +2634,9 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 				ctx->role_ctx.ft.keys_provisioned_for_peer[peer_slot_idx] = true;
 				pt_peer_ctx->is_secure = true;
 				pt_peer_ctx->hpc = 1; /* Initialize HPC */
-				LOG_INF("FT_ASSOC: Successfully derived session keys for PT 0x%04X.", pt_tx_short_rd_id);
+				LOG_INF("FT_SM_ASSOC: Successfully derived session keys for PT 0x%04X.", pt_tx_short_rd_id);
 			} else {
-				LOG_ERR("FT_ASSOC: Failed to derive session keys for PT 0x%04X. Rejecting.", pt_tx_short_rd_id);
+				LOG_ERR("FT_SM_ASSOC: Failed to derive session keys for PT 0x%04X. Rejecting.", pt_tx_short_rd_id);
 				resp_fields.ack_nack = false;
 				resp_fields.reject_cause = ASSOC_REJECT_CAUSE_OTHER;
 			}
@@ -2682,7 +2754,7 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 		
 		update_next_occurrence(ctx, ft_peer_sched, ctx->last_known_modem_time, ctx->own_phy_params.mu);
 
-		LOG_INF("FT_SM: Unicast DL/UL Schedule for PT 0x%04X idx %d ACTIVATED. NextOcc: %llu", 
+		LOG_INF("FT_SM_ASSOC: Unicast DL/UL Schedule for PT 0x%04X idx %d ACTIVATED. NextOcc: %llu", 
 			pt_tx_short_rd_id, peer_slot_idx, ft_peer_sched->next_occurrence_modem_time);
 
 		ft_send_association_response_action(peer_slot_idx, &resp_fields,
@@ -3131,6 +3203,7 @@ void ft_service_schedules(void)
 static void ft_send_reject_response_action(uint32_t pt_long_id, uint16_t pt_short_id,
 					   const dect_mac_assoc_resp_ie_t *reject_fields)
 {
+	LOG_INF("FT_REJECT_SEND: Started...");
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 	uint8_t sdu_area_buf[32]; /* Sufficient for reject IE + MUX header */
 	int ret;

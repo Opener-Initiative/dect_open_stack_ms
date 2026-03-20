@@ -115,7 +115,7 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
  * @brief Starts a PHY RSSI scan operation.
  *
  * @param carrier The absolute channel frequency number to scan.
- * @param duration_modem_units Duration of the scan in modem time units.
+ * @param duration_subslots Duration of the scan in subslots.
  * @param reporting_interval Enum specifying how often RSSI measurements should be reported
  *                           via the NRF_MODEM_DECT_PHY_EVT_RSSI event.
  * @param phy_op_handle An application-defined handle for this PHY operation. Must be unique.
@@ -124,7 +124,7 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
  * @retval -EBUSY If another MAC operation is pending with a different handle.
  * @retval Other negative error codes from `nrf_modem_dect_phy_rssi`.
  */
-int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_modem_units,
+int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_subslots,
                                       enum nrf_modem_dect_phy_rssi_interval reporting_interval,
                                       uint32_t phy_op_handle, pending_op_type_t op_type);
 

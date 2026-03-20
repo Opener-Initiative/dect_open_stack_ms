@@ -1,0 +1,31 @@
+
+/ {
+    dect_nrplus0: dect_nrplus0 {
+        compatible = "nordic,nrf-dect";
+        status = "okay";
+		/* Use CVG Service Type 1 (Sequenced) for IP traffic */
+		// cvg-service-type = <1>;
+    };
+};
+
+// /* ZMS does not use fstab, so this section can be removed or left empty */
+// / {
+//     /* fstab entry for NVS is removed */
+// };
+
+// &flash0 {
+//     partitions {
+//         compatible = "fixed-partitions";
+//         #address-cells = <1>;
+//         #size-cells = <1>;
+
+//         /* Define other partitions like boot, mcuboot, app... */
+//         /* ... */
+
+//         /* The storage partition for ZMS */
+//         storage_partition: partition@f0000 {
+//             label = "storage";
+//             reg = <0xf0000 0x10000>; /* Example: 64KB at offset 0xF0000 */
+//         };
+//     };
+// };

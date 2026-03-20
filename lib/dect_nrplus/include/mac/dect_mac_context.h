@@ -10,9 +10,9 @@
 
 #ifndef MAX_MAC_SDU_BUFFERS_CONFIG
     #if IS_ENABLED(CONFIG_ZTEST) && IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)
-    #define MAX_MAC_SDU_BUFFERS_CONFIG 64
+    #define MAX_MAC_SDU_BUFFERS_CONFIG 128
     #else
-    #define MAX_MAC_SDU_BUFFERS_CONFIG 32
+    #define MAX_MAC_SDU_BUFFERS_CONFIG 64
     #endif
 #endif
 
@@ -32,7 +32,7 @@ struct mac_sdu;
 #ifndef MAX_HARQ_PROCESSES // Already in dect_mac_sm.h, ensure consistency
 #define MAX_HARQ_PROCESSES 8
 #endif
-#define MAX_PEERS_PER_FT 8
+#define MAX_PEERS_PER_FT CONFIG_DECT_MAC_FT_MAX_ASSOCIATED_PTS
 #define MAX_MOBILITY_CANDIDATES 5
 #define MAX_SUBSLOTS_IN_FRAME_NOMINAL 48 // For 10ms frame, 5 symbols/subslot, symbol dur ~41.67us => subslot ~208.3us
 #define FRAME_DURATION_MS_NOMINAL 10
