@@ -285,16 +285,19 @@ void dect_mac_event_dispatch(const struct dect_mac_event_msg *msg)
 	       dect_mac_event_to_str(msg->type), (ctx->role == MAC_ROLE_PT ? "PT" : "FT"), msg->ctx->own_short_rd_id);   
     // LOG_INF("[DISPATCHER] Dispatching event %s to role %s\n", dect_mac_event_to_str(msg->type), (ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
 
-    // Update last known modem time from the event itself
-    ctx->last_known_modem_time = msg->modem_time_of_event;
-
-    printk("MAC Evt Dispatch: Evt %s (Time %llu) in State %s (Role %s, PendOp: %s, Hdl: %u) \n",
+    printk("MAC Evt Dispatch: Evt %s (LastKnownTime %llu, EventTime %llu) in State %s (Role %s, PendOp: %s, Hdl: %u) \n",
             dect_mac_event_to_str(msg->type),
+            ctx->last_known_modem_time,
             msg->modem_time_of_event,
             dect_mac_state_to_str(ctx->state),
             (ctx->role == MAC_ROLE_PT ? "PT" : "FT"),
             dect_pending_op_to_str(ctx->pending_op_type),
             ctx->pending_op_handle);
+
+    // Update last known modem time from the event itself
+    if (msg->modem_time_of_event > ctx->last_known_modem_time) {
+        ctx->last_known_modem_time = msg->modem_time_of_event;
+    }
 
     bool dispatch_to_sm = true;
 // printk("[DISPATCHER] msg->type:%s(%d) ",dect_mac_event_to_str(msg->type), msg->type);

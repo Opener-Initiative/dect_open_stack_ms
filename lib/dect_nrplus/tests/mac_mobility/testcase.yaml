@@ -1,6 +1,5 @@
-# /* lib/dect_nrplus/tests/mac_mobility/testcase.yaml */
 tests:
-  mac_mobility.handover:
+  testing.dect_nrplus.mac_mobility.handover:
     tags: dect_nrplus mac mobility
     platform_allow: 
       - native_sim

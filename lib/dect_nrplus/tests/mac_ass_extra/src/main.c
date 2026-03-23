@@ -40,11 +40,11 @@ extern int dect_mac_test_inject_event_internal(struct dect_mac_context *ctx,
 static void debug_print_timer_states(const char *location)
 {
     uint32_t pt_alive_status = k_timer_status_get(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
-    uint32_t pt_mobi_status = k_timer_status_get(&g_mac_ctx_ft.role_ctx.pt.mobility_scan_timer);
+    uint32_t pt_mobi_status = k_timer_status_get(&g_mac_ctx_pt.role_ctx.pt.mobility_scan_timer);
     uint32_t ft_status = k_timer_status_get(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
     
     uint32_t pt_alive_remaining = k_timer_remaining_get(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
-    uint32_t pt_mobi_remaining = k_timer_remaining_get(&g_mac_ctx_ft.role_ctx.pt.mobility_scan_timer);
+    uint32_t pt_mobi_remaining = k_timer_remaining_get(&g_mac_ctx_pt.role_ctx.pt.mobility_scan_timer);
     uint32_t ft_remaining = k_timer_remaining_get(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
     
     printk("[TIMER_STATUS] %s:\n", location);
@@ -164,21 +164,24 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
         uint64_t remaining;
         
         /* Check PT keep-alive timer only if it's running */
-        if (k_timer_status_get(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer) != 0) {
-            remaining = k_timer_remaining_get(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
-            if (remaining > 0) {
-                next_timer_ticks = MIN(next_timer_ticks, remaining);
-                printk("[SIMULATION] PT keep-alive timer running, expires in %u ticks\n", remaining);
-            }
+        remaining = k_timer_remaining_ticks(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
+        if (remaining > 0) {
+            next_timer_ticks = MIN(next_timer_ticks, remaining);
+            printk("[SIMULATION] PT keep-alive timer running, expires in %u ticks\n", (uint32_t)remaining);
+        }
+        
+        /* Check PT mobility timer only if it's running */
+        remaining = k_timer_remaining_ticks(&g_mac_ctx_pt.role_ctx.pt.mobility_scan_timer);
+        if (remaining > 0) {
+            next_timer_ticks = MIN(next_timer_ticks, remaining);
+            printk("[SIMULATION] PT mobility timer running, expires in %u ticks\n", (uint32_t)remaining);
         }
         
         /* Check FT beacon timer only if it's running */
-        if (k_timer_status_get(&g_mac_ctx_ft.role_ctx.ft.beacon_timer) != 0) {
-            remaining = k_timer_remaining_get(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
-            if (remaining > 0) {
-                next_timer_ticks = MIN(next_timer_ticks, remaining);
-                printk("[SIMULATION] FT beacon timer running, expires in %u ticks\n", remaining);
-            }
+        remaining = k_timer_remaining_ticks(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
+        if (remaining > 0) {
+            next_timer_ticks = MIN(next_timer_ticks, remaining);
+            printk("[SIMULATION] FT beacon timer running, expires in %u ticks\n", (uint32_t)remaining);
         }
         
         uint64_t next_timer_expiry_us = (next_timer_ticks == K_TICKS_FOREVER) ?
@@ -283,7 +286,7 @@ static bool ft_sent_a_packet(void)
 	return tx_capture_is_from_long_id(g_mac_ctx_ft.own_long_rd_id);
 }
 
-static bool sent_a_packet(void)
+__weak bool sent_a_packet(void)
 {
     bool matched = false;
     if (pt_sent_a_packet() || ft_sent_a_packet())
@@ -293,14 +296,14 @@ static bool sent_a_packet(void)
 	return matched;
 }
 
-static bool is_ft_peer_list_empty(void)
+__weak bool is_ft_peer_list_empty(void)
 {
 	dect_mac_test_set_active_context(&g_mac_ctx_ft);
 	int peer_idx = dect_mac_core_get_peer_slot_idx(g_mac_ctx_pt.own_short_rd_id);
 	return (peer_idx < 0);
 }
 
-static bool is_pt_scanning(void)
+__weak bool is_pt_scanning(void)
 {
     printk("g_mac_ctx_pt.state[%d] == MAC_STATE_PT_SCANNING {%s} \n", g_mac_ctx_pt.state,
         g_mac_ctx_pt.state == MAC_STATE_PT_SCANNING ? "TRUE":"False");
@@ -319,7 +322,7 @@ static bool is_pt_scanning(void)
 //     }
 // }
 
-static void *dect_mac_assoc_setup(void)
+static void *dect_mac_ass_extra_setup(void)
 {
 	zassert_ok(dect_mac_init(NULL, NULL), "dect_mac_init failed");
 	return NULL;
@@ -396,13 +399,13 @@ static void debug_print_current_state(const char *test_name)
 
 /* --- Enhanced Test Setup --- */
 
-static void dect_mac_assoc_before(void *fixture)
+static void dect_mac_ass_extra_before(void *fixture)
 {
     ARG_UNUSED(fixture);
     int err;
 
-    // dump_mac_context_state("START of dect_mac_assoc_before", &g_mac_ctx_pt);
-    // dump_mac_context_state("START of dect_mac_assoc_before", &g_mac_ctx_ft);
+    // dump_mac_context_state("START of dect_mac_ass_extra_before", &g_mac_ctx_pt);
+    // dump_mac_context_state("START of dect_mac_ass_extra_before", &g_mac_ctx_ft);
 
     /* Reset shared resources to ensure test isolation */
 	dect_mac_phy_if_reset_handle_map();
@@ -458,7 +461,7 @@ static void dect_mac_assoc_before(void *fixture)
     g_mac_ctx_pt.network_id_32bit = g_mac_ctx_ft.network_id_32bit;
 
     /* Configure test-specific timing */
-    g_mac_ctx_pt.config.keep_alive_period_ms = 1000;  // 1 second for testing
+    g_mac_ctx_pt.config.keep_alive_period_ms = 100;  // 1 second for testing
     g_mac_ctx_pt.config.ft_cluster_beacon_period_ms = 1000;    // 1 second for testing
     
     /* Register state change callback */
@@ -480,24 +483,23 @@ printk("[DEBUG_PROBE] After Init: PT Peer Count -> %zu\n", g_phy_ctx_pt.num_peer
 
 
 /* --- Enhanced Test Cleanup --- */
-static void dect_mac_assoc_after(void *fixture)
+static void dect_mac_ass_extra_after(void *fixture)
 {
     ARG_UNUSED(fixture);
 
-    /* Stop all kernel timers */
-    k_timer_stop(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
-    k_timer_stop(&g_mac_ctx_pt.role_ctx.pt.mobility_scan_timer);
-    k_timer_stop(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
+    /* Stop all kernel timers via reset_context */
+    dect_mac_reset_context(&g_mac_ctx_pt);
+    dect_mac_reset_context(&g_mac_ctx_ft);
     
-    
-    /* Deactivate PHY if active */
-    if (g_phy_ctx_pt.state == PHY_STATE_ACTIVE) {
-        nrf_modem_dect_phy_deactivate();
-    }
-    if (g_phy_ctx_ft.state == PHY_STATE_ACTIVE) {
-        nrf_modem_dect_phy_deactivate();
-    }
+    /* Deactivate and reset PT PHY context */
+    mock_phy_set_active_context(&g_phy_ctx_pt);
+    nrf_modem_dect_phy_deactivate();
+    mock_phy_complete_reset(&g_phy_ctx_pt);
 
+    /* Deactivate and reset FT PHY context */
+    mock_phy_set_active_context(&g_phy_ctx_ft);
+    nrf_modem_dect_phy_deactivate();
+    mock_phy_complete_reset(&g_phy_ctx_ft);
     
     /* Reset shared resources to ensure test isolation */
 	dect_mac_phy_if_reset_handle_map();
@@ -524,14 +526,14 @@ static void dect_mac_assoc_after(void *fixture)
     g_last_tx_pdu_len_capture = 0;
     memset(g_last_tx_pdu_capture, 0, sizeof(g_last_tx_pdu_capture));
 
-    // dump_mac_context_state("END of dect_mac_assoc_after", &g_mac_ctx_pt);
-    // dump_mac_context_state("END of dect_mac_assoc_after", &g_mac_ctx_ft);    
+    // dump_mac_context_state("END of dect_mac_ass_extra_after", &g_mac_ctx_pt);
+    // dump_mac_context_state("END of dect_mac_ass_extra_after", &g_mac_ctx_ft);    
 }
 
 
 /* --- Test Cases --- */
 
-ZTEST(dect_mac_assoc, test_1_pt_ft_association_rejected_ft_full)
+ZTEST(dect_mac_ass_extra, test_1_pt_ft_association_rejected_ft_full)
 {
     debug_operation_handle_map("BEFORE_TEST");
 
@@ -618,7 +620,7 @@ ZTEST(dect_mac_assoc, test_1_pt_ft_association_rejected_ft_full)
 }
 
 
-ZTEST(dect_mac_assoc, test_3_pt_keep_alive)
+ZTEST(dect_mac_ass_extra, test_3_pt_keep_alive)
 {
     printk("\n--- RUNNING TEST: %s ---\n", __func__);
 
@@ -664,9 +666,9 @@ ZTEST(dect_mac_assoc, test_3_pt_keep_alive)
 	// bool pt_sent_packet = run_simulation_until((keep_alive_ms + 500) * 1000, pt_sent_a_packet);
 
 	/* --- 3. Verify the Keep Alive PDU was sent --- */
-    zassert_true(run_simulation_until((keep_alive_ms + 500) * 1000, sent_a_packet),
-             "Simulation timed out before FT sent a response");
-	// zassert_true(pt_sent_packet, "Simulation timed out, PT did not send a keep-alive packet");
+    printk("\n\n[TEST] 4. Verify the Keep Alive PDU was sent\n");
+    zassert_true(run_simulation_until((keep_alive_ms + 500) * 1000, pt_sent_a_packet),
+             "Simulation timed out before PT sent a response");
 
 	printk("TEST: PT sent a packet. Verifying it is a Keep Alive IE...\n");
 
@@ -679,17 +681,15 @@ ZTEST(dect_mac_assoc, test_3_pt_keep_alive)
     // dump_mac_context_state("END of test_pt_keep_alive", &g_mac_ctx_pt);
     // dump_mac_context_state("END of test_pt_keep_alive", &g_mac_ctx_ft);
 
-	// zassert_not_null(ie_payload, "Transmitted PDU did not contain a Keep Alive IE");
-	// zassert_equal(ie_payload_len, 0, "Keep Alive IE should have a 0-byte payload");
-
-    zassert_is_null(ie_payload, "Transmitted PDU JUST FORCED TO PASS !!!");
+	zassert_not_null(ie_payload, "Transmitted PDU did not contain a Keep Alive IE");
+	zassert_equal(ie_payload_len, 0, "Keep Alive IE should have a 0-byte payload");
 
     debug_print_timer_states("AFTER_KEEP_ALIVE_WAIT");
     
 }
 
 
-ZTEST(dect_mac_assoc, test_2_pt_association_release)
+ZTEST(dect_mac_ass_extra, test_2_pt_association_release)
 {
 	printk("\n--- RUNNING TEST: %s ---\n", __func__);
 
@@ -755,9 +755,9 @@ ZTEST(dect_mac_assoc, test_2_pt_association_release)
 	run_simulation_until(100000, NULL);             
 }
 
-ZTEST_SUITE(dect_mac_assoc, 
+ZTEST_SUITE(dect_mac_ass_extra, 
            NULL,                    /* No suite setup */
-           dect_mac_assoc_setup,   /* Suite setup (once) */
-           dect_mac_assoc_before,   /* Before each test */
-           dect_mac_assoc_after,    /* After each test */
+           dect_mac_ass_extra_setup,   /* Suite setup (once) */
+           dect_mac_ass_extra_before,   /* Before each test */
+           dect_mac_ass_extra_after,    /* After each test */
            NULL);                   /* No suite cleanup */

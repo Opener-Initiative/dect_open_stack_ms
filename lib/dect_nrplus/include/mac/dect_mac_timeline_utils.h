@@ -50,21 +50,6 @@ uint64_t modem_ticks_to_us(uint64_t ticks, uint32_t tick_rate_khz);
  */
 uint64_t modem_us_to_ticks(uint64_t us, uint32_t tick_rate_khz);
 
-/**
- * @brief Converts a frequency in kHz to an ETSI DECT-2020 absolute channel number.
- *
- * @param freq_khz The frequency in kHz.
- * @return The corresponding 13-bit channel number.
- */
-uint16_t dect_mac_freq_to_channel_num(uint32_t freq_khz);
-
-/**
- * @brief Converts an ETSI DECT-2020 absolute channel number to a frequency in kHz.
- *
- * @param channel_num The 13-bit channel number.
- * @return The corresponding frequency in kHz.
- */
-uint32_t dect_mac_channel_num_to_freq(uint16_t channel_num);
 
 
 #endif /* DECT_MAC_TIME_UTILS_H__ */

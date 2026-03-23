@@ -530,11 +530,12 @@ static void update_security_context_after_tx(dect_mac_context_t* ctx, int ft_tar
         ctx->send_mac_sec_info_ie_on_next_tx = false;
     }
 }
-
 #define SDU_BUFFER_PADDING 10
+// #define SDU_AREA_BUF_SIZE (CONFIG_DECT_MAC_SDU_MAX_SIZE + SDU_BUFFER_PADDING)
 // Block size must be a multiple of the memory alignment (which is 4 in this case)
 // Round up block size to the nearest multiple of the slab alignment
 #define SDU_AREA_BUF_SIZE ROUND_UP(CONFIG_DECT_MAC_SDU_MAX_SIZE + SDU_BUFFER_PADDING, 4)
+
 K_MEM_SLAB_DEFINE(g_mac_sdu_area_slab, SDU_AREA_BUF_SIZE, 4, 4);
 
 static int send_data_mac_sdu_via_phy_internal(dect_mac_context_t* ctx,
@@ -957,8 +958,8 @@ void dect_mac_data_path_service_tx(void)
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
 if (ctx->state > 2 && ctx->state != 17 ){
-	printk("\n--- DEBUG: dect_mac_data_path_service_tx ---\n");
-	printk("  - Current State: %s(%d), Pending Op: %s(%d)\n", dect_mac_state_to_str(ctx->state), ctx->state,
+	LOG_DBG("\n--- DEBUG: dect_mac_data_path_service_tx ---\n");
+	LOG_DBG("  - Current State: %s(%d), Pending Op: %s(%d)\n", dect_mac_state_to_str(ctx->state), ctx->state,
 	       dect_pending_op_to_str(ctx->pending_op_type), ctx->pending_op_type);
 }
 

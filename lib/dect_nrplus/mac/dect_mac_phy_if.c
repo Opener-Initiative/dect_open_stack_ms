@@ -24,10 +24,12 @@
 LOG_MODULE_REGISTER(dect_mac_phy_if, CONFIG_DECT_MAC_PHY_IF_LOG_LEVEL);
 
 #if IS_ENABLED(CONFIG_ZTEST) && IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)
-#define MAX_CONCURRENT_PHY_OPS 64
+#define MAX_CONCURRENT_PHY_OPS 128
 #else
 #define MAX_CONCURRENT_PHY_OPS 16
 #endif
+
+K_SEM_DEFINE(phy_init_sem, 0, 1);
 
 static struct k_spinlock g_phy_if_lock;
 
@@ -43,6 +45,24 @@ static op_handle_map_entry_t g_op_handle_map[MAX_CONCURRENT_PHY_OPS] = {0};
 static inline uint32_t modem_ticks_to_us_phy_if(uint32_t ticks) {
     if (NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ == 0) return 0;
     return (uint32_t)(((uint64_t)ticks * 1000U) / NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+}
+
+static uint16_t dect_mac_arfcn_to_channel_num(uint16_t arfcn)
+{
+	uint16_t base_arfcn = 0;
+
+#if defined(CONFIG_DECT_MAC_BAND_US_UPCS)
+	base_arfcn = 1703;
+#else
+	base_arfcn = 1657; // Default to EU Band 1
+#endif
+
+	if (arfcn < base_arfcn) {
+		LOG_WRN("ARFCN_CONV: ARFCN %u is below base ARFCN %u for current band.", arfcn, base_arfcn);
+		return 0;
+	}
+
+	return (uint16_t)(arfcn - base_arfcn + 1);
 }
 
 /**
@@ -186,6 +206,9 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 	case NRF_MODEM_DECT_PHY_EVT_RSSI:
 		msg_to_queue.type = MAC_EVENT_PHY_RSSI_RESULT;
 		memcpy(&msg_to_queue.data.rssi, &event->rssi, sizeof(event->rssi));
+		
+		/* Convert absolute carrier (ARFCN) back to logical channel number for MAC state machines */
+		msg_to_queue.data.rssi.carrier = dect_mac_arfcn_to_channel_num(event->rssi.carrier);
 		break;
 
 	case NRF_MODEM_DECT_PHY_EVT_INIT:
@@ -201,6 +224,7 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 			LOG_ERR("[PHY_IF]  Modem DECT PHY Initialization failed with error %d.", event->init.err);
 		}
 		should_queue_msg = false;
+		k_sem_give(&phy_init_sem);
 		break;
 
 	case NRF_MODEM_DECT_PHY_EVT_LATENCY:
@@ -239,6 +263,7 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 	case NRF_MODEM_DECT_PHY_EVT_CONFIGURE:
 		LOG_INF("[PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CONFIGURE result: %d", event->configure.err);
 		should_queue_msg = false;
+		k_sem_give(&phy_init_sem);
 		break;
 	case NRF_MODEM_DECT_PHY_EVT_RADIO_CONFIG:
 		LOG_INF("[PHY_IF]  NRF_MODEM_DECT_PHY_EVT_RADIO_CONFIG result: %d (handle %u)",
@@ -249,6 +274,7 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 		 LOG_INF("[PHY_IF]  NRF_MODEM_DECT_PHY_EVT_ACTIVATE result: %d (Temp: %dC, Volt: %umV)",
 			 event->activate.err, event->activate.temp, event->activate.voltage);
 		should_queue_msg = false;
+		k_sem_give(&phy_init_sem);
 		break;
 	case NRF_MODEM_DECT_PHY_EVT_DEACTIVATE:
 		LOG_INF("[PHY_IF]  NRF_MODEM_DECT_PHY_EVT_DEACTIVATE result: %d", event->deactivate.err);
@@ -317,20 +343,50 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 
 int dect_mac_phy_if_init(void)
 {
-    int err = nrf_modem_dect_phy_event_handler_set(phy_event_handler_callback);
+	int err;
+
+	printk("********************************************* STARTING nrf_modem_dect_phy_event_handler_set ************************************\n");
+    err = nrf_modem_dect_phy_event_handler_set(phy_event_handler_callback);
     if (err) {
         LOG_ERR("[PHY_IF]  Failed to set nRF DECT PHY event handler, err: %d", err);
+		return err;
     } else {
         LOG_INF("[PHY_IF]  nRF DECT PHY event handler registered successfully.");
     }
-    // Note: nrf_modem_dect_phy_init() is called by dect_mac_phy_ctrl_init() or similar
-    // after the modem library itself (nrf_modem_init) is up.
-    // This function only sets the handler.
-    return err;
+
+	err = nrf_modem_dect_phy_init();
+	if (err) {
+		LOG_ERR("[PHY_IF] nrf_modem_dect_phy_init failed, err %d", err);
+		return err;
+	}
+
+	/* Wait for the init callback to release the semaphore */
+	k_sem_take(&phy_init_sem, K_FOREVER);
+
+	/* Configure the radio with some standard MAC defaults. 
+	   You can use Kconfig here or logic later if you want dynamic configuration. */
+	static struct nrf_modem_dect_phy_config_params dect_phy_config_params = {
+		.band_group_index = 0,
+		.harq_rx_process_count = 4,
+		.harq_rx_expiry_time_us = 5000000,
+	};
+
+	err = nrf_modem_dect_phy_configure(&dect_phy_config_params);
+	if (err) {
+		LOG_ERR("nrf_modem_dect_phy_configure failed, err %d", err);
+		return err;
+	}
+
+	/* Wait for the configure callback to release the semaphore */
+	k_sem_take(&phy_init_sem, K_FOREVER);
+
+    return 0;
 }
 
+void dect_mac_phy_ctrl_init(void){
 
-
+	return;
+}
 
 static int count_active_handles(void)
 {

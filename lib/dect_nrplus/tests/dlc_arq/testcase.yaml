@@ -1,5 +1,5 @@
 tests:
-  dlc.arq:
+  testing.dect_nrplus.dlc.arq:
     tags: dect_nrplus dlc arq
     platform_allow: 
       - native_sim

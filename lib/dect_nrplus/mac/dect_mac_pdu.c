@@ -1964,7 +1964,7 @@ int build_assoc_resp_sdu_area_content(uint8_t *target_sdu_area_buf, size_t targe
                                       const dect_mac_rd_capability_ie_t *ft_cap_fields,
                                       const dect_mac_resource_alloc_ie_fields_t *res_alloc_fields)
 {
-	printk("build_assoc_resp_sdu_area_content called... \n");
+	// printk("build_assoc_resp_sdu_area_content called... \n");
 	if (!target_sdu_area_buf || !resp_fields) {
 		LOG_ERR("ASSOC_RESP_AREA: NULL target_sdu_area_buf or resp_fields.");
 		return -EINVAL;

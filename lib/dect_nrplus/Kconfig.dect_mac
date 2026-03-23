@@ -26,7 +26,25 @@ config DECT_MAC_OWN_THREAD
 	  dect_mac_process_event() and dect_mac_service().
       
 # General MAC Configuration
-choice DECT_MAC_OPERATIONAL_ROLE
+choice DECT_MAC_OPERATING_BAND
+	prompt "DECT Operating Band"
+	default DECT_MAC_BAND_EU_1
+	help
+	  Select the operating band (region). This determines the frequency raster (ARFCN)
+	  used for transmissions as per ETSI TS 103 636-2.
+
+	config DECT_MAC_BAND_EU_1
+		bool "Europe (Band 1: 1880-1900 MHz)"
+		help
+		  Standard European DECT band. Base ARFCN = 1657.
+
+	config DECT_MAC_BAND_US_UPCS
+		bool "USA (UPCS: 1920-1930 MHz)"
+		help
+		  North American UPCS band. Base ARFCN = 1703.
+endchoice
+
+ choice DECT_MAC_OPERATIONAL_ROLE
 	prompt "DECT MAC Operational Role"
 	default DECT_MAC_ROLE_IS_PT # Default to PT for typical end-device
 	help
@@ -197,6 +215,14 @@ endif # DECT_MAC_SECURITY_ENABLE
         help
           Interval at which an associated PT performs a background scan for other FTs.
 
+    config DECT_MAC_PT_MOBILITY_RSSI_BOOST_FOR_TEST
+        bool "Mobility: Boost Candidate RSSI for Handover Testing"
+        default n
+        depends on DECT_MAC_PT_MOBILITY_ENABLE && ZTEST
+        help
+          FOR TEST USE ONLY. Adds +50dB (100 in Q7.1) to candidate FT RSSI
+          to force a handover when any other FT beacon is seen.
+
     config DECT_MAC_PT_PAGING_CYCLE_MS
         int "PT Paging Cycle Listen Interval (ms)"
         default 1280 # Example: 1.28 seconds (ETSI DRF=8)
@@ -312,12 +338,12 @@ endif # DECT_MAC_SECURITY_ENABLE
 
     config DECT_MAC_FT_CLUSTER_BEACON_MS
         int "FT Cluster Beacon Interval (ms)"
-        default 100
+        default 2000
         help
           Interval for FT Cluster Beacon (10,50,100,500,1k,1.5k,2k,4k,8k,16k,32k ms).
     config DECT_MAC_FT_NETWORK_BEACON_MS
         int "FT Network Beacon Interval (ms)"
-        default 1000
+        default 2000
         help
           Interval for FT Network Beacon (50,100,500,1k,1.5k,2k,4k ms).
     config DECT_MAC_FT_MAX_ASSOCIATED_PTS
@@ -329,19 +355,19 @@ endif # DECT_MAC_SECURITY_ENABLE
         default y
     config DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL
         int "FT Default Initial Operating Channel Number"
-        default 0 # ETSI DECT EU Ch 0
+        default 1 # Logical Channel 1
         help
           The default absolute channel number that the FT will use if the
           Dynamic Channel Selection (DCS) mechanism is disabled or fails to
           find a suitable channel. This should be a legally permissible
-          channel for your region.
+           channel for your region.
     config DECT_MAC_DCS_NUM_CHANNELS_TO_SCAN
         int "Number of channels for FT to scan during DCS"
         default 5
         range 0 10
     config DECT_MAC_DCS_CHANNEL_LIST
         string "DCS Candidate Channel List (comma-separated numbers)"
-        default "0,1,2,3,4" # ETSI DECT EU Ch 0-4
+        default "1,2,3,4,5" # Logical Channels 1-5
         depends on DECT_MAC_DCS_NUM_CHANNELS_TO_SCAN > 0
         
     config DECT_MAC_DCS_NOISY_THRESHOLD_DBM

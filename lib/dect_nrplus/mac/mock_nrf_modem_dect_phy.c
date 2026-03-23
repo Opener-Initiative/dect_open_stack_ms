@@ -42,15 +42,32 @@ static mock_phy_context_t g_mock_phy_ctx;
 static mock_phy_context_t *g_active_phy_ctx = &g_mock_phy_ctx;
 static nrf_modem_dect_phy_event_handler_t g_event_handler = NULL;
 
-#define MAX_NODES 16
+#define MAX_NODES 64
 static mock_phy_context_t *g_all_phys[MAX_NODES];
 static size_t g_num_all_phys = 0;
 
-/* --- Forward declarations for internal functions --- */
+static void init_rf_environment(void);
 static void mock_phy_send_event(const struct nrf_modem_dect_phy_event *event);
 static int find_free_timeline_slot(mock_phy_context_t *ctx);
 static uint64_t get_timeline_end_time(mock_phy_context_t *ctx);
-static void init_rf_environment(void);
+
+static uint16_t mock_arfcn_to_index(uint16_t arfcn)
+{
+	uint16_t base_arfcn = 0;
+#if defined(CONFIG_DECT_MAC_BAND_US_UPCS)
+	base_arfcn = 1703;
+#else
+	base_arfcn = 1657; // Default to EU Band 1
+#endif
+
+	/* If the carrier looks like an ARFCN, translate to logical index.
+	 * Otherwise, assume it's already a logical index (for backward compatibility with tests).
+	 */
+	if (arfcn >= base_arfcn) {
+		return arfcn - base_arfcn + 1;
+	}
+	return arfcn;
+}
 
 /* ========================================================================
  * PUBLIC MOCK CONFIGURATION API
@@ -58,9 +75,10 @@ static void init_rf_environment(void);
 
 void mock_phy_test_set_noise_floor(uint16_t carrier, int8_t dbm)
 {
-    if (carrier < MOCK_MAX_CARRIERS) {
-        g_mock_carrier_noise_dbm[carrier] = dbm;
-        printk("[MOCK_CONFIG] Carrier %u noise floor set to %d dBm\n", carrier, dbm);
+    uint16_t idx = mock_arfcn_to_index(carrier);
+    if (idx < MOCK_MAX_CARRIERS) {
+        g_mock_carrier_noise_dbm[idx] = dbm;
+        printk("[MOCK_CONFIG] Carrier %u (Idx %u) noise floor set to %d dBm\n", carrier, idx, dbm);
     }
 }
 
@@ -78,22 +96,14 @@ void mock_phy_test_config_collisions(bool enabled)
 
 static void init_rf_environment(void)
 {
-    /* 1. Set a "Noisy" baseline for all carriers (-60 dBm) */
+    /* 1. Set a "Moderate" baseline for all carriers (-90 dBm) 
+     * This is low enough not to be "Busy" (> -70) but not "Clean" (< -100).
+     */
     for (int i = 0; i < MOCK_MAX_CARRIERS; i++) {
-        g_mock_carrier_noise_dbm[i] = -60; 
+        g_mock_carrier_noise_dbm[i] = -90; 
     }
 
-    /* 2. Set the Default Channel to be "Clean" (-100 dBm) */
-    /* This ensures the FT DCS algorithm will prefer this channel if RSSI is valid. */
-    int default_carrier = 2;
-#ifdef CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL
-    default_carrier = CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL;
-#endif
-    
-    if (default_carrier < MOCK_MAX_CARRIERS) {
-        g_mock_carrier_noise_dbm[default_carrier] = -100;
-        printk("[MOCK_INIT] Configured Default Carrier %d to Clean RSSI (-100 dBm)\n", default_carrier);
-    }
+    printk("[MOCK_INIT] Configured Baseline Noise to -90 dBm\n");
 }
 
 /* ========================================================================
@@ -310,7 +320,8 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
             bool collision = false;
             if (g_mock_collisions_enabled) {
                 for (int k = 0; k < MOCK_RX_QUEUE_MAX_PACKETS; k++) {
-                    if (k != next_pkt_idx && ctx->rx_queue[k].active && ctx->rx_queue[k].carrier == pkt->carrier) {
+                    if (k != next_pkt_idx && ctx->rx_queue[k].active && 
+                        mock_arfcn_to_index(ctx->rx_queue[k].carrier) == mock_arfcn_to_index(pkt->carrier)) {
                         bool overlaps = (pkt->reception_time_us < (ctx->rx_queue[k].reception_time_us + ctx->rx_queue[k].duration_us)) &&
                                         (ctx->rx_queue[k].reception_time_us < (pkt->reception_time_us + pkt->duration_us));
                         if (overlaps) { 
@@ -331,7 +342,7 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
                 mock_scheduled_operation_t *rx_op = &ctx->timeline[j];
 
                 if (rx_op->active && rx_op->running && rx_op->type == MOCK_OP_TYPE_RX) {
-                    if (pkt->carrier == rx_op->carrier) {
+                    if (mock_arfcn_to_index(pkt->carrier) == mock_arfcn_to_index(rx_op->carrier)) {
                         mock_phy_set_active_context(ctx);
                         rx_op_found = true;
 
@@ -387,21 +398,29 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
             mock_phy_set_active_context(ctx);
             
             if (op->type == MOCK_OP_TYPE_RSSI) {
+                uint16_t channel_idx = mock_arfcn_to_index(op->carrier);
+                /* Use global noise floor as baseline, but we will override it below for the context's own channel */
+                int8_t rssi_val = (channel_idx < MOCK_MAX_CARRIERS) ? g_mock_carrier_noise_dbm[channel_idx] : -90;
 
-                if(ctx->mac_ctx->role_ctx.ft.operating_carrier == op->carrier) {
-                    g_mock_carrier_noise_dbm[op->carrier] = -120;
-                    printk("[MOCK_TIMELINE] FT operating carrier is %d at %d dbm\n", ctx->mac_ctx->role_ctx.ft.operating_carrier, g_mock_carrier_noise_dbm[op->carrier]);
+
+                /* Context-Aware DCS Logic: If this is an FT measuring its OWN assigned carrier,
+                 * report an even cleaner signal to ensure it stays locked/prefers it during DCS.
+                 */
+                if (ctx->mac_ctx && ctx->mac_ctx->role == MAC_ROLE_FT && 
+                    ctx->mac_ctx->role_ctx.ft.operating_carrier == channel_idx) {
+                    rssi_val = -110; 
+                    printk("[MOCK_RSSI_DCS] FT Context %p: Preferred Carrier %u is CLEAN (-110 dBm)\n", 
+                           (void *)ctx, channel_idx);
                 }
 
-                int8_t rssi_val = (op->carrier < MOCK_MAX_CARRIERS) ? g_mock_carrier_noise_dbm[op->carrier] : -60;
                 memset(g_mock_rssi_buffer, rssi_val, MOCK_RSSI_MAX_SAMPLES);
                 
                 struct nrf_modem_dect_phy_event rssi_evt = {
                     .id = NRF_MODEM_DECT_PHY_EVT_RSSI,
-                    .time = op->end_time_us,
+                    .time = modem_us_to_ticks(op->end_time_us, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ),
                     .rssi = { 
                         .handle = op->handle, 
-                        .meas_start_time = op->start_time_us, 
+                        .meas_start_time = modem_us_to_ticks(op->start_time_us, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ), 
                         .carrier = op->carrier,
                         .meas_len = MOCK_RSSI_MAX_SAMPLES,
                         .meas = g_mock_rssi_buffer 
@@ -412,7 +431,7 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
             
             struct nrf_modem_dect_phy_event complete_evt = {
                 .id = NRF_MODEM_DECT_PHY_EVT_COMPLETED,
-                .time = op->end_time_us,
+                .time = modem_us_to_ticks(op->end_time_us, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ),
                 .op_complete = {.handle = op->handle, .err = NRF_MODEM_DECT_PHY_SUCCESS}
             };
             mock_phy_send_event(&complete_evt);
@@ -466,7 +485,7 @@ int nrf_modem_dect_phy_tx(const struct nrf_modem_dect_phy_tx_params *params)
 
     uint64_t start_time_us = (params->start_time == 0) ?
                   MAX(k_ticks_to_us_floor64(k_uptime_ticks()), get_timeline_end_time(g_active_phy_ctx)) :
-                  params->start_time;
+                  modem_ticks_to_us(params->start_time, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 
     /* Simplified duration based on payload size for simulation */
     uint64_t duration_us = modem_ticks_to_us(params->data_size * 8 * 10, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
@@ -541,7 +560,7 @@ int nrf_modem_dect_phy_rx(const struct nrf_modem_dect_phy_rx_params *params)
 
     uint64_t start_time_us = (params->start_time == 0) ?
                   MAX(k_ticks_to_us_floor64(k_uptime_ticks()), get_timeline_end_time(g_active_phy_ctx)) :
-                  params->start_time;
+                  modem_ticks_to_us(params->start_time, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 
     uint64_t end_time_us = (params->duration == 0) ? UINT64_MAX :
                   (start_time_us + modem_ticks_to_us(params->duration, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ));
@@ -592,7 +611,7 @@ int nrf_modem_dect_phy_rssi(const struct nrf_modem_dect_phy_rssi_params *params)
         (params->start_time == 0) ?
 				     MAX(k_ticks_to_us_floor64(k_uptime_ticks()),
 					 get_timeline_end_time(g_active_phy_ctx)) :
-				     params->start_time;
+				     modem_ticks_to_us(params->start_time, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 
     printk("[MOCK_PHY_RSSI_DBG] Calculating start time...\n");
 
@@ -677,12 +696,27 @@ int nrf_modem_dect_phy_cancel(uint32_t handle)
 /* --- Other dummy implementations --- */
 int nrf_modem_dect_phy_deinit(void) { g_active_phy_ctx->state = PHY_STATE_DEINITIALIZED; return 0; }
 int nrf_modem_dect_phy_deactivate(void) { g_active_phy_ctx->state = PHY_STATE_INITIALIZED; return 0; }
-int nrf_modem_dect_phy_configure(const struct nrf_modem_dect_phy_config_params *params) { return 0; }
+int nrf_modem_dect_phy_configure(const struct nrf_modem_dect_phy_config_params *params) {
+    struct nrf_modem_dect_phy_event event = {
+        .id = NRF_MODEM_DECT_PHY_EVT_CONFIGURE,
+        .configure = {.err = NRF_MODEM_DECT_PHY_SUCCESS}};
+    mock_phy_send_event(&event);
+    return 0;
+}
 int nrf_modem_dect_phy_tx_harq(const struct nrf_modem_dect_phy_tx_params *params) { return nrf_modem_dect_phy_tx(params); }
 int nrf_modem_dect_phy_tx_rx(const struct nrf_modem_dect_phy_tx_rx_params *params) { return 0; }
 int nrf_modem_dect_phy_capability_get(void) { return 0; }
 int nrf_modem_dect_phy_band_get(void) { return 0; }
-int nrf_modem_dect_phy_time_get(void) { return 0; }
+int nrf_modem_dect_phy_time_get(void)
+{
+    struct nrf_modem_dect_phy_event event = {
+        .id = NRF_MODEM_DECT_PHY_EVT_TIME,
+        .time = modem_us_to_ticks(k_ticks_to_us_floor64(k_uptime_ticks()), NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ),
+        .time_get = {.err = NRF_MODEM_DECT_PHY_SUCCESS}
+    };
+    mock_phy_send_event(&event);
+    return 0;
+}
 int nrf_modem_dect_phy_radio_config(const struct nrf_modem_dect_phy_radio_config_params *params) { return 0; }
 int nrf_modem_dect_phy_link_config(const struct nrf_modem_dect_phy_link_config_params *params) { return 0; }
 int nrf_modem_dect_phy_stf_cover_seq_control(bool rx_enable, bool tx_enable) { return 0; }

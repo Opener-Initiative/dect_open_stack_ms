@@ -1,5 +1,5 @@
 tests:
-  cvg.arq:
+  testing.dect_nrplus.cvg.arq:
     tags: dect_nrplus cvg arq
     platform_allow: 
       - native_sim

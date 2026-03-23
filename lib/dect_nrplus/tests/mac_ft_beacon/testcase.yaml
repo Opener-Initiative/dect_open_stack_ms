@@ -1,4 +1,3 @@
-# tests/mac_ft_beacon/testcase.yaml
 tests:
   testing.dect_nrplus.mac_ft_beacon.basic:
     tags: dect_nrplus mac ft

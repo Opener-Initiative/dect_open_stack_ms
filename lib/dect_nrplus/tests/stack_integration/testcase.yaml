@@ -1,5 +1,5 @@
 tests:
-  stack.integration:
+  testing.dect_nrplus.stack.integration:
     tags: dect_nrplus stack
     platform_allow: 
       - native_sim
@@ -12,5 +12,5 @@ tests:
       - native_sim/native/64
       - nrf9161dk/nrf9161/ns
     harness: ztest
-    harness_config:
-      type: one_line
+    # harness_config:
+    #   type: one_line

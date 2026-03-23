@@ -1,0 +1,7 @@
+# /* samples/dect_nrplus_ping/sample.yaml */
+
+sample:
+  name: DECT NR+ Shell Sample
+  description: Demonstrates DECT NR+ stack shell.
+  platforms:
+    - native_sim

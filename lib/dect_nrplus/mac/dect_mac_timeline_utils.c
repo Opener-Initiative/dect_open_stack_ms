@@ -120,10 +120,7 @@ uint64_t calculate_target_modem_time(dect_mac_context_t *ctx, uint64_t sfn_zero_
         return ctx->last_known_modem_time + fallback_delay_ticks;
     }
 
-    uint32_t frame_duration_ticks_val = 0;
-    if (NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ > 0) {
-        frame_duration_ticks_val = (uint32_t)FRAME_DURATION_MS_NOMINAL * (NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ / 1000U);
-    }
+    uint32_t frame_duration_ticks_val = FRAME_DURATION_TICKS;
     if (frame_duration_ticks_val == 0) {
         LOG_ERR("CALC_TIME: Calculated frame_duration_ticks is 0! Modem tick rate likely 0.");
         return UINT64_MAX;
@@ -170,8 +167,7 @@ void update_next_occurrence(dect_mac_context_t *ctx, dect_mac_schedule_t *schedu
 	}
 
 	uint32_t subslot_duration_ticks = get_subslot_duration_ticks_for_mu(link_mu_code);
-	uint32_t frame_duration_ticks =
-		(uint32_t)MAX_SUBSLOTS_IN_FRAME_NOMINAL * subslot_duration_ticks;
+	uint32_t frame_duration_ticks = FRAME_DURATION_TICKS;
 	uint64_t repetition_period_ticks = 0;
 	uint32_t scheduled_duration_subslots = 0;
 	uint16_t current_schedule_start_subslot = 0;
@@ -295,6 +291,7 @@ void update_next_occurrence(dect_mac_context_t *ctx, dect_mac_schedule_t *schedu
 		// 	schedule->is_active = false;
 		// 	return;
 		// }
+#if 0
 		/* Only perform validity check if the schedule has actually started */
 		if (frames_elapsed_since_initial >= 0) {
 			if ((uint8_t)frames_elapsed_since_initial >= schedule->validity_value) {
@@ -306,26 +303,10 @@ void update_next_occurrence(dect_mac_context_t *ctx, dect_mac_schedule_t *schedu
 				schedule->is_active = false;
 				return;
 			}
-		}		
+		}
+#endif		
 	}
 	LOG_DBG("SCHED_UPD: Updated schedule (Ch %u, SS %u): next occurrence at %llu",
 		schedule->channel, current_schedule_start_subslot,
 		schedule->next_occurrence_modem_time);
-}
-
-uint16_t dect_mac_freq_to_channel_num(uint32_t freq_khz)
-{
-	/* Formula for EU band from ETSI TS 103 636-2, Table 5.4.2-1 */
-	/* TODO: Add support for other bands */
-	if (freq_khz < 1881792) {
-		return 0;
-	}
-	return (uint16_t)((freq_khz - 1881792) / 1728);
-}
-
-uint32_t dect_mac_channel_num_to_freq(uint16_t channel_num)
-{
-	/* Formula for EU band from ETSI TS 103 636-2, Table 5.4.2-1 */
-	/* TODO: Add support for other bands */
-	return 1881792 + ((uint32_t)channel_num * 1728);
 }

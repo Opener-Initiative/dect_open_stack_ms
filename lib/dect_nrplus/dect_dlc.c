@@ -46,15 +46,13 @@ BUILD_ASSERT(sizeof(dect_buf_meta_t) <= DLC_NET_BUF_USER_DATA_SIZE,
 #define MAX_DLC_RETRANSMISSION_JOBS      8
 #define DLC_RETRANSMISSION_TIMEOUT_MS    10000
 #define DLC_MAX_RETRIES                  3
+#define DLC_REASSEMBLY_BUF_SIZE          (CONFIG_DECT_MAC_SDU_MAX_SIZE * 5)
 #define DLC_REASSEMBLY_TIMEOUT_MS        5000
 #define DLC_DUPLICATE_CACHE_SIZE         16
 
 /*
- * net_buf pool for data SDUs flowing from MAC→DLC and then to CVG.
- *
- * Fragment size: 256 bytes  — covers single-slot DECT PDUs without fragmentation.
- * For multi-slot (up to 1636 bytes), the reassembly session chains fragments.
- * Count: 48 fragments = ~12 KB, tunable via Kconfig in Phase 5.1.
+ * net_buf pool for data SDUs flowing from MAC→DLC (SAR/reassembly path).
+ * The pool is NOT used for CVG delivery — that path uses dlc_app_sdu_t slabs.
  */
 #define DLC_PKT_BUF_FRAG_SIZE  256
 #define DLC_PKT_BUF_COUNT      48
@@ -74,6 +72,15 @@ struct net_buf_pool *dect_dlc_get_rx_pool(void)
 	return &dlc_rx_pool;
 }
 
+/* A buffer for delivering reassembled SDUs to the CVG layer via k_queue. */
+typedef struct {
+	void *fifo_reserved; /* For k_queue internal use */
+	uint8_t data[CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE];
+	size_t len;
+} dlc_app_sdu_t;
+
+K_MEM_SLAB_DEFINE(g_dlc_app_sdu_slab, sizeof(dlc_app_sdu_t), (4 + MAX_DLC_RETRANSMISSION_JOBS), 4);
+
 static uint16_t dlc_tx_sequence_number = 0;
 static uint32_t g_tx_sdu_lifetime_ms = CONFIG_DECT_DLC_DEFAULT_SDU_LIFETIME_MS;
 static uint32_t g_rx_sdu_lifetime_ms = CONFIG_DECT_DLC_DEFAULT_SDU_LIFETIME_MS;
@@ -81,9 +88,8 @@ static uint32_t g_rx_sdu_lifetime_ms = CONFIG_DECT_DLC_DEFAULT_SDU_LIFETIME_MS;
 /**
  * @brief Context for a DLC SDU awaiting acknowledgement (ARQ).
  *
- * sdu_buf holds a net_buf reference (via net_buf_ref) to the original
- * payload. On ACK, net_buf_unref() is called. On re-TX, the existing
- * reference is reused — no data copy required.
+ * sdu_payload holds a dlc_app_sdu_t slab block containing [Routing Hdr | CVG PDU].
+ * On ACK or lifetime expiry, k_mem_slab_free() releases it.
  */
 typedef struct {
 	void *fifo_reserved; /* For k_fifo internal use */
@@ -92,7 +98,7 @@ typedef struct {
 	uint8_t retries;
 	dlc_service_type_t service;
 	uint32_t dest_long_id;
-	struct net_buf *sdu_buf; /**< net_buf ref holding [Routing Hdr | CVG PDU] */
+	dlc_app_sdu_t *sdu_payload; /**< Slab block holding [Routing Hdr | CVG PDU] */
 	struct k_timer retransmit_attempt_timer;
 	struct k_timer lifetime_timer;
 	uint8_t flow_id; /**< Stored Flow ID for retransmission */
@@ -122,7 +128,8 @@ static uint8_t g_dlc_dup_cache_next_idx = 0;
 typedef struct {
 	bool is_active;
 	uint16_t sequence_number;
-	struct net_buf *buf;        /**< Fragment chain being assembled */
+	struct net_buf *buf;        /**< Fragment chain being assembled (MAC side) */
+	uint8_t reassembly_buf[DLC_REASSEMBLY_BUF_SIZE]; /**< Linear fallback buffer */
 	size_t total_sdu_len;       /**< Set when last segment received */
 	size_t bytes_received;      /**< Running tally of payload bytes */
 	struct k_timer timeout_timer;
@@ -404,10 +411,10 @@ static void dlc_tx_status_cb_handler(uint16_t dlc_sn, bool success)
 	k_timer_stop(&job->lifetime_timer);
 
 	if (success) {
-		LOG_INF("DLC_ARQ_CB: MAC SUCCESS for SN %u. Unreffing net_buf.", dlc_sn);
-		if (job->sdu_buf) {
-			net_buf_unref(job->sdu_buf);
-			job->sdu_buf = NULL;
+		LOG_INF("DLC_ARQ_CB: MAC SUCCESS for SN %u. Freeing job.", dlc_sn);
+		if (job->sdu_payload) {
+			k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)job->sdu_payload);
+			job->sdu_payload = NULL;
 		}
 		job->is_active = false;
 	} else {
@@ -478,6 +485,7 @@ __weak int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 	}
 
 	if (needs_dlc_arq) {
+		/* ARQ logic: store header + payload in a slab block */
 		int job_idx = -1;
 		for (int i = 0; i < MAX_DLC_RETRANSMISSION_JOBS; i++) {
 			if (!retransmission_jobs[i].is_active) {
@@ -491,27 +499,13 @@ __weak int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 		}
 
 		dlc_retransmission_job_t *arq_job = &retransmission_jobs[job_idx];
-
-		/* Allocate a net_buf from the shared pool and write [RH | CVG PDU] into it.
-		 * net_buf_add_mem copies in data but no separate allocation is made for
-		 * the ARQ job context itself (we reuse the retransmission_jobs[] slot).
-		 * If the full SDU exceeds the fragment size, fragments are chained.
-		 */
-		size_t total_len = (size_t)rh_len + cvg_pdu_len;
-		struct net_buf *arq_buf = net_buf_alloc_len(&dlc_rx_pool, MIN(total_len, DLC_PKT_BUF_FRAG_SIZE), K_NO_WAIT);
-		if (!arq_buf) {
-			LOG_ERR("DLC_SEND_ARQ: Could not allocate net_buf for ARQ job. Dropping.");
+		if (k_mem_slab_alloc(&g_dlc_app_sdu_slab, (void **)&arq_job->sdu_payload, K_NO_WAIT) != 0) {
+			LOG_ERR("DLC_SEND_ARQ: Failed to allocate buffer from ARQ slab. Dropping.");
 			return -ENOMEM;
 		}
-		/* Write routing header then CVG payload into buf (append allocates more fragments if needed) */
-		if (net_buf_append_bytes(arq_buf, rh_len, rh_buf, K_NO_WAIT, dlc_pool_alloc_cb, &dlc_rx_pool) < rh_len ||
-		    net_buf_append_bytes(arq_buf, cvg_pdu_len, cvg_pdu_payload, K_NO_WAIT, dlc_pool_alloc_cb, &dlc_rx_pool) < (int)cvg_pdu_len) {
-			LOG_ERR("DLC_SEND_ARQ: Insufficient pool fragments for ARQ buf (need %zu bytes).", total_len);
-			net_buf_unref(arq_buf);
-			return -ENOMEM;
-		}
-
-		arq_job->sdu_buf = arq_buf;
+		memcpy(arq_job->sdu_payload->data, rh_buf, rh_len);
+		memcpy(arq_job->sdu_payload->data + rh_len, cvg_pdu_payload, cvg_pdu_len);
+		arq_job->sdu_payload->len = rh_len + cvg_pdu_len;
 		arq_job->is_active = true;
 		arq_job->sequence_number = current_dlc_sn;
 		arq_job->retries = 0;
@@ -890,7 +884,7 @@ static void dlc_process_sdu_payload(const uint8_t *payload_ptr, size_t payload_l
             goto advance_to_next_message; 
         }
 
-        /* Packet is for us, strip routing header and deliver */
+        /* Packet is for us, strip routing header and deliver to CVG via slab */
         dlc_rx_delivery_item_t *item = NULL;
         int alloc_ret = k_mem_slab_alloc(&g_dlc_rx_delivery_item_slab, (void **)&item, K_NO_WAIT);
 
@@ -901,48 +895,36 @@ static void dlc_process_sdu_payload(const uint8_t *payload_ptr, size_t payload_l
         }
 
         if (alloc_ret == 0) {
-            /* Allocate net_buf from pool and copy payload into it */
-            struct net_buf *deliver_buf = net_buf_alloc_len(
-                dect_dlc_get_rx_pool(),
-                MIN(current_msg_payload_len, DLC_PKT_BUF_FRAG_SIZE),
-                K_NO_WAIT);
+            dlc_app_sdu_t *app_sdu = NULL;
+            int sdu_alloc_ret = k_mem_slab_alloc(&g_dlc_app_sdu_slab, (void **)&app_sdu, K_NO_WAIT);
 
-            if (deliver_buf) {
-                int appended = net_buf_append_bytes(deliver_buf, current_msg_payload_len,
-                    current_msg_payload_ptr, K_NO_WAIT, dlc_pool_alloc_cb, dect_dlc_get_rx_pool());
-                if (appended < (int)current_msg_payload_len) {
-                    LOG_ERR("DLC_RX: pool exhausted delivering SN %u payload", sn);
-                    net_buf_unref(deliver_buf);
-                    k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)item);
-                    goto advance_to_next_message;
+            if (sdu_alloc_ret != 0) {
+                if (dlc_sched_drop_oldest() == 0) {
+                    sdu_alloc_ret = k_mem_slab_alloc(&g_dlc_app_sdu_slab, (void **)&app_sdu, K_NO_WAIT);
                 }
+            }
 
-                /* Tag net_buf user_data with DECT metadata */
-                dect_buf_meta_t *meta = dect_buf_meta(deliver_buf);
-                meta->source_addr = rh.source_addr;
-                meta->dest_addr = rh.dest_addr;
-                meta->dlc_sn = sn;
-                meta->flow_id = mac_sdu->flow_id_present ? mac_sdu->flow_id : MAC_FLOW_HIGH_PRIORITY;
-                meta->service_type = DLC_SERVICE_TYPE_1_SEGMENTATION;
-                meta->flags = 0;
-
-                item->sdu_buf = deliver_buf;
+            if (sdu_alloc_ret == 0) {
+                memcpy(app_sdu->data, current_msg_payload_ptr, current_msg_payload_len);
+                app_sdu->len = current_msg_payload_len;
+                item->sdu_buf = app_sdu;
                 item->is_app_sdu = true;
                 item->dlc_service_type = DLC_SERVICE_TYPE_1_SEGMENTATION;
 
-                uint8_t flow = meta->flow_id;
+                uint8_t flow = mac_sdu->flow_id_present ? mac_sdu->flow_id : MAC_FLOW_HIGH_PRIORITY;
                 int lane = DLC_LANE_LOW;
                 if (flow == MAC_FLOW_HIGH_PRIORITY) lane = DLC_LANE_HIGH;
                 else if (flow == MAC_FLOW_RELIABLE_DATA) lane = DLC_LANE_MED;
+                else if (flow == MAC_FLOW_BEST_EFFORT) lane = DLC_LANE_LOW;
 
                 item->priority = lane;
                 item->entry_timestamp = net_get_os_tick();
                 item->origin_queue = &g_dlc_scheduler.queues[lane];
 
                 k_queue_append(&g_dlc_scheduler.queues[lane], item);
-                LOG_DBG("DLC_SCHED: SN %u, flow %u -> lane %d", sn, flow, lane);
+                printk("[DLC_SCHED_DBG] Packet (SN %u, Flow %u) enqueued to Lane %d.\n", sn, flow, lane);
             } else {
-                LOG_ERR("DLC_RX: pool exhausted for delivery item SN %u", sn);
+                LOG_ERR("Failed to allocate from app_sdu_slab");
                 k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)item);
             }
         }
@@ -1104,10 +1086,10 @@ static void dlc_tx_service_thread_entry(void *p1, void *p2, void *p3)
 		}
 
 		if (job->retries >= DLC_MAX_RETRIES) {
-			LOG_ERR("DLC_ARQ_SVC: Job for SN %u reached max retries. Discarding.", job->sequence_number);
-			if (job->sdu_buf) {
-				net_buf_unref(job->sdu_buf);
-				job->sdu_buf = NULL;
+			LOG_ERR("DLC_ARQ_SVC: Job for SN %u has reached max retries. Discarding.", job->sequence_number);
+			if (job->sdu_payload) {
+				k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)job->sdu_payload);
+				job->sdu_payload = NULL;
 			}
 			job->is_active = false;
 			continue;
@@ -1127,28 +1109,26 @@ static void dlc_tx_service_thread_entry(void *p1, void *p2, void *p3)
 
 static int dlc_resend_sdu_with_original_sn(dlc_retransmission_job_t *job)
 {
-	if (!job || !job->is_active || !job->sdu_buf) {
+	if (!job || !job->is_active || !job->sdu_payload) {
 		return -EINVAL;
 	}
 
-	/* The job->sdu_buf contains the full SDU (Routing Header + CVG Payload)
-	 * potentially across multiple fragments. Linearize to parse the routing header.
+	/* The job->sdu_payload contains the full SDU (Routing Header + CVG Payload).
+	 * We need to parse the routing header to know its length, so we can pass
+	 * the header and the payload as separate arguments to dlc_send_segmented.
 	 */
-	size_t total_len = net_buf_frags_len(job->sdu_buf);
-	uint8_t tmp_buf[total_len]; /* Stack-allocated view for parsing only */
-	net_buf_linearize(tmp_buf, total_len, job->sdu_buf, 0, total_len);
-
 	dect_dlc_routing_header_t rh;
-	int rh_len = dlc_parse_routing_header(tmp_buf, total_len, &rh);
+	int rh_len = dlc_parse_routing_header(job->sdu_payload->data, job->sdu_payload->len, &rh);
+
 	if (rh_len <= 0) {
-		LOG_ERR("ARQ_RESEND: Could not parse routing header from stored net_buf for SN %u.",
+		LOG_ERR("ARQ_RESEND: Could not parse routing header from stored SDU for SN %u.",
 			job->sequence_number);
 		return -EBADMSG;
 	}
 
-	const uint8_t *sdu_hdr = tmp_buf;
-	const uint8_t *sdu_payload = tmp_buf + rh_len;
-	size_t sdu_payload_len = total_len - rh_len;
+	const uint8_t *sdu_hdr = job->sdu_payload->data;
+	const uint8_t *sdu_payload = job->sdu_payload->data + rh_len;
+	size_t sdu_payload_len = job->sdu_payload->len - rh_len;
 
 	return dlc_send_segmented(job->service, job->dest_long_id, sdu_hdr, rh_len, sdu_payload,
 				    sdu_payload_len, job->sequence_number, job->flow_id);
@@ -1322,35 +1302,52 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 
 
 	if (!delivery_item->sdu_buf) {
-		LOG_ERR("DLC_RECV: delivery item has no sdu_buf");
+		LOG_ERR("No delivery_item->sdu_buf");
 		k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)delivery_item);
 		return -EFAULT;
 	}
 
-	struct net_buf *sdu_buf = delivery_item->sdu_buf;
-	size_t payload_len = net_buf_frags_len(sdu_buf);
+	printk("[DLC_RECV_DBG] delivery_item->is_app_sdu:%s *app_level_payload_len_inout:%zu \n",
+	       delivery_item->is_app_sdu ? "Yes" : "No", *app_level_payload_len_inout);
 
-	if (*app_level_payload_len_inout < payload_len) {
-		/* Buffer too small — put item back and return error */
-		k_queue_prepend(&g_dlc_scheduler.queues[selected_lane], delivery_item);
+	if (delivery_item->is_app_sdu) {
+		dlc_app_sdu_t *sdu_buf = delivery_item->sdu_buf;
+
+		if (*app_level_payload_len_inout < sdu_buf->len) {
+			/* Buffer too small - put item back (prepend) and return error */
+			k_queue_prepend(&g_dlc_scheduler.queues[selected_lane], delivery_item);
+			return -EMSGSIZE;
+		}
+
+		*app_level_payload_len_inout = sdu_buf->len;
+		memcpy(app_level_payload_buf, sdu_buf->data, sdu_buf->len);
+
+		printk("  -> Freeing app_sdu_buf at address: %p to slab g_dlc_app_sdu_slab\n",
+		       (void *)sdu_buf);
+		k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)sdu_buf);
+	} else {
+		/* Legacy path fallback, usually unused now */
+		mac_sdu_t *sdu_buf = delivery_item->sdu_buf;
+
+		/* Unsegmented packets have routing header stripped before this point */
+		const uint8_t *payload = sdu_buf->data + sizeof(dect_dlc_header_type123_basic_t);
+		size_t payload_len = sdu_buf->len - sizeof(dect_dlc_header_type123_basic_t);
+
+		if (*app_level_payload_len_inout < payload_len) {
+			*app_level_payload_len_inout = payload_len;
+			k_queue_prepend(&g_dlc_scheduler.queues[selected_lane], delivery_item);
+			return -EMSGSIZE;
+		}
+
 		*app_level_payload_len_inout = payload_len;
-		return -EMSGSIZE;
-	}
+		memcpy(app_level_payload_buf, payload, payload_len);
 
-	/* Copy payload to caller's buffer from the net_buf fragment chain */
-	net_buf_linearize(app_level_payload_buf, *app_level_payload_len_inout, sdu_buf, 0, payload_len);
-	*app_level_payload_len_inout = payload_len;
-
-	/* Pass metadata to caller via source_addr_out */
-	dect_buf_meta_t *meta = dect_buf_meta(sdu_buf);
-	if (source_addr_out) {
-		*source_addr_out = meta->source_addr;
+		printk("  -> Freeing mac_sdu_buf at address: %p\n", (void *)sdu_buf);
+		dect_mac_buffer_free(sdu_buf);
 	}
 
 	*service_type_out = delivery_item->dlc_service_type;
-
-	/* Release the net_buf and the delivery item wrapper */
-	net_buf_unref(sdu_buf);
+	/* Free the delivery item wrapper */
 	k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)delivery_item);
 	return 0;
 }
@@ -1376,6 +1373,7 @@ static dlc_reassembly_session_t* find_or_alloc_reassembly_session(uint16_t seque
         session->sequence_number = sequence_number;
         session->service_type = service;
         session->buf = NULL;
+        memset(session->reassembly_buf, 0, DLC_REASSEMBLY_BUF_SIZE);
         session->bytes_received = 0;
         session->total_sdu_len = 0;
         k_timer_start(&session->timeout_timer, K_MSEC(g_rx_sdu_lifetime_ms), K_NO_WAIT);
@@ -1416,11 +1414,11 @@ static void dlc_tx_sdu_lifetime_expiry_handler(struct k_timer *timer_id)
 {
 	dlc_retransmission_job_t *job = CONTAINER_OF(timer_id, dlc_retransmission_job_t, lifetime_timer);
 	if (job && job->is_active) {
-		LOG_ERR("DLC_LIFETIME: SDU with SN %u expired. Unreffing net_buf.", job->sequence_number);
+		LOG_ERR("DLC_LIFETIME: SDU with SN %u expired. Discarding from ARQ buffer.", job->sequence_number);
 		k_timer_stop(&job->retransmit_attempt_timer);
-		if (job->sdu_buf) {
-			net_buf_unref(job->sdu_buf);
-			job->sdu_buf = NULL;
+		if (job->sdu_payload) {
+			k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)job->sdu_payload);
+			job->sdu_payload = NULL;
 		}
 		job->is_active = false;
 	}
@@ -1648,7 +1646,11 @@ static int dlc_sched_drop_oldest(void)
             LOG_WRN("DLC_SCHED_DROP: Dropped oldest item from Lane %d due to buffer pressure.", lane);
             
             if (dropped->sdu_buf) {
-                net_buf_unref(dropped->sdu_buf);
+                if (dropped->is_app_sdu) {
+                    k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)dropped->sdu_buf);
+                } else {
+                    dect_mac_buffer_free(dropped->sdu_buf);
+                }
             }
             k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)dropped);
             return 0;

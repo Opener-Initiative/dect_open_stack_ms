@@ -1,6 +1,6 @@
 
 tests:
-  dect_stack.integration.cvg_to_cvg:
+  testing.dect_nrplus.stack_integration.cvg_to_cvg:
     tags: dect_nrplus stack_integration
     platform_allow: native_sim
     integration_platforms:

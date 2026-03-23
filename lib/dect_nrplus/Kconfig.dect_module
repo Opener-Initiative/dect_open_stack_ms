@@ -12,6 +12,7 @@ menuconfig DECT_NRPLUS_STACK
 	select PRINTK
 	select POLL
 	select CBPRINTF_FP_SUPPORT
+	select NET_BUF
 	help
 	  Enable the full DECT NR+ protocol stack, including the MAC, DLC,
 	  and CVG layers. This is typically selected automatically by a
@@ -181,7 +182,6 @@ endmenu # DECT NR+ Stack Logging Levels
 # Source the Kconfig files for each layer of the stack first.
 # This ensures their main symbols (e.g., DECT_MAC_LAYER) are defined
 # before being used as dependencies in menus below.
-
 rsource "Kconfig.dect_mac"
 rsource "Kconfig.dect_dlc"
 rsource "Kconfig.dect_cvg"

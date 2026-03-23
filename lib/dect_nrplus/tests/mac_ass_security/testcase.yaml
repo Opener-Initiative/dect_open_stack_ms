@@ -1,0 +1,19 @@
+tests:
+  testing.dect_nrplus.mac_ass.security:
+    tags: dect_nrplus mac security
+    platform_allow: 
+      # - native_sim
+      # - native_sim/native
+      # - native_sim/native/64
+      - nrf9151dk/nrf9151/ns
+      - nrf9161dk/nrf9161/ns
+    integration_platforms:
+      # - native_sim
+      # - native_sim/native
+      # - native_sim/native/64
+      - nrf9151dk
+      - nrf9161dk
+    harness: ztest
+    harness_config:
+      type: one_line
+

@@ -21,7 +21,7 @@ config DECT_NRPLUS_LOG_LEVEL
 # Option for 6LoWPAN integration over DECT NR+
 config NET_L2_6LO_DECT_NRPLUS
 	bool "6LoWPAN over DECT NR+"
-	depends on NET_L2_6LO && NET_IPV6 # 6LoWPAN requires IPv6
+	depends on NET_6LO && NET_IPV6 # 6LoWPAN requires IPv6
 	select NET_L2_SIXLoWPAN # Selects the generic 6LoWPAN L2 component
 	help
 		Enable 6LoWPAN adaptation layer to run on top of the DECT NR+ L2 driver.

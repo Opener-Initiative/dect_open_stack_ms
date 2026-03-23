@@ -57,5 +57,6 @@ void debug_operation_handle_map(const char *test_name);
 
 void dect_mac_phy_if_reset_handle_map(void);
 
+extern struct k_sem phy_init_sem;
 
 #endif /* DECT_MAC_PHY_IF_H__ */

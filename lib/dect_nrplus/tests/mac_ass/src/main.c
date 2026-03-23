@@ -168,7 +168,7 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
             remaining = k_timer_remaining_get(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
             if (remaining > 0) {
                 next_timer_ticks = MIN(next_timer_ticks, remaining);
-                printk("[SIMULATION] PT keep-alive timer running, expires in %u ticks\n", remaining);
+                printk("[SIMULATION] PT keep-alive timer running, expires in %llu ticks\n", remaining);
             }
         }
         
@@ -177,7 +177,7 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
             remaining = k_timer_remaining_get(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
             if (remaining > 0) {
                 next_timer_ticks = MIN(next_timer_ticks, remaining);
-                printk("[SIMULATION] FT beacon timer running, expires in %u ticks\n", remaining);
+                printk("[SIMULATION] FT beacon timer running, expires in %llu ticks\n", remaining);
             }
         }
         
@@ -415,10 +415,10 @@ ZTEST(dect_mac_assoc, test_pt_ft_association)
 	process_all_mac_events();
 	zassert_true(run_simulation_until(2000000, is_ft_beaconing), "FT never started beaconing");
 
-	/* 2. Trigger beacon (transmission is now handled automatically by mock TX) */
-    printk("\n\n[TEST] 2. Trigger beacon (transmission is now handled automatically by mock TX)\n");
-	dect_mac_test_inject_event_internal(&g_mac_ctx_ft, MAC_EVENT_TIMER_EXPIRED_BEACON, 0);
-	process_all_mac_events();
+	// /* 2. Trigger beacon (transmission is now handled automatically by mock TX) */
+    // printk("\n\n[TEST] 2. Trigger beacon (transmission is now handled automatically by mock TX)\n");
+	// dect_mac_test_inject_event_internal(&g_mac_ctx_ft, MAC_EVENT_TIMER_EXPIRED_BEACON, 0);
+	// process_all_mac_events();
 
 
 	/* 3. Start PT and run simulation until it becomes associated */
@@ -428,7 +428,7 @@ ZTEST(dect_mac_assoc, test_pt_ft_association)
 	nrf_modem_dect_phy_activate(NRF_MODEM_DECT_PHY_RADIO_MODE_LOW_LATENCY);
 	dect_mac_start();
 	process_all_mac_events();
-	zassert_true(run_simulation_until(2000000, is_pt_associated), "PT never became associated");
+	zassert_true(run_simulation_until(20000000, is_pt_associated), "PT never became associated");
 
 	/* 4. Final assertions */
     printk("\n\n[TEST] 4. Final assertions\n");

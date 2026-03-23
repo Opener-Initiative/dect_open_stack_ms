@@ -15,20 +15,37 @@ choice DECT_CRYPTO_BACKEND
 	help
 	  Select the cryptographic backend for DECT NR+ security operations.
 
+# config DECT_CRYPTO_PSA
+# 	bool "PSA Crypto API"
+# 	select MBEDTLS
+# 	select MBEDTLS_PSA_CRYPTO_C
+# 	select PSA_CRYPTO_INIT
+# 	select PSA_WANT_ALG_CTR
+# 	select PSA_WANT_ALG_CMAC
+# 	select PSA_WANT_ALG_ECB_NO_PADDING
+# 	select PSA_WANT_KEY_TYPE_AES
+# 	select PSA_WANT_AES_KEY_SIZE_128
+# 	help
+# 	  Use PSA Crypto API for cryptographic operations.
+# 	  This is the default and recommended backend.
 config DECT_CRYPTO_PSA
 	bool "PSA Crypto API"
 	select MBEDTLS
 	select MBEDTLS_PSA_CRYPTO_C
-	select PSA_CRYPTO_INIT
-	select PSA_WANT_ALG_CTR
-	select PSA_WANT_ALG_CMAC
-	select PSA_WANT_ALG_ECB_NO_PADDING
-	select PSA_WANT_KEY_TYPE_AES
-	select PSA_WANT_AES_KEY_SIZE_128
+	
+	# Fixes the 'fatal error: psa/crypto.h' on the simulator
+	select PSA_CRYPTO_CLIENT if !NRF_SECURITY
+	
+	# Hardware-specific algorithms (only exist when NRF_SECURITY=y)
+	select PSA_CRYPTO_INIT if NRF_SECURITY
+	select PSA_WANT_ALG_CTR if NRF_SECURITY
+	select PSA_WANT_ALG_CMAC if NRF_SECURITY
+	select PSA_WANT_ALG_ECB_NO_PADDING if NRF_SECURITY
+	select PSA_WANT_KEY_TYPE_AES if NRF_SECURITY
+	select PSA_WANT_AES_KEY_SIZE_128 if NRF_SECURITY
 	help
 	  Use PSA Crypto API for cryptographic operations.
-	  This is the default and recommended backend.
-
+	  
 
 config DECT_CRYPTO_TINYCRYPT
 	bool "TinyCrypt"

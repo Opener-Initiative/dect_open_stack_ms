@@ -19,8 +19,12 @@ bool tx_capture_is_from_long_id(uint32_t expected_tx_long_id)
     printk("Expected TX Long ID: 0x%08X\n", expected_tx_long_id);
     printk("Captured PDU length: %u bytes\n", g_last_tx_pdu_len_capture);
     
+    if (g_last_tx_pdu_len_capture == 0) {
+        return false;
+    }
+    
     if (g_last_tx_pdu_len_capture < sizeof(dect_mac_header_type_octet_t)) {
-        printk("ERROR: PDU too short for header type detection\n");
+        printk("ERROR: PDU too short for header type detection (%u bytes)\n", g_last_tx_pdu_len_capture);
         return false;
     }
 
