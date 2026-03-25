@@ -1,0 +1,625 @@
+D: stack 0x200178c0 for thread 0x20016250: obj_size=4096 buf_start=0x2
+00178c0  buf_size 4096 stack_ptr=0x200188c0
+D: stack 0x20017780 for thread 0x200161a8: obj_size=320 buf_start=0x20
+017780  buf_size 320 stack_ptr=0x200178c0
+D: lfclk: Clock started
+D: stack 0x200198c0 for thread 0x200163c0: obj_size=1024 buf_start=0x2
+00198c0  buf_size 1024 stack_ptr=0x20019cc0
+*** Booting nRF Connect SDK v3.0.2-89ba1294ac9b ***
+*** Using Zephyr OS v4.0.99-f791c49f492c ***
+D: scheduler unlocked (0x20016250:0)
+Running TESTSUITE dect_mac_security
+===================================================================
+dect_mac_security_setup 0
+START - test_crypto_support
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+PSA Crypto Support Status:
+CMAC algorithm: ENABLED
+AES key type: ENABLED
+PSA Crypto Client: ENABLED
+PASS - test_crypto_support in 0.020 seconds
+===================================================================
+START - test_ctr_encryption_decryption
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+D: CRYPT: Encrypting 16 bytes
+D: Cipher Key:
+D: ae 68 52 f8 12 10 67 cc |.hR...g.
+D: 4b f7 a5 76 55 77 f3 9e |K..vUw..
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: CRYPT: Decrypting 16 bytes
+D: Cipher Key:
+D: ae 68 52 f8 12 10 67 cc |.hR...g.
+D: 4b f7 a5 76 55 77 f3 9e |K..vUw..
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+PASS - test_ctr_encryption_decryption in 0.189 seconds
+===================================================================
+START - test_direct_psa_api_call
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+--- DIAGNOSTIC TEST: Calling PSA API directly ---
+Attempting to import key directly in test...
+D: Key material:
+D: 2b 7e 15 16 28 ae d2 a6 |+~..(...
+D: ab f7 15 88 09 cf 4f 3c |......O<
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+PASS - test_direct_psa_api_call in 0.054 seconds
+===================================================================
+START - test_driver_status
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+Crypto Driver Status:
+Oberon driver: ENABLED
+CC310 driver: DISABLED
+PSA CC310 driver: DISABLED
+PASS - test_driver_status in 0.019 seconds
+===================================================================
+START - test_iv_build
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+PASS - test_iv_build in 0.011 seconds
+===================================================================
+START - test_key_attributes
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+Key attributes verified
+PASS - test_key_attributes in 0.013 seconds
+===================================================================
+START - test_key_generation_minimal
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+Key generation: Success
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+Key destroy: Success
+PASS - test_key_generation_minimal in 0.041 seconds
+===================================================================
+START - test_mic_calculation
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+D: MIC_CALC: Computing CMAC for 16 bytes
+D: Integrity Key:
+D: 2b 7e 15 16 28 ae d2 a6 |+~..(...
+D: ab f7 15 88 09 cf 4f 3c |......O<
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+PASS - test_mic_calculation in 0.062 seconds
+===================================================================
+START - test_neg_ctr_corrupted_ciphertext
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+D: CRYPT: Encrypting 16 bytes
+D: Cipher Key:
+D: ae 68 52 f8 12 10 67 cc |.hR...g.
+D: 4b f7 a5 76 55 77 f3 9e |K..vUw..
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: CRYPT: Decrypting 16 bytes
+D: Cipher Key:
+D: ae 68 52 f8 12 10 67 cc |.hR...g.
+D: 4b f7 a5 76 55 77 f3 9e |K..vUw..
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [PASS] Ciphertext corruption successfully corrupted the resulting p
+laintext.
+PASS - test_neg_ctr_corrupted_ciphertext in 0.196 seconds
+===================================================================
+START - test_neg_iv_uniqueness_prevents_replay
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+D: CRYPT: Encrypting 16 bytes
+D: Cipher Key:
+D: ae 68 52 f8 12 10 67 cc |.hR...g.
+D: 4b f7 a5 76 55 77 f3 9e |K..vUw..
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: CRYPT: Encrypting 16 bytes
+D: Cipher Key:
+D: ae 68 52 f8 12 10 67 cc |.hR...g.
+D: 4b f7 a5 76 55 77 f3 9e |K..vUw..
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [PASS] PSN increment generated unique IVs and distinct ciphertexts.
+PASS - test_neg_iv_uniqueness_prevents_replay in 0.195 seconds
+===================================================================
+START - test_neg_mic_tampered_payload
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+D: MIC_CALC: Computing CMAC for 16 bytes
+D: Integrity Key:
+D: 2b 7e 15 16 28 ae d2 a6 |+~..(...
+D: ab f7 15 88 09 cf 4f 3c |......O<
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [PASS] 1-bit payload modification resulted in completely invalid MI
+C.
+PASS - test_neg_mic_tampered_payload in 0.068 seconds
+===================================================================
+START - test_neg_mic_wrong_key
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+D: MIC_CALC: Computing CMAC for 16 bytes
+D: Integrity Key:
+D: 2b 7e 15 16 28 ae d2 a6 |+~..(...
+D: ab f7 15 88 09 cf 4f c3 |......O.
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [PASS] Invalid integrity key resulted in completely invalid MIC.
+PASS - test_neg_mic_wrong_key in 0.068 seconds
+===================================================================
+START - test_neg_timing_safe_compare
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+I: [PASS] Timing-safe compare correctly rejected forged MAC.
+PASS - test_neg_timing_safe_compare in 0.016 seconds
+===================================================================
+START - test_psa_info
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+PSA Crypto Implementation Info:
+PSA_CRYPTO_DRIVER_CC310: disabled
+PSA_CRYPTO_DRIVER_OBERON: enabled
+CRYPTO_NRF_CC310: disabled
+MBEDTLS_PSA_CRYPTO_C: enabled
+MBEDTLS_PSA_CRYPTO_CONFIG: enabled
+PSA_CRYPTO_INIT: disabled
+PASS - test_psa_info in 0.031 seconds
+===================================================================
+START - test_psa_init
+D: stack 0x20016780 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+0016780  buf_size 2048 stack_ptr=0x20016f80
+PSA Crypto initialized successfully
+PASS - test_psa_init in 0.014 seconds
+===================================================================
+TESTSUITE dect_mac_security succeeded
+------ TESTSUITE SUMMARY START ------
+SUITE PASS - 100.00% [dect_mac_security]: pass = 15, fail = 0, skip =
+0, total = 15 duration = 0.997 seconds
+- PASS - [dect_mac_security.test_crypto_support] duration = 0.020 sec
+onds
+- PASS - [dect_mac_security.test_ctr_encryption_decryption] duration
+= 0.189 seconds
+- PASS - [dect_mac_security.test_direct_psa_api_call] duration = 0.05
+4 seconds
+- PASS - [dect_mac_security.test_driver_status] duration = 0.019 seco
+nds
+- PASS - [dect_mac_security.test_iv_build] duration = 0.011 seconds
+- PASS - [dect_mac_security.test_key_attributes] duration = 0.013 sec
+onds
+- PASS - [dect_mac_security.test_key_generation_minimal] duration = 0
+.041 seconds
+- PASS - [dect_mac_security.test_mic_calculation] duration = 0.062 se
+conds
+- PASS - [dect_mac_security.test_neg_ctr_corrupted_ciphertext] durati
+on = 0.196 seconds
+- PASS - [dect_mac_security.test_neg_iv_uniqueness_prevents_replay] d
+uration = 0.195 seconds
+- PASS - [dect_mac_security.test_neg_mic_tampered_payload] duration =
+0.068 seconds
+- PASS - [dect_mac_security.test_neg_mic_wrong_key] duration = 0.068
+seconds
+- PASS - [dect_mac_security.test_neg_timing_safe_compare] duration =
+0.016 seconds
+- PASS - [dect_mac_security.test_psa_info] duration = 0.031 seconds
+- PASS - [dect_mac_security.test_psa_init] duration = 0.014 seconds
+------ TESTSUITE SUMMARY END ------
+===================================================================
+PROJECT EXECUTION SUCCESSFUL
+D: stack 0x20017830 for thread 0x20016250: obj_size=4096 buf_start=0x2
+0017830  buf_size 4096 stack_ptr=0x20018830
+D: stack 0x200176f0 for thread 0x200161a8: obj_size=320 buf_start=0x20
+0176f0  buf_size 320 stack_ptr=0x20017830
+D: lfclk: Clock started
+D: stack 0x20019830 for thread 0x200163c0: obj_size=1024 buf_start=0x2
+0019830  buf_size 1024 stack_ptr=0x20019c30
+*** Booting nRF Connect SDK v3.0.2-89ba1294ac9b ***
+*** Using Zephyr OS v4.0.99-f791c49f492c ***
+D: scheduler unlocked (0x20016250:0)
+Running TESTSUITE dect_cvg_security
+===================================================================
+I: --- Initializing PSA Crypto Subsystem ---
+I: PSA Crypto initialized successfully.
+START - test_cvg_attachment_flow
+D: stack 0x200166f0 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+00166f0  buf_size 2048 stack_ptr=0x20016ef0
+I: ========== STARTING TEST: test_cvg_attachment_flow ==========
+I: [STATE] Current CVG State: DETACHED (0)
+I: [ACTION] Initiating CVG Network Attachment Request...
+I: [STATE] New CVG State: ATTACHING (1)
+I: [ACTION] Received over-the-air 'Attach Challenge' from Peer.
+I: Challenge PDU Details:
+I: 01 11 11 11 11 22 22 22 |....."""
+I: 22 33 33 33 33 44 44 44 |"3333DDD
+I: 44                      |D
+I: [ACTION] Processing Challenge and deriving Session Keys internally.
+..
+I: [STATE] New CVG State: ATTACHED (2)
+I: [SUCCESS] Network attachment flow and key installation completed.
+I: ========== END OF TEST: test_cvg_attachment_flow ==========
+PASS - test_cvg_attachment_flow in 0.069 seconds
+===================================================================
+START - test_cvg_key_derivation
+D: stack 0x200166f0 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+00166f0  buf_size 2048 stack_ptr=0x20016ef0
+I: ========== STARTING TEST: test_cvg_key_derivation ==========
+I: [INPUT] Master/Pre-Shared Key:
+I: 00 01 02 03 04 05 06 07 |........
+I: 08 09 0a 0b 0c 0d 0e 0f |........
+I: [INPUT] Local Nonce (Salt):
+I: aa aa aa aa bb bb bb bb |........
+I: cc cc cc cc dd dd dd dd |........
+I: [INPUT] Remote Nonce (Info):
+I: 11 11 11 11 22 22 22 22 |....""""
+I: 33 33 33 33 44 44 44 44 |3333DDDD
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [STEP 1] Master Key imported into secure storage (ID: 1073741825).
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [STEP 2] KDF Engine setup for HKDF-SHA256.
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [STEP 3] Local Nonce applied to KDF as Salt.
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [STEP 4] Master Key applied to KDF as Secret.
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [STEP 5] Remote Nonce applied to KDF as Info.
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [SUCCESS] KDF mathematically combined inputs into a new Session Key
+!
+I: [OUTPUT] Derived Session Key:
+I: 6b e5 5d 1e 32 93 01 91 |k.].2...
+I: b4 09 e9 8f 13 e2 20 12 |...... .
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: ========== END OF TEST: test_cvg_key_derivation ==========
+PASS - test_cvg_key_derivation in 0.195 seconds
+===================================================================
+START - test_cvg_neg_mismatched_psk
+D: stack 0x200166f0 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+00166f0  buf_size 2048 stack_ptr=0x20016ef0
+I: === NEGATIVE TEST: Mismatched PSK (Unauthorized Device) ===
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [PASS] Rogue PSK resulted in an invalid session key.
+PASS - test_cvg_neg_mismatched_psk in 0.231 seconds
+===================================================================
+START - test_cvg_neg_replay_attack_sn_window
+D: stack 0x200166f0 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+00166f0  buf_size 2048 stack_ptr=0x20016ef0
+I: === NEGATIVE TEST: Replay Attack Detection (SN Window) ===
+I: [PASS] Replay attack detected and packet dropped (SN 1400 vs Expect
+ed 1500).
+PASS - test_cvg_neg_replay_attack_sn_window in 0.023 seconds
+===================================================================
+START - test_cvg_neg_tampered_nonce
+D: stack 0x200166f0 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+00166f0  buf_size 2048 stack_ptr=0x20016ef0
+I: === NEGATIVE TEST: Man-in-the-Middle Nonce Tampering ===
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [PASS] Single-bit nonce tampering destroyed the Session Key mathema
+tically.
+PASS - test_cvg_neg_tampered_nonce in 0.233 seconds
+===================================================================
+START - test_cvg_neg_tampered_payload_mic
+D: stack 0x200166f0 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+00166f0  buf_size 2048 stack_ptr=0x20016ef0
+I: === NEGATIVE TEST: Over-the-air Payload Tampering (MIC Failure) ===
+D: MIC_CALC: Computing CMAC for 5 bytes
+D: Integrity Key:
+D: aa bb cc dd ee ff 00 11 |........
+D: 22 33 44 55 66 77 88 99 |"3DUfw..
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: MIC_CALC: Computing CMAC for 5 bytes
+D: Integrity Key:
+D: aa bb cc dd ee ff 00 11 |........
+D: 22 33 44 55 66 77 88 99 |"3DUfw..
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [PASS] Receiver successfully detected payload tampering via MIC mis
+match.
+PASS - test_cvg_neg_tampered_payload_mic in 0.126 seconds
+===================================================================
+START - test_cvg_neg_timing_safe_compare
+D: stack 0x200166f0 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+00166f0  buf_size 2048 stack_ptr=0x20016ef0
+I: === NEGATIVE TEST: Timing-Safe Comparison Rejection ===
+I: [PASS] Timing-safe compare correctly rejected forged MIC.
+PASS - test_cvg_neg_timing_safe_compare in 0.021 seconds
+===================================================================
+START - test_cvg_nonce_generation
+D: stack 0x200166f0 for thread 0x200160e0: obj_size=2048 buf_start=0x2
+00166f0  buf_size 2048 stack_ptr=0x20016ef0
+I: ========== STARTING TEST: test_cvg_nonce_generation ==========
+I: Requesting 16 random bytes from Hardware TRNG for Nonce A...
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [OUTPUT] Nonce A:
+I: 89 26 27 a3 99 28 e5 f8 |.&'..(..
+I: 0f 09 5d 81 77 75 a6 d1 |..].wu..
+I: Requesting 16 random bytes from Hardware TRNG for Nonce B...
+D: 0x200160e0 took mutex 0x200160cc, count: 1, orig prio: -1
+D: mutex 0x200160cc lock_count: 1
+D: new owner of mutex 0x200160cc: 0 (prio: -1000)
+I: [OUTPUT] Nonce B:
+I: e8 69 af c6 ea b4 42 3c |.i....B<
+I: 0e 93 41 81 f1 62 fb 0a |..A..b..
+I: Verifying entropy: Nonce A and Nonce B must not be identical.
+I: [SUCCESS] Nonces are mathematically unique. TRNG is working.
+I: ========== END OF TEST: test_cvg_nonce_generation ==========
+PASS - test_cvg_nonce_generation in 0.089 seconds
+===================================================================
+TESTSUITE dect_cvg_security succeeded
+------ TESTSUITE SUMMARY START ------
+SUITE PASS - 100.00% [dect_cvg_security]: pass = 8, fail = 0, skip = 0
+, total = 8 duration = 0.987 seconds
+- PASS - [dect_cvg_security.test_cvg_attachment_flow] duration = 0.06
+9 seconds
+- PASS - [dect_cvg_security.test_cvg_key_derivation] duration = 0.195
+seconds
+- PASS - [dect_cvg_security.test_cvg_neg_mismatched_psk] duration = 0
+.231 seconds
+- PASS - [dect_cvg_security.test_cvg_neg_replay_attack_sn_window] dur
+ation = 0.023 seconds
+- PASS - [dect_cvg_security.test_cvg_neg_tampered_nonce] duration = 0
+.233 seconds
+- PASS - [dect_cvg_security.test_cvg_neg_tampered_payload_mic] durati
+on = 0.126 seconds
+- PASS - [dect_cvg_security.test_cvg_neg_timing_safe_compare] duratio
+n = 0.021 seconds
+- PASS - [dect_cvg_security.test_cvg_nonce_generation] duration = 0.0
+89 seconds
+------ TESTSUITE SUMMARY END ------
+===================================================================
+PROJECT EXECUTION SUCCESSFUL
