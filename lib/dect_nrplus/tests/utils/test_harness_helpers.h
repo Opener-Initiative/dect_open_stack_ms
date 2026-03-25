@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/utils/test_harness_helpers.h */
 // Overview: A new header for shared test utilities, including the safe MAC state change callback.
 #ifndef TEST_HARNESS_HELPERS_H__

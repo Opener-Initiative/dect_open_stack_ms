@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 #ifndef MBEDTLS_NATIVE_SIM_CONFIG_H
 #define MBEDTLS_NATIVE_SIM_CONFIG_H
 

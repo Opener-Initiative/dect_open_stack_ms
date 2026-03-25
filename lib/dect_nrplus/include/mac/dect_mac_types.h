@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/mac/include/dect_mac_types.h */
 // Overview: This header consolidates all public MAC data structures and enums required by upper layers.
 #ifndef DECT_MAC_TYPES_H__

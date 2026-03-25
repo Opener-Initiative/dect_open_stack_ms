@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 # /* tests/mac_pdu/CMakeLists.txt */
 # // Overview: Build script for the MAC PDU serialization/deserialization test suite.
 cmake_minimum_required(VERSION 3.20.0)

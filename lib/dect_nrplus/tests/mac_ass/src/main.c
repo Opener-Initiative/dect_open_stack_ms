@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* working versions 1*/
 /* lib/dect_nrplus/tests/mac_ass/src/main.c */
 // Overview: The complete, corrected test suite for MAC association. This version includes all functional tests (association, rejection, keep-alive, release), all of which are now compatible with the robust, kernel-time-based simulation harness.

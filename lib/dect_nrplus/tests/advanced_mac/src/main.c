@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/advanced_mac/src/main.c */
 // Overview: Ztest suite for Advanced MAC procedures. Currently verifies Group Assignment scheduling.
 #include <zephyr/kernel.h>

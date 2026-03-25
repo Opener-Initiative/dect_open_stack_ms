@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* dect_mac/dect_mac_sm_ft.h */
 #ifndef DECT_MAC_SM_FT_H__
 #define DECT_MAC_SM_FT_H__

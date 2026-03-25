@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* tests/utils/virtual_timer.c */
 // Overview: Implementation of the new, independent simulation clock module.
 #include <stdint.h>

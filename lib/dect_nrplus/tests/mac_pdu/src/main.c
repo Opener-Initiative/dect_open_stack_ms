@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* tests/mac_pdu/src/main.c */
 // Overview: Ztest suite for verifying the MAC PDU serialization and deserialization functions. This first test case validates the Association Request IE.
 // --- CREATE NEW FILE ---

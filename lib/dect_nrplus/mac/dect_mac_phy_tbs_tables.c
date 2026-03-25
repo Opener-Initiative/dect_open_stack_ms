@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* dect_mac/dect_mac_phy_tbs_tables.c */
 #include <stdint.h>
 #include <mac/dect_mac_phy_tbs_tables.h>

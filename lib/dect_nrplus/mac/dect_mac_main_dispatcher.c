@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* dect_mac/dect_mac_main_dispatcher.c */
 #include <zephyr/logging/log.h>
 #include <string.h> // For memcpy if needed, snprintk
@@ -297,6 +301,7 @@ void dect_mac_event_dispatch(const struct dect_mac_event_msg *msg)
     // Update last known modem time from the event itself
     if (msg->modem_time_of_event > ctx->last_known_modem_time) {
         ctx->last_known_modem_time = msg->modem_time_of_event;
+        ctx->last_event_system_uptime_ticks = k_uptime_ticks();
     }
 
     bool dispatch_to_sm = true;

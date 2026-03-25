@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 #include <zephyr/ztest.h>
 #include <mac/dect_mac_phy_ctrl.h>
 #include <mac/dect_mac_phy_tbs_tables.h>

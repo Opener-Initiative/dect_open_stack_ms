@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/mac/dect_mac_random.c */
 // Overview: New file to provide a conditional random number generation implementation.
 #include <zephyr/random/random.h>

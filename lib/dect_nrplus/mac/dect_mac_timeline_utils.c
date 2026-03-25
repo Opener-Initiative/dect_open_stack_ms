@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* dect_mac/dect_mac_timeline_utils.c */
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>

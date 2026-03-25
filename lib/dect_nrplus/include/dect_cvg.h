@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/include/dect_cvg.h */
 /* This is the complete, corrected header file for the CVG layer, including all service types, PDU structures, and public API function prototypes. */
 #ifndef DECT_CVG_H__

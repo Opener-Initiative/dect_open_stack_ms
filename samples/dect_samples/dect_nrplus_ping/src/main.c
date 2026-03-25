@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* samples/dect_nrplus_ping/src/main.c */
 // Overview: The main application entry point for the ping sample. It uses only the clean, public stack API to initialize and start the DECT NR+ stack, then yields to the network shell.
 #include <zephyr/kernel.h>

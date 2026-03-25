@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/dect_cvg.c */
 /* This is the complete, corrected implementation of the CVG layer. It integrates full Segmentation and Reassembly (SAR), In-Sequence Delivery (ISD), Duplicate Removal, Flow Control (FC), Automatic Repeat Request (ARQ), SDU Lifetime Control, and TX Services negotiation procedures, ensuring robust and reliable data transport. */
 

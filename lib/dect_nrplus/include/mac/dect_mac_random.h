@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/mac/include/dect_mac_random.h */
 /* Overview: New header file to abstract random number generation, allowing the MAC to build without a crypto backend if security is disabled.
 --- CREATE NEW FILE --- */

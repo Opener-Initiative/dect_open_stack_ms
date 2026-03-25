@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* dect_mac/dect_mac_context.h */
 #ifndef DECT_MAC_CONTEXT_H__
 #define DECT_MAC_CONTEXT_H__
@@ -10,9 +14,9 @@
 
 #ifndef MAX_MAC_SDU_BUFFERS_CONFIG
     #if IS_ENABLED(CONFIG_ZTEST) && IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)
-    #define MAX_MAC_SDU_BUFFERS_CONFIG 128
-    #else
     #define MAX_MAC_SDU_BUFFERS_CONFIG 64
+    #else
+    #define MAX_MAC_SDU_BUFFERS_CONFIG 32
     #endif
 #endif
 
@@ -600,6 +604,7 @@ typedef struct dect_mac_context {
 	uint8_t consecutive_mic_failures;
 
     uint64_t last_known_modem_time;
+    uint64_t last_event_system_uptime_ticks; /* Zephyr system uptime ticks when last_known_modem_time was updated */
     uint64_t ft_sfn_zero_modem_time_anchor;
     uint8_t  current_sfn_at_anchor_update;
     uint64_t last_phy_op_end_time; /* Modem time when the last scheduled PHY op will end */    

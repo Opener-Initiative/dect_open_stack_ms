@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 /* lib/dect_nrplus/tests/l2_6lowpan/src/main.c */
 /* This is a new file. It contains a Ztest suite for verifying the L2 driver's integration with the 6LoWPAN stack, including TX compression and RX decompression paths. */
 #include <zephyr/kernel.h>

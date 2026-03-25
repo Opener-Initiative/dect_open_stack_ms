@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/mac/dect_mac.c */
 // Overview: New file to implement the unified public MAC API. It acts as a facade, calling the appropriate internal functions.
 #include <zephyr/kernel.h>

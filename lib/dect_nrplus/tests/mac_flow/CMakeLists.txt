@@ -1,4 +1,8 @@
 #
+# Copyright (c) 2026 Manulytica Ltd
+#
+
+#
 # Copyright (c) 2025 Manulytica Ltd
 #
 # SPDX-License-Identifier: LicenseRef-Nordic-5-Clause

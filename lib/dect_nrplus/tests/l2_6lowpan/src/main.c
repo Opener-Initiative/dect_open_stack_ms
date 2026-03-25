@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/l2_6lowpan/src/main.c */
 // Overview: The full stack integration test. It initializes two complete DECT stacks (PT and FT), associates them, sends a secure data packet from the PT's CVG layer, runs the simulation, and verifies the packet is correctly received and decrypted at the FT's CVG layer.
 // --- CREATE NEW FILE ---

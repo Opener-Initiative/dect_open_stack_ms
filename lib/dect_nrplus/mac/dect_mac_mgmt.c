@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* dect_mac/dect_mac_mgmt.c */
 #include <zephyr/logging/log.h>
 #include <mac/dect_mac_mgmt.h>

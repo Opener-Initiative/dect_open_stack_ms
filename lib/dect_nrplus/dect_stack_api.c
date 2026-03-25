@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/dect_stack_api.c */
 // Overview: Implements the new, abstracted public API for the DECT NR+ stack, providing a clean separation between the application and internal stack layers.
 #include <zephyr/kernel.h>
@@ -29,6 +33,11 @@ void dect_stack_register_state_change_cb(dect_stack_state_change_cb_t cb)
 int dect_stack_init(void)
 {
 	int err;
+
+#if !IS_ENABLED(CONFIG_ZTEST)	
+	k_msleep(5000);
+	LOG_INF("DECT NR+ Stack Initializing.");
+#endif
 
 #if IS_ENABLED(CONFIG_DECT_CVG_LAYER)
 	/* The CVG layer initializes the layers below it (DLC -> MAC) */

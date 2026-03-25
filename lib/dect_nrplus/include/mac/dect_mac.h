@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/mac/include/dect_mac.h */
 /* Overview: New top-level public header for the entire MAC layer. This is the single point of entry for upper layers. */
 #ifndef DECT_MAC_H__

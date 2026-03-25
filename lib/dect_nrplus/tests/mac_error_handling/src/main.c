@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* tests/mac_error_handling/src/main.c */
 // Overview: Rewrite of mac_error_handling test using the robust mac_ass simulation harness.
 

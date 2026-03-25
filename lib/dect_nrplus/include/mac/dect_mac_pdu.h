@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* dect_mac/dect_mac_pdu.h */
 #ifndef DECT_MAC_PDU_H__
 #define DECT_MAC_PDU_H__

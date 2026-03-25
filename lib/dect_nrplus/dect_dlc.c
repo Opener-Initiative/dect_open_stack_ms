@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/dect_dlc.c */
 /* This is the complete, corrected implementation of the DLC layer. It restores and integrates full Segmentation and Reassembly (SAR) logic, ARQ retransmission, and SDU Lifetime Control, ensuring that no functionality is lost while adding robustness. */
 

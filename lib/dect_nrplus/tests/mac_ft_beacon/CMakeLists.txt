@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 # /* tests/mac_ass/CMakeLists.txt */
 # // Overview: A correct, self-contained CMakeLists.txt for a Ztest application that compiles MAC sources directly.
 

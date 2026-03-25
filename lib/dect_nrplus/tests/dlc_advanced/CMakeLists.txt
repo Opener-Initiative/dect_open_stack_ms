@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 # /* lib/dect_nrplus/tests/dlc_advanced/CMakeLists.txt */
 # // Overview: Build script for the new CVG ARQ test suite.
 cmake_minimum_required(VERSION 3.20.0)

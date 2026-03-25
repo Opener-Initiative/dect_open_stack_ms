@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* dect_mac/dect_mac_phy_ctrl.c */
 #include <zephyr/logging/log.h>
 #include <zephyr/random/random.h>

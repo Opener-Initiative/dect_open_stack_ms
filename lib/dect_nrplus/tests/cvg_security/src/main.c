@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/cvg_security/src/main.c */
 // Overview: Ztest suite for DECT NR+ (ETSI TS 103 636-5) Convergence (CVG) layer security.
 // Covers Control Plane Network Attachment, Association Key Exchange, Nonce generation, 

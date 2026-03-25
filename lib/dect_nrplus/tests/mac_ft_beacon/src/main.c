@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* tests/mac_ft_beacon/src/main.c */
 // Overview: A focused Ztest suite to validate the FT's initialization sequence, from DCS scan to beaconing.
 // Uses the robust, multi-device simulation harness.

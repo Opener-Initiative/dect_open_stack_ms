@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/stack_integration/src/main.c */
 
 #include <zephyr/ztest.h>

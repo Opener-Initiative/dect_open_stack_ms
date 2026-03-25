@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 
 #include <zephyr/ztest.h>
 #include <string.h>

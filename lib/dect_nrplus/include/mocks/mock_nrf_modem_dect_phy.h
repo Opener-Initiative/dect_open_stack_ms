@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* include/mocks/mock_nrf_modem_dect_phy.h */
 /**
  * @file mock_nrf_modem_dect_phy.h

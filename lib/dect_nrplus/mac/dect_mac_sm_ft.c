@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* dect_mac/dect_mac_sm_ft.c */
 #include <zephyr/kernel.h>
 #include <stdlib.h>

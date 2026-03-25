@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 # /* tests/mac_ass_extra/CMakeLists.txt */
 # // Overview: Corrects the test build script by removing all library source files. The test now only compiles its own main function and the mock PHY, and relies on Kconfig to link the main `dect_nrplus_driver` library.
 cmake_minimum_required(VERSION 3.20.0)

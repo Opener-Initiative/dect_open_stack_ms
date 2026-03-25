@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 tests:
   testing.dect_nrplus.mac_phy_ctrl.tbs:
     tags: dect_nrplus

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/cdd_service/src/main.c */
 /* This is a Ztest suite for verifying the end-to-end flow of the Configuration Data Distribution (CDD) service. */
 #include <zephyr/ztest.h>

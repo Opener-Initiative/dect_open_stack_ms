@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 
 
 #ifndef DECT_MAC_TIME_UTILS_H__
@@ -49,6 +53,13 @@ uint64_t modem_ticks_to_us(uint64_t ticks, uint32_t tick_rate_khz);
  * @return The equivalent duration in modem time ticks.
  */
 uint64_t modem_us_to_ticks(uint64_t us, uint32_t tick_rate_khz);
+/**
+ * @brief Estimates the current modem time based on system uptime correlation.
+ *
+ * @param ctx Pointer to the global MAC context.
+ * @return Estimated current modem time in ticks.
+ */
+uint64_t dect_mac_estimate_modem_now(dect_mac_context_t *ctx);
 
 
 

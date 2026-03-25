@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 # /* lib/dect_nrplus/tests/mac_mobility/CMakeLists.txt */
 # // Overview: Build script for the new MAC mobility test suite.
 cmake_minimum_required(VERSION 3.20.0)

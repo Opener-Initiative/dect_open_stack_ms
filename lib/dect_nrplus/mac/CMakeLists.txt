@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 # SPDX-License-Identifier: Apache-2.0
 
 # All these sources become part of the same dect_nrplus library

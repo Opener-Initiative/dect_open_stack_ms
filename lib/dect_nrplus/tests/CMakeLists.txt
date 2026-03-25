@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 # /* lib/dect_nrplus/tests/CMakeLists.txt */
 # // Overview: Corrects the top-level test CMakeLists to properly declare all test subdirectories using the `zephyr_add_test_subdirectory` command.
 #

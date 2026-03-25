@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 # # nrf/lib/dect_nrplus/tests/Kconfig
 # source "../Kconfig"
 # source "mac_ass/Kconfig"

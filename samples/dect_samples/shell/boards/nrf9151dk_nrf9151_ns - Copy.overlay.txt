@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 
 / {
     dect_nrplus0: dect_nrplus0 {

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 #ifndef DECT_DLC_H__
 #define DECT_DLC_H__
 

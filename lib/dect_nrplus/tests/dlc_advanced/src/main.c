@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/dlc_advanced/src/main.c */
 /* This is a new file. It contains a Ztest suite for verifying advanced DLC features like ARQ retransmissions and SDU lifetime control. */
 #include <zephyr/kernel.h>

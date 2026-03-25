@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 #ifndef DECT_MAC_NVS_H__
 #define DECT_MAC_NVS_H__
 

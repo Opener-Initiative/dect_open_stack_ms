@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/mac_mobility/src/main.c */
 // Overview: This is the complete test suite for verifying the MAC layer's mobility (handover) procedure. It creates a three-node network (PT, FT1, FT2) and simulates the PT associating with FT1, then detecting a stronger signal from FT2 and successfully handing over to it.
 // --- CREATE NEW FILE ---

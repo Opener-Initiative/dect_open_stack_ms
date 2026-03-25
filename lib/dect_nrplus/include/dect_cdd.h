@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/dect_cdd.h */
 // Overview: Header defining the spec-pure API for the Configuration Data Distribution (CDD) service.
 

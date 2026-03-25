@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* tests/utils/virtual_timer.h */
 // Overview: Public API for the new, independent simulation clock module.
 // --- CREATE NEW FILE ---

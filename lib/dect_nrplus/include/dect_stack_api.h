@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/include/dect_stack.h */
 // Overview: New top-level public API header for the entire DECT NR+ stack. This is the single point of entry for applications.
 #ifndef DECT_STACK_API_H__

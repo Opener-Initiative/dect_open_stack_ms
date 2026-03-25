@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/dect_cdd.c */
 // Overview: Implementation of the spec-pure CDD service logic.
 #include <zephyr/kernel.h>

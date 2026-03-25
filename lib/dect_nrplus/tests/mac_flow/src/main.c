@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/mac_flow/src/main.c */
 // Overview: Reworks the `mac_flow` test suite to use the new, robust test harness.
 // --- CREATE NEW FILE ---

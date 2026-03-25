@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 // /* lib/dect_nrplus/tests/cvg_arq/src/main.c */
 // // Overview: Ztest suite for CVG ARQ and Flow Control. It mocks the DLC layer to validate the CVG's reliability mechanisms.
 // #include <zephyr/ztest.h>

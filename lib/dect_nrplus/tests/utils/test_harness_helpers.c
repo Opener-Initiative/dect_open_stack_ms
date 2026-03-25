@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/utils/test_harness_helpers.c */
 // Overview: A new source file implementing the shared test utilities.
 #include <zephyr/kernel.h>

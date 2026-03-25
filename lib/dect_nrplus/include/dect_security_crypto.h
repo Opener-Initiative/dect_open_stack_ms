@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* dect_nrplus/include/dect_security_crypto.h */
 /**
  * @file dect_security_crypto.h

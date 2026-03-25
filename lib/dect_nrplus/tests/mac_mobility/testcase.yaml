@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 tests:
   testing.dect_nrplus.mac_mobility.handover:
     tags: dect_nrplus mac mobility

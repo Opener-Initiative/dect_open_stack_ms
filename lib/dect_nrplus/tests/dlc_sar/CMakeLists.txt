@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 # /* lib/dect_nrplus/tests/dlc_sar/CMakeLists.txt */
 # // Overview: Build script for the DLC SAR test. It compiles the necessary DLC and MAC API sources directly, along with the test's main file.
 cmake_minimum_required(VERSION 3.20.0)

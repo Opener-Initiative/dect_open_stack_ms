@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/mac_security/src/main.c */
 // Overview: Adds a comprehensive Ztest suite for the MAC security module, verifying IV generation, MIC calculation (CMAC), and CTR encryption/decryption against standard test vectors.
 #include <zephyr/ztest.h>

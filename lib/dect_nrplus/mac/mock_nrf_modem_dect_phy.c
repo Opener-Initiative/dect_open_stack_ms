@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/mac/mock_nrf_modem_dect_phy.c */
 // Overview: Complete, corrected mock PHY with advanced RF simulation (Noise, Loss, Collisions).
 // Based on Zephyr kernel clock for time synchronization.

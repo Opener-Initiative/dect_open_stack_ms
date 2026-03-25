@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/stack_integration/src/main.c */
 // Overview: This is the complete and final Ztest suite for full stack integration. It is correctly modeled after the working `mac_ass` test and includes its own self-contained simulation loop (`run_simulation_until`) to ensure correct and deterministic execution.
 // --- REPLACE ENTIRE FILE ---

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* lib/dect_nrplus/tests/cvg_advanced/src/main.c */
 /* This is a new file. It contains a Ztest suite for verifying advanced CVG features like Flow Control and ARQ. */
 #include <zephyr/kernel.h>

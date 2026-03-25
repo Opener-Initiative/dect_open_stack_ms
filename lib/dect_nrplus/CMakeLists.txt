@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 # SPDX-License-Identifier: Apache-2.0
 
 # DECT NR+ Stack Library

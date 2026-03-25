@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Manulytica Ltd
+ */
+
 /* dect_mac/dect_mac_core.h */
 #ifndef DECT_MAC_CORE_H__
 #define DECT_MAC_CORE_H__

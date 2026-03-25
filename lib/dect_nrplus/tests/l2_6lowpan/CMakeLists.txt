@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
+
 # /* lib/dect_nrplus/tests/l2_6lowpan/CMakeLists.txt */
 # // Overview: Build script for the full stack integration test. It compiles only the test's main function and mock PHY, linking against the main `dect_nrplus_driver` library.
 cmake_minimum_required(VERSION 3.20.0)
