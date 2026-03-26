@@ -1,0 +1,222 @@
+*** Booting nRF Connect SDK v3.0.2-89ba1294ac9b ***
+*** Using Zephyr OS v4.0.99-f791c49f492c ***
+Running TESTSUITE cvg_advanced_tests
+===================================================================
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. -2023406815
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Init: Role PT, LongID 0x87654321, ShortID 0xDB3B, NetID 0xDECC0021
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:00.000,000] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:00.000,000] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:00.000,000] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:00.000,000] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:00.000,000] <inf> fs_zms: data wra: 0, 0
+[00:00:00.000,000] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC0021 vs our 0x87654321).
+MAC Core Context Initialized. PSN=0x6CC, OwnHPC=1 
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0x6CC, OwnHPC=1
+[DLC_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue BEFORE init: 0x430ec0
+[DLC_INIT_QUEUE_DBG] DLC's internal RX queue (g_dlc_internal_mac_rx_queue) is at address: 0x430ec0
+[DLC_INIT_DBG] k_thread_create for g_dlc_rx_thread_id returned: 0x430e00
+[DECT_MAC] Entering dect_mac_init. Current active context: 0x42a0a0
+[INIT_DBG] Entering dect_mac_init. Current spy pointer: (nil)
+[INIT_DBG] Spy pointer has been reset to: (nil)
+********************************************* STARTING nrf_modem_dect_phy_event_handler_set ************************************
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  nRF DECT PHY event handler registered successfully.
+[PHY_IF] Rcvd event from modem: type=0
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_INIT result: 0 (Temp: 0C, Volt: 0mV, Limit: 0C)
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  DECT PHY Initialized by modem. Requesting latency information.
+[PHY_IF] Rcvd event from modem: type=2
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CONFIGURE result: 0
+[MAC_INIT_PROPAGATION_DBG] About to call dect_mac_api_init with queue pointer: 0x430ec0
+[INIT_QUEUE_DBG] MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: 0x430ec0
+[00:00:00.000,000] <inf> dect_mac_api: MAC API Initialized. DLC RX queue registered.
+[00:00:00.000,000] <inf> dect_mac_data_path: DLC TX status callback registered with MAC Data Path.
+[DLC_INIT_QUEUE_DBG] Address of g_dlc_internal_mac_rx_queue AFTER init & start: 0x430ec0
+[00:00:00.000,000] <inf> dect_dlc: DLC Layer Initialized.
+[CVG_INIT_DBG] Created RX thread with ID: 0x42fc20
+[CVG_INIT_DBG] About to call k_thread_start on CVG threads...
+[CVG_INIT_DBG]   -> Starting ARQ thread: 0x42fb60
+[CVG_INIT_DBG]   -> Starting TX thread: 0x42fce0
+[CVG_INIT_DBG]   -> Starting RX thread: 0x42fc20
+[00:00:00.000,000] <inf> dect_cvg: CVG Layer Initialized.
+START - test_cvg_arq_and_flow_control
+CVG_CFG: dect_cvg_configure_flow -> Svc:4, Win:2, Life:5000ms[00:00:00.000,000] <inf> dect_cvg: CVG Flow configured. Service: 4, Window Size: 2
+--- Sending first 2 packets ---
+[DECT CVG SEND] Starting dect_cvg_send ...
+[DECT CVG SEND] Parameters: endpoint_id=0x8001, dest_long_id=0x12345678, app_sdu_len=6
+[DECT CVG SEND] App SDU content (first 16 bytes): 68 65 6c 6c 6f 00 
+[DECT CVG SEND] Attempting to allocate TX queue item from slab...
+[DECT CVG SEND] Successfully allocated TX queue item at 0x49e940
+[DECT CVG SEND] Attempting to allocate app SDU buffer from slab...
+[DECT CVG SEND] Successfully allocated app SDU buffer at 0x49ea40
+[DECT CVG SEND] Copying 6 bytes from app_sdu to SDU buffer...
+[DECT CVG SEND] SDU buffer prepared: len=6
+[DECT CVG SEND] TX queue item configured:
+[DECT CVG SEND]   - app_sdu_buf: 0x49ea40
+[DECT CVG SEND]   - endpoint_id: 0x8001
+[DECT CVG SEND]   - dest_long_id: 0x12345678
+[DECT CVG SEND] Putting TX item into g_app_to_cvg_tx_fifo...
+[DECT CVG SEND] Successfully queued TX item for processing
+[DECT CVG SEND] Ending dect_cvg_send - SUCCESS
+[DECT CVG SEND] Starting dect_cvg_send ...
+[DECT CVG SEND] Parameters: endpoint_id=0x8001, dest_long_id=0x12345678, app_sdu_len=6
+[DECT CVG SEND] App SDU content (first 16 bytes): 68 65 6c 6c 6f 00 
+[DECT CVG SEND] Attempting to allocate TX queue item from slab...
+[DECT CVG SEND] Successfully allocated TX queue item at 0x49e960
+[DECT CVG SEND] Attempting to allocate app SDU buffer from slab...
+[DECT CVG SEND] Successfully allocated app SDU buffer at 0x49f0c0
+[DECT CVG SEND] Copying 6 bytes from app_sdu to SDU buffer...
+[DECT CVG SEND] SDU buffer prepared: len=6
+[DECT CVG SEND] TX queue item configured:
+[DECT CVG SEND]   - app_sdu_buf: 0x49f0c0
+[DECT CVG SEND]   - endpoint_id: 0x8001
+[DECT CVG SEND]   - dest_long_id: 0x12345678
+[DECT CVG SEND] Putting TX item into g_app_to_cvg_tx_fifo...
+[DECT CVG SEND] Successfully queued TX item for processing
+[DECT CVG SEND] Ending dect_cvg_send - SUCCESS
+[TRACE] Starting DLC RX thread entry point
+[TRACE] CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE = 1500
+[TRACE] sizeof(mac_sdu_t) = 1664
+[TRACE] DLC RX thread waiting for packet...
+[00:00:00.000,000] <inf> dect_dlc: DLC TX Service (ARQ) Thread started.
+[MAC_API] dect_mac_get_role() Active context is: 0x42a0a0
+[ARQ_THREAD_DBG] ARQ service thread started. Active context ROLE is:0
+[CVG_THREAD_DBG] ARQ Service Thread has started execution.
+[CVG_THREAD_DBG] TX Thread has started execution.
+[CVG TX] About to get item from FIFO.
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...
+[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.
+[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ef80 (len 12), flow_id 4:
+[TEST SPY] Captured DLC send: SN=0, len=12
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...
+[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.
+[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ef80 (len 12), flow_id 4:
+[TEST SPY] Captured DLC send: SN=1, len=12
+--- Sending 3rd packet (should wait for credit) ---
+[DECT CVG SEND] Starting dect_cvg_send ...
+[DECT CVG SEND] Parameters: endpoint_id=0x8001, dest_long_id=0x12345678, app_sdu_len=6
+[DECT CVG SEND] App SDU content (first 16 bytes): 68 65 6c 6c 6f 00 
+[DECT CVG SEND] Attempting to allocate TX queue item from slab...
+[DECT CVG SEND] Successfully allocated TX queue item at 0x49e940
+[DECT CVG SEND] Attempting to allocate app SDU buffer from slab...
+[DECT CVG SEND] Successfully allocated app SDU buffer at 0x49f740
+[DECT CVG SEND] Copying 6 bytes from app_sdu to SDU buffer...
+[DECT CVG SEND] SDU buffer prepared: len=6
+[DECT CVG SEND] TX queue item configured:
+[DECT CVG SEND]   - app_sdu_buf: 0x49f740
+[DECT CVG SEND]   - endpoint_id: 0x8001
+[DECT CVG SEND]   - dest_long_id: 0x12345678
+[DECT CVG SEND] Putting TX item into g_app_to_cvg_tx_fifo...
+[DECT CVG SEND] Successfully queued TX item for processing
+[DECT CVG SEND] Ending dect_cvg_send - SUCCESS
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[CVG_THREAD_DBG] RX Thread has started execution.
+[00:00:00.000,000] <inf> dect_cvg: CVG RX Thread started.
+[CVG_RX_DBG] Calling dlc_receive_data...
+--- Simulating ACK for SN 0 ---
+[CVG_RX_DBG] dlc_receive_data returned with code: 0
+[CVG_RX_DBG] Calling dlc_receive_data...
+[00:00:00.200,100] <inf> dect_cvg: CVG_ARQ_SVC: Processing ACK for SN 0.
+[00:00:00.200,100] <inf> dect_cvg: CVG_ARQ: ACK received for CVG SDU with SN 0.
+[ACK_HANDLER_DBG] About to free sdu_ctx->sdu at address: 0x49ea40
+[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...
+[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.
+[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ef80 (len 12), flow_id 4:
+[TEST SPY] Captured DLC send: SN=2, len=12
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+--- Simulating NACK for SN 1 ---
+[CVG_RX_DBG] dlc_receive_data returned with code: 0
+[CVG_RX_DBG] Calling dlc_receive_data...
+[00:00:00.210,200] <wrn> dect_cvg: CVG_ARQ_SVC: Processing NACK/Timeout for SN 1.
+[00:00:00.210,200] <inf> dect_cvg: CVG_ARQ_SVC: Retransmitting SDU SN 1 (attempt 2).
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ef80 (len 12), flow_id 4:
+[TEST SPY] Captured DLC send: SN=1, len=12
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+ PASS - test_cvg_arq_and_flow_control in 0.221 seconds
+===================================================================
+START - test_cvg_duplicate_removal
+CVG_CFG: dect_cvg_configure_flow -> Svc:1, Win:10, Life:5000ms[00:00:00.220,300] <inf> dect_cvg: CVG Flow configured. Service: 1, Window Size: 10
+--- Injecting SN 10 ---
+[DECT CVG RECEIVE] Starting dect_cvg_receive...
+[DECT CVG RECEIVE] Parameters: app_sdu_buf=0x7ffb417f9d08, len_inout=0x7ffb417f9cf8, timeout=2000
+[DECT CVG RECEIVE] Input buffer size: *len_inout=32
+[DECT CVG RECEIVE] Waiting for data from g_cvg_to_app_rx_queue...
+[CVG_RX_DBG] dlc_receive_data returned with code: 0
+[CVG_RX_ACK_GEN_DBG] Received data packet with SN=10. Preparing to send ACK.
+[DECT RX DELIVERY] Starting cleartext payload delivery to application...
+[DECT RX DELIVERY] Payload details: ptr=0x42f563, len=8
+[DECT RX DELIVERY] Payload content (first 16 bytes): 69 6e 62 6f 75 6e 64 00 
+[DECT RX DELIVERY] Complete payload (8 bytes): 69 6e 62 6f 75 6e 64 00 
+[DECT RX DELIVERY] Attempting to allocate SDU buffer from g_cvg_app_sdu_slab...
+[DECT RX DELIVERY] k_mem_slab_alloc result: 0, app_sdu pointer: 0x49ea40
+[DECT RX DELIVERY] SUCCESS: SDU buffer allocated at 0x49ea40
+[DECT RX DELIVERY] Copying 8 bytes from payload to SDU buffer...
+[DECT RX DELIVERY] SDU buffer prepared: len=8
+[DECT RX DELIVERY] Copied data in SDU buffer (first 16 bytes): 69 6e 62 6f 75 6e 64 00 
+[DECT RX DELIVERY] Putting SDU buffer into g_cvg_to_app_rx_fifo...
+[DECT CVG RECEIVE] Retrieved SDU buffer from FIFO: 0x49ea40
+[DECT CVG RECEIVE] SDU buffer content: len=8
+[DECT CVG RECEIVE] SDU data (first 16 bytes): 69 6e 62 6f 75 6e 64 00 
+[DECT CVG RECEIVE] Copying 8 bytes from SDU buffer to app buffer...
+[DECT CVG RECEIVE] Copied data to app buffer (first 16 bytes): 69 6e 62 6f 75 6e 64 00 
+[DECT CVG RECEIVE] Freeing SDU buffer 0x49ea40 back to slab...
+[DECT CVG RECEIVE] Successfully received 8 bytes, ending dect_cvg_receive
+--- Injecting duplicate SN 10 ---
+[DECT CVG RECEIVE] Starting dect_cvg_receive...
+[DECT CVG RECEIVE] Parameters: app_sdu_buf=0x7ffb417f9d08, len_inout=0x7ffb417f9cf8, timeout=3000
+[DECT CVG RECEIVE] Input buffer size: *len_inout=32
+[DECT CVG RECEIVE] Waiting for data from g_cvg_to_app_rx_queue...
+[DECT RX DELIVERY] SUCCESS: SDU buffer queued for application delivery
+[DECT RX DELIVERY] Completed payload delivery process
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: 0
+[CVG_RX_ACK_GEN_DBG] Received data packet with SN=10. Preparing to send ACK.
+[DECT RX DELIVERY] Starting cleartext payload delivery to application...
+[DECT RX DELIVERY] Payload details: ptr=0x42f563, len=8
+[DECT RX DELIVERY] Payload content (first 16 bytes): 69 6e 62 6f 75 6e 64 00 
+[DECT RX DELIVERY] Complete payload (8 bytes): 69 6e 62 6f 75 6e 64 00 
+[DECT RX DELIVERY] Attempting to allocate SDU buffer from g_cvg_app_sdu_slab...
+[DECT RX DELIVERY] k_mem_slab_alloc result: 0, app_sdu pointer: 0x49ea40
+[DECT RX DELIVERY] DROPPED: Duplicate packet SN=10, expected SN=11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[DECT CVG RECEIVE] Timeout or no data available in FIFO
+ PASS - test_cvg_duplicate_removal in 0.301 seconds
+===================================================================
+TESTSUITE cvg_advanced_tests succeeded
+
+------ TESTSUITE SUMMARY START ------
+
+SUITE PASS - 100.00% [cvg_advanced_tests]: pass = 2, fail = 0, skip = 0, total = 2 duration = 0.522 seconds
+ - PASS - [cvg_advanced_tests.test_cvg_arq_and_flow_control] duration = 0.221 seconds
+ - PASS - [cvg_advanced_tests.test_cvg_duplicate_removal] duration = 0.301 seconds
+
+------ TESTSUITE SUMMARY END ------
+
+===================================================================
+RunID: 8138090de82b694037c7338b3858fdcf
+PROJECT EXECUTION SUCCESSFUL

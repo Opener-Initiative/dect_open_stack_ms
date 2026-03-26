@@ -1,0 +1,80 @@
+[00:00:00.000,000] <err> eth_posix: Cannot create zeth (-1/Operation not permitted)
+*** Booting nRF Connect SDK v3.0.2-89ba1294ac9b ***
+*** Using Zephyr OS v4.0.99-f791c49f492c ***
+Running TESTSUITE cdd_service_tests
+===================================================================
+[00:00:00.000,000] <inf> dect_cdd: CDD Service Initialized.
+START - test_cdd_request_response_flow
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. 287454020
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Init: Role FT, LongID 0x11223344, ShortID 0xAA08, NetID 0xDECC0044
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:00.000,000] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:00.000,000] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:00.000,000] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:00.000,000] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:00.000,000] <inf> fs_zms: data wra: 0, 0
+[00:00:00.000,000] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC0044 vs our 0x11223344).
+MAC Core Context Initialized. PSN=0xEE1, OwnHPC=1 
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0xEE1, OwnHPC=1
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. -1430532899
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Init: Role PT, LongID 0xAABBCCDD, ShortID 0x7BE4, NetID 0xDECC00DD
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:00.000,000] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:00.000,000] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:00.000,000] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:00.000,000] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:00.000,000] <inf> fs_zms: data wra: 0, 0
+[00:00:00.000,000] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC00DD vs our 0xAABBCCDD).
+MAC Core Context Initialized. PSN=0x1AE, OwnHPC=1 
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0x1AE, OwnHPC=1
+[TEST_SETUP] CDD Test setup completed
+
+--- RUNNING TEST: cdd_service_tests_test_cdd_request_response_flow ---
+
+[TEST] 1. FT builds its configuration
+[00:00:00.000,000] <inf> dect_cdd: CDD Service Initialized.
+[00:00:00.000,000] <inf> dect_cdd: CDD_FT: Added item for EP 0x8003.
+
+[TEST] 2. PT processes beacon info and sends CDD request
+[00:00:00.000,000] <inf> dect_cdd: CDD Service Initialized.
+[00:00:00.000,000] <inf> dect_cdd: CDD_PT: Update needed. Local(sink:0x00000000, seq:0), Beacon(sink:0x11223344, seq:1).
+[00:00:00.000,000] <inf> dect_cdd: CDD_REQ: Sending Configuration Data Request to FT.
+
+[TEST] 3. FT receives request and sends CDD content response
+[MAC_API] dect_mac_get_role() Active context is: 0x42e7e0
+[00:00:00.000,000] <inf> dect_cdd: CDD_FT: Rcvd Config Request from 0xAABBCCDD.
+[00:00:00.000,000] <inf> dect_cdd: CDD_FT: Sending response (len 20).
+
+[TEST] 4. PT receives CDD content and applies 6LoWPAN context
+[MAC_API] dect_mac_get_role() Active context is: 0x430680
+[00:00:00.000,000] <inf> dect_cdd: CDD_PT: Rcvd Content from FT 0x11223344. Seq:0, Items:1
+[TEST_CB] Applied 6LoWPAN context for CID 1
+
+[TEST] 5. Final assertions
+[TEST_CLEANUP] CDD Test cleanup completed
+ PASS - test_cdd_request_response_flow in 0.000 seconds
+===================================================================
+TESTSUITE cdd_service_tests succeeded
+
+------ TESTSUITE SUMMARY START ------
+
+SUITE PASS - 100.00% [cdd_service_tests]: pass = 1, fail = 0, skip = 0, total = 1 duration = 0.000 seconds
+ - PASS - [cdd_service_tests.test_cdd_request_response_flow] duration = 0.000 seconds
+
+------ TESTSUITE SUMMARY END ------
+
+===================================================================
+RunID: f5e95fc9e6ac837139f029332256713d
+PROJECT EXECUTION SUCCESSFUL

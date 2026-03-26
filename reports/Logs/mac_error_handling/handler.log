@@ -1,0 +1,1215 @@
+*** Booting nRF Connect SDK v3.0.2-89ba1294ac9b ***
+*** Using Zephyr OS v4.0.99-f791c49f492c ***
+Running TESTSUITE mac_error_tests
+===================================================================
+[DECT_MAC] Entering dect_mac_init. Current active context: 0x50cf80
+[INIT_DBG] Entering dect_mac_init. Current spy pointer: (nil)
+[INIT_DBG] Spy pointer has been reset to: (nil)
+********************************************* STARTING nrf_modem_dect_phy_event_handler_set ************************************
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  nRF DECT PHY event handler registered successfully.
+[PHY_IF] Rcvd event from modem: type=0
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_INIT result: 0 (Temp: 0C, Volt: 0mV, Limit: 0C)
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  DECT PHY Initialized by modem. Requesting latency information.
+[PHY_IF] Rcvd event from modem: type=2
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CONFIGURE result: 0
+[MAC_INIT_PROPAGATION_DBG] About to call dect_mac_api_init with queue pointer: (nil)
+[00:00:00.000,000] <wrn> dect_mac_api: DLC RX queue is NULL. MAC will not be able to deliver received data.
+[INIT_QUEUE_DBG] MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: (nil)
+[00:00:00.000,000] <inf> dect_mac_api: MAC API Initialized. DLC RX queue registered.
+[00:00:00.000,000] <wrn> dect_mac_data_path: DLC TX status callback unregistered (set to NULL).
+START - test_rach_max_retries
+[MOCK_INIT] Configured Baseline Noise to -90 dBm
+[MOCK_INIT] Configured Baseline Noise to -90 dBm
+[MOCK_INIT] Configured Baseline Noise to -90 dBm
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. 287454020
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Init: Role FT, LongID 0x11223344, ShortID 0xDB3B, NetID 0xDECC0044
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:00.000,000] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:00.000,000] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:00.000,000] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:00.000,000] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:00.000,000] <inf> fs_zms: data wra: 0, 0
+[00:00:00.000,000] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC0044 vs our 0x11223344).
+MAC Core Context Initialized. PSN=0x6CC, OwnHPC=1 
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0x6CC, OwnHPC=1
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. -1430532899
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Init: Role PT, LongID 0xAABBCCDD, ShortID 0xAA08, NetID 0xDECC00DD
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:00.000,000] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:00.000,000] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:00.000,000] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:00.000,000] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:00.000,000] <inf> fs_zms: data wra: 0, 0
+[00:00:00.000,000] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC00DD vs our 0xAABBCCDD).
+MAC Core Context Initialized. PSN=0xEE1, OwnHPC=1 
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0xEE1, OwnHPC=1
+
+
+[TEST] 1. Start FT (Beaconing) 
+[MOCK_PHY] PHY Activated for MAC Context 0x507120. State: ACTIVE
+[PHY_IF] Rcvd event from modem: type=4
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_ACTIVATE result: 0 (Temp: 0C, Volt: 0mV)
+[MAC_START_DBG] Entering dect_mac_start...
+[MOCK_PHY] PHY Activated for MAC Context 0x507120. State: ACTIVE
+[PHY_IF] Rcvd event from modem: type=4
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_ACTIVATE result: 0 (Temp: 0C, Volt: 0mV)
+[FT_START_OP_DBG] Entering dect_mac_sm_ft_start_operation...
+[00:00:00.020,100] <inf> dect_mac_core: MAC CORE: Resetting MAC context (Role: FT)
+[DISPATCH] dect_mac_change_state ctx->state:1 != new_state:16 
+[DISPATCH] Changing MAC State: IDLE -> FT_SCANNING (Role: FT)
+old_public_state:1 != 1:new_public_state 
+g_state_change_cb?No!!! 
+[00:00:00.020,100] <dbg> dect_mac_sm_ft: ft_parse_dcs_channel_list: FT_DCS_INIT: Added C1 to scan list (idx 0).
+[00:00:00.020,100] <dbg> dect_mac_sm_ft: ft_parse_dcs_channel_list: FT_DCS_INIT: Added C2 to scan list (idx 1).
+[00:00:00.020,100] <dbg> dect_mac_sm_ft: ft_parse_dcs_channel_list: FT_DCS_INIT: Added C3 to scan list (idx 2).
+[00:00:00.020,100] <dbg> dect_mac_sm_ft: ft_parse_dcs_channel_list: FT_DCS_INIT: Added C4 to scan list (idx 3).
+[00:00:00.020,100] <dbg> dect_mac_sm_ft: ft_parse_dcs_channel_list: FT_DCS_INIT: Added C5 to scan list (idx 4).
+[00:00:00.020,100] <inf> dect_mac_sm_ft: FT_DCS_INIT: Parsed 5 valid channels for DCS.
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_INITIAL_SCAN, Handle: 76053476
+[00:00:00.020,100] <inf> dect_mac_phy_ctrl: PHY_CTRL_RSSI: Starting RSSI. Hdl:76053476, C:1 (ARFCN:1657), Dur:96 subslots, RepInt:24, OpT:FT_INITIAL_SCAN
+[PHY_CTRL_RSSI_DBG] About to call nrf_modem_dect_phy_rssi...
+[MOCK_PHY_RSSI_DBG] Entering mock nrf_modem_dect_phy_rssi g_active_phy_ctx = 0x442e60
+[MOCK_PHY_RSSI_DBG] find_free_timeline_slot returned: 0
+    -  latest_end:0us 
+[MOCK_PHY_RSSI_DBG] Calculating start time...
+[MOCK_PHY] RSSI Scheduled. Handle: 76053476, Start: 20100, End: 20101, Duration: 1 us
+[PHY_CTRL_RSSI_DBG] Returned from nrf_modem_dect_phy_rssi with code: 0
+[PHY_IF_MAP] Registered handle 76053476 to context 0x507120 (Role FT) - g_op_handle_map[0].handle:76053476 
+
+
+[TEST] 2. Start PT and wait for it to start associating 
+
+
+[TEST] 2.1. g_mac_ctx_pt.config.max_assoc_retries = 2 
+
+
+[TEST] 2.2. g_mac_ctx_pt.config.rach_response_window_ms = 50 
+[MOCK_PHY] PHY Activated for MAC Context 0x508fc0. State: ACTIVE
+[PHY_IF] Rcvd event from modem: type=4
+[00:00:00.020,100] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_ACTIVATE result: 0 (Temp: 0C, Volt: 0mV)
+[MAC_START_DBG] Entering dect_mac_start...
+[MOCK_PHY] PHY Activated for MAC Context 0x508fc0. State: ACTIVE
+[PHY_IF] Rcvd event from modem: type=4
+[00:00:00.020,100] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_ACTIVATE result: 0 (Temp: 0C, Volt: 0mV)
+[PT_START_OP_DBG] Entering dect_mac_sm_pt_start_operation...
+[00:00:00.040,200] <inf> dect_mac_core: MAC CORE: Resetting MAC context (Role: PT)
+[DISPATCH] dect_mac_change_state ctx->state:1 != new_state:2 
+[DISPATCH] Changing MAC State: IDLE -> PT_SCANNING (Role: PT)
+old_public_state:1 != 1:new_public_state 
+g_state_change_cb?No!!! 
+PT_SM_START_DBG: Initializing scan with carrier value: 2 (0x2)
+[00:00:00.040,200] <inf> dect_mac_sm_pt: PT SM: Starting scan for FT beacons on carrier 2.
+PHY_CTRL_RX: Starting RX op PT_SCAN (H:1604170158), pending op NONE (H:0).
+[PHY_CTRL_SET_PENDING] Set pending op to Type: PT_SCAN, Handle: 1604170158
+PHY_CTRL_RX: Sending RX. Hdl: 1604170158, C:2 (ARFCN:1658), Mode:0, Dur:69120000 TU, RxID_Filter:0xFFFF, OpT:PT_SCAN, StartTime(ticks):0
+    -  latest_end:0us 
+[MOCK_PHY] RX operation scheduled. Handle: 1604170158, Start: 40200 us, End: 1040200 us
+[PHY_IF_MAP] Registered handle 1604170158 to context 0x508fc0 (Role PT) - g_op_handle_map[1].handle:1604170158 
+
+
+[TEST] 3. Wait for PT to catch FT beacon and enter ASSOCIATING state 
+[MOCK_TIMELINE] Starting Op Handle 1604170158 Type 2 at 1040300 (Sched Start: 40200)
+[MOCK_TIMELINE] Completing Op Handle 1604170158 Type 2 at 1040300 (End: 1040200)
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MOCK_TIMELINE] Starting Op Handle 76053476 Type 3 at 1040300 (Sched Start: 20100)
+[MOCK_TIMELINE] Completing Op Handle 76053476 Type 3 at 1040300 (End: 20101)
+[PHY_IF] Rcvd event from modem: type=8
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 5 (PHY_RSSI_RESULT)	Queued MAC event 5: Found Message (0) 
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role PT (0xAA08)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 0, EventTime 71898624) in State PT_SCANNING (Role PT, PendOp: PT_SCAN, Hdl: 1604170158) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1604170158. Current pending Handle: 1604170158, Type: PT_SCAN
+[PHY_IF_MAP] Deregistering handle 1604170158 (context 0x508fc0) from slot 1
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1604170158, Type PT_SCAN, Err 0 (SUCCESS) 
+[00:00:01.040,300] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op PT_SCAN. Forwarding to SM.
+[DISPATCHER] Calling PT SM handler with context 0x508fc0 ctx->role PT
+[PT_SM] state->MAC_STATE_PT_BEACON_PDC_WAIT && msg->type == MAC_EVENT_PHY_OP_COMPLETE 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1604170158. Current pending Handle: 1604170158, Type: PT_SCAN
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1604170158, Type PT_SCAN, Err 0 (SUCCESS) 
+[PT_SM] pt_handle_phy_op_complete_internal: completed_op_type:PT_SCAN(1) Started... 
+[PT_SM] completed_op_type->PENDING_OP_PT_SCAN 
+PT_SM: Scan PHY op completed (Hdl 1604170158), but no suitable FT found during PDC parsing. Restarting scan.
+[PT_START_OP_DBG] Entering dect_mac_sm_pt_start_operation...
+[00:00:01.040,300] <inf> dect_mac_core: MAC CORE: Resetting MAC context (Role: PT)
+[DISPATCH] dect_mac_change_state ctx->state:2 != new_state:2 
+PT_SM_START_DBG: Initializing scan with carrier value: 2 (0x2)
+[00:00:01.040,300] <inf> dect_mac_sm_pt: PT SM: Starting scan for FT beacons on carrier 2.
+PHY_CTRL_RX: Starting RX op PT_SCAN (H:1302235366), pending op NONE (H:0).
+[PHY_CTRL_SET_PENDING] Set pending op to Type: PT_SCAN, Handle: 1302235366
+PHY_CTRL_RX: Sending RX. Hdl: 1302235366, C:2 (ARFCN:1658), Mode:0, Dur:69120000 TU, RxID_Filter:0xFFFF, OpT:PT_SCAN, StartTime(ticks):0
+    -  latest_end:0us 
+[MOCK_PHY] RX operation scheduled. Handle: 1302235366, Start: 1040300 us, End: 2040300 us
+[PHY_IF_MAP] Registered handle 1302235366 to context 0x508fc0 (Role PT) - g_op_handle_map[1].handle:1302235366 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_RSSI_RESULT(5) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_RSSI_RESULT.
+[DISPATCHER] Dispatching event PHY_RSSI_RESULT to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_RSSI_RESULT (LastKnownTime 0, EventTime 1389381) in State FT_SCANNING (Role FT, PendOp: FT_INITIAL_SCAN, Hdl: 76053476) 
+[00:00:01.040,300] <inf> dect_mac_dispatcher: DISPATCH: RSSI Report Rcvd (H:76053476, Carr:1, Count:10). Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_RSSI_RESULT in state FT_SCANNING
+[FT_SM] Stored scan result for idx 0: AvgRSSI: -180 (Q7.1), Busy: 0%
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 1389381, EventTime 1389381) in State FT_SCANNING (Role FT, PendOp: FT_INITIAL_SCAN, Hdl: 76053476) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 76053476. Current pending Handle: 76053476, Type: FT_INITIAL_SCAN
+[PHY_IF_MAP] Deregistering handle 76053476 (context 0x507120) from slot 0
+PHY_CTRL_OP_DONE: Matches pending op: Handle 76053476, Type FT_INITIAL_SCAN, Err 0 (SUCCESS) 
+[00:00:01.040,300] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op FT_INITIAL_SCAN. Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_OP_COMPLETE in state FT_SCANNING
+[PHY_CTRL_OP_DONE] Received completion for Handle: 76053476. Current pending Handle: 76053476, Type: FT_INITIAL_SCAN
+PHY_CTRL_OP_DONE: Matches pending op: Handle 76053476, Type FT_INITIAL_SCAN, Err 0 (SUCCESS) 
+[FT_SM] Handling OP_COMPLETE for op_type: FT_INITIAL_SCAN
+
+--- FT DCS OP_COMPLETE DEBUG ---
+[00:00:01.040,300] <inf> dect_mac_sm_ft: FT SM: DCS Scan for channel 1 (idx 1 of 5) completed (err 0).
+  - Current Scan Index (after inc): 1
+  - Comparison Check: (1 < 5) is true (will scan next)
+--- END FT DCS OP_COMPLETE DEBUG ---
+  > Scan index after inc: 1. Total channels to scan: 5
+[CORE] Clearing pending_op: 14
+[00:00:01.040,300] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: FT_INITIAL_SCAN, Hdl: 76053476)
+  > More channels to scan. Starting next scan on carrier 2.
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_INITIAL_SCAN, Handle: 362229243
+[00:00:01.040,300] <inf> dect_mac_phy_ctrl: PHY_CTRL_RSSI: Starting RSSI. Hdl:362229243, C:2 (ARFCN:1658), Dur:96 subslots, RepInt:24, OpT:FT_INITIAL_SCAN
+[PHY_CTRL_RSSI_DBG] About to call nrf_modem_dect_phy_rssi...
+[MOCK_PHY_RSSI_DBG] Entering mock nrf_modem_dect_phy_rssi g_active_phy_ctx = 0x442e60
+[MOCK_PHY_RSSI_DBG] find_free_timeline_slot returned: 0
+    -  latest_end:0us 
+[MOCK_PHY_RSSI_DBG] Calculating start time...
+[MOCK_PHY] RSSI Scheduled. Handle: 362229243, Start: 1040300, End: 1040301, Duration: 1 us
+[PHY_CTRL_RSSI_DBG] Returned from nrf_modem_dect_phy_rssi with code: 0
+[PHY_IF_MAP] Registered handle 362229243 to context 0x507120 (Role FT) - g_op_handle_map[0].handle:362229243 
+[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (-42) 
+[MOCK_TIMELINE] Starting Op Handle 1302235366 Type 2 at 1040500 (Sched Start: 1040300)
+[MOCK_TIMELINE] Starting Op Handle 362229243 Type 3 at 1040500 (Sched Start: 1040300)
+[MOCK_TIMELINE] Completing Op Handle 362229243 Type 3 at 1040500 (End: 1040301)
+[MOCK_RSSI_DCS] FT Context 0x442e60: Preferred Carrier 2 is CLEAN (-110 dBm)
+[PHY_IF] Rcvd event from modem: type=8
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 5 (PHY_RSSI_RESULT)	Queued MAC event 5: Found Message (0) 
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_RSSI_RESULT(5) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_RSSI_RESULT.
+[DISPATCHER] Dispatching event PHY_RSSI_RESULT to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_RSSI_RESULT (LastKnownTime 1389381, EventTime 71905605) in State FT_SCANNING (Role FT, PendOp: FT_INITIAL_SCAN, Hdl: 362229243) 
+[00:00:01.040,500] <inf> dect_mac_dispatcher: DISPATCH: RSSI Report Rcvd (H:362229243, Carr:2, Count:10). Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_RSSI_RESULT in state FT_SCANNING
+[FT_SM] Stored scan result for idx 1: AvgRSSI: -220 (Q7.1), Busy: 0%
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 71905605, EventTime 71905605) in State FT_SCANNING (Role FT, PendOp: FT_INITIAL_SCAN, Hdl: 362229243) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 362229243. Current pending Handle: 362229243, Type: FT_INITIAL_SCAN
+[PHY_IF_MAP] Deregistering handle 362229243 (context 0x507120) from slot 0
+PHY_CTRL_OP_DONE: Matches pending op: Handle 362229243, Type FT_INITIAL_SCAN, Err 0 (SUCCESS) 
+[00:00:01.040,500] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op FT_INITIAL_SCAN. Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_OP_COMPLETE in state FT_SCANNING
+[PHY_CTRL_OP_DONE] Received completion for Handle: 362229243. Current pending Handle: 362229243, Type: FT_INITIAL_SCAN
+PHY_CTRL_OP_DONE: Matches pending op: Handle 362229243, Type FT_INITIAL_SCAN, Err 0 (SUCCESS) 
+[FT_SM] Handling OP_COMPLETE for op_type: FT_INITIAL_SCAN
+
+--- FT DCS OP_COMPLETE DEBUG ---
+[00:00:01.040,500] <inf> dect_mac_sm_ft: FT SM: DCS Scan for channel 2 (idx 2 of 5) completed (err 0).
+  - Current Scan Index (after inc): 2
+  - Comparison Check: (2 < 5) is true (will scan next)
+--- END FT DCS OP_COMPLETE DEBUG ---
+  > Scan index after inc: 2. Total channels to scan: 5
+[CORE] Clearing pending_op: 14
+[00:00:01.040,500] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: FT_INITIAL_SCAN, Hdl: 362229243)
+  > More channels to scan. Starting next scan on carrier 3.
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_INITIAL_SCAN, Handle: 334960208
+[00:00:01.040,500] <inf> dect_mac_phy_ctrl: PHY_CTRL_RSSI: Starting RSSI. Hdl:334960208, C:3 (ARFCN:1659), Dur:96 subslots, RepInt:24, OpT:FT_INITIAL_SCAN
+[PHY_CTRL_RSSI_DBG] About to call nrf_modem_dect_phy_rssi...
+[MOCK_PHY_RSSI_DBG] Entering mock nrf_modem_dect_phy_rssi g_active_phy_ctx = 0x442e60
+[MOCK_PHY_RSSI_DBG] find_free_timeline_slot returned: 0
+    -  latest_end:0us 
+[MOCK_PHY_RSSI_DBG] Calculating start time...
+[MOCK_PHY] RSSI Scheduled. Handle: 334960208, Start: 1040500, End: 1040501, Duration: 1 us
+[PHY_CTRL_RSSI_DBG] Returned from nrf_modem_dect_phy_rssi with code: 0
+[PHY_IF_MAP] Registered handle 334960208 to context 0x507120 (Role FT) - g_op_handle_map[0].handle:334960208 
+[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (-42) 
+[MOCK_TIMELINE] Starting Op Handle 334960208 Type 3 at 1040700 (Sched Start: 1040500)
+[MOCK_TIMELINE] Completing Op Handle 334960208 Type 3 at 1040700 (End: 1040501)
+[PHY_IF] Rcvd event from modem: type=8
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 5 (PHY_RSSI_RESULT)	Queued MAC event 5: Found Message (0) 
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_RSSI_RESULT(5) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_RSSI_RESULT.
+[DISPATCHER] Dispatching event PHY_RSSI_RESULT to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_RSSI_RESULT (LastKnownTime 71905605, EventTime 71919429) in State FT_SCANNING (Role FT, PendOp: FT_INITIAL_SCAN, Hdl: 334960208) 
+[00:00:01.040,700] <inf> dect_mac_dispatcher: DISPATCH: RSSI Report Rcvd (H:334960208, Carr:3, Count:10). Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_RSSI_RESULT in state FT_SCANNING
+[FT_SM] Stored scan result for idx 2: AvgRSSI: -180 (Q7.1), Busy: 0%
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 71919429, EventTime 71919429) in State FT_SCANNING (Role FT, PendOp: FT_INITIAL_SCAN, Hdl: 334960208) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 334960208. Current pending Handle: 334960208, Type: FT_INITIAL_SCAN
+[PHY_IF_MAP] Deregistering handle 334960208 (context 0x507120) from slot 0
+PHY_CTRL_OP_DONE: Matches pending op: Handle 334960208, Type FT_INITIAL_SCAN, Err 0 (SUCCESS) 
+[00:00:01.040,700] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op FT_INITIAL_SCAN. Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_OP_COMPLETE in state FT_SCANNING
+[PHY_CTRL_OP_DONE] Received completion for Handle: 334960208. Current pending Handle: 334960208, Type: FT_INITIAL_SCAN
+PHY_CTRL_OP_DONE: Matches pending op: Handle 334960208, Type FT_INITIAL_SCAN, Err 0 (SUCCESS) 
+[FT_SM] Handling OP_COMPLETE for op_type: FT_INITIAL_SCAN
+
+--- FT DCS OP_COMPLETE DEBUG ---
+[00:00:01.040,700] <inf> dect_mac_sm_ft: FT SM: DCS Scan for channel 3 (idx 3 of 5) completed (err 0).
+  - Current Scan Index (after inc): 3
+  - Comparison Check: (3 < 5) is true (will scan next)
+--- END FT DCS OP_COMPLETE DEBUG ---
+  > Scan index after inc: 3. Total channels to scan: 5
+[CORE] Clearing pending_op: 14
+[00:00:01.040,700] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: FT_INITIAL_SCAN, Hdl: 334960208)
+  > More channels to scan. Starting next scan on carrier 4.
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_INITIAL_SCAN, Handle: 1882140968
+[00:00:01.040,700] <inf> dect_mac_phy_ctrl: PHY_CTRL_RSSI: Starting RSSI. Hdl:1882140968, C:4 (ARFCN:1660), Dur:96 subslots, RepInt:24, OpT:FT_INITIAL_SCAN
+[PHY_CTRL_RSSI_DBG] About to call nrf_modem_dect_phy_rssi...
+[MOCK_PHY_RSSI_DBG] Entering mock nrf_modem_dect_phy_rssi g_active_phy_ctx = 0x442e60
+[MOCK_PHY_RSSI_DBG] find_free_timeline_slot returned: 0
+    -  latest_end:0us 
+[MOCK_PHY_RSSI_DBG] Calculating start time...
+[MOCK_PHY] RSSI Scheduled. Handle: 1882140968, Start: 1040700, End: 1040701, Duration: 1 us
+[PHY_CTRL_RSSI_DBG] Returned from nrf_modem_dect_phy_rssi with code: 0
+[PHY_IF_MAP] Registered handle 1882140968 to context 0x507120 (Role FT) - g_op_handle_map[0].handle:1882140968 
+[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (-42) 
+[MOCK_TIMELINE] Starting Op Handle 1882140968 Type 3 at 1040900 (Sched Start: 1040700)
+[MOCK_TIMELINE] Completing Op Handle 1882140968 Type 3 at 1040900 (End: 1040701)
+[PHY_IF] Rcvd event from modem: type=8
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 5 (PHY_RSSI_RESULT)	Queued MAC event 5: Found Message (0) 
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_RSSI_RESULT(5) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_RSSI_RESULT.
+[DISPATCHER] Dispatching event PHY_RSSI_RESULT to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_RSSI_RESULT (LastKnownTime 71919429, EventTime 71933253) in State FT_SCANNING (Role FT, PendOp: FT_INITIAL_SCAN, Hdl: 1882140968) 
+[00:00:01.040,900] <inf> dect_mac_dispatcher: DISPATCH: RSSI Report Rcvd (H:1882140968, Carr:4, Count:10). Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_RSSI_RESULT in state FT_SCANNING
+[FT_SM] Stored scan result for idx 3: AvgRSSI: -180 (Q7.1), Busy: 0%
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 71933253, EventTime 71933253) in State FT_SCANNING (Role FT, PendOp: FT_INITIAL_SCAN, Hdl: 1882140968) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1882140968. Current pending Handle: 1882140968, Type: FT_INITIAL_SCAN
+[PHY_IF_MAP] Deregistering handle 1882140968 (context 0x507120) from slot 0
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1882140968, Type FT_INITIAL_SCAN, Err 0 (SUCCESS) 
+[00:00:01.040,900] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op FT_INITIAL_SCAN. Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_OP_COMPLETE in state FT_SCANNING
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1882140968. Current pending Handle: 1882140968, Type: FT_INITIAL_SCAN
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1882140968, Type FT_INITIAL_SCAN, Err 0 (SUCCESS) 
+[FT_SM] Handling OP_COMPLETE for op_type: FT_INITIAL_SCAN
+
+--- FT DCS OP_COMPLETE DEBUG ---
+[00:00:01.040,900] <inf> dect_mac_sm_ft: FT SM: DCS Scan for channel 4 (idx 4 of 5) completed (err 0).
+  - Current Scan Index (after inc): 4
+  - Comparison Check: (4 < 5) is true (will scan next)
+--- END FT DCS OP_COMPLETE DEBUG ---
+  > Scan index after inc: 4. Total channels to scan: 5
+[CORE] Clearing pending_op: 14
+[00:00:01.040,900] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: FT_INITIAL_SCAN, Hdl: 1882140968)
+  > More channels to scan. Starting next scan on carrier 5.
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_INITIAL_SCAN, Handle: 960816832
+[00:00:01.040,900] <inf> dect_mac_phy_ctrl: PHY_CTRL_RSSI: Starting RSSI. Hdl:960816832, C:5 (ARFCN:1661), Dur:96 subslots, RepInt:24, OpT:FT_INITIAL_SCAN
+[PHY_CTRL_RSSI_DBG] About to call nrf_modem_dect_phy_rssi...
+[MOCK_PHY_RSSI_DBG] Entering mock nrf_modem_dect_phy_rssi g_active_phy_ctx = 0x442e60
+[MOCK_PHY_RSSI_DBG] find_free_timeline_slot returned: 0
+    -  latest_end:0us 
+[MOCK_PHY_RSSI_DBG] Calculating start time...
+[MOCK_PHY] RSSI Scheduled. Handle: 960816832, Start: 1040900, End: 1040901, Duration: 1 us
+[PHY_CTRL_RSSI_DBG] Returned from nrf_modem_dect_phy_rssi with code: 0
+[PHY_IF_MAP] Registered handle 960816832 to context 0x507120 (Role FT) - g_op_handle_map[0].handle:960816832 
+[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (-42) 
+[MOCK_TIMELINE] Starting Op Handle 960816832 Type 3 at 1041100 (Sched Start: 1040900)
+[MOCK_TIMELINE] Completing Op Handle 960816832 Type 3 at 1041100 (End: 1040901)
+[PHY_IF] Rcvd event from modem: type=8
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 5 (PHY_RSSI_RESULT)	Queued MAC event 5: Found Message (0) 
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_RSSI_RESULT(5) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_RSSI_RESULT.
+[DISPATCHER] Dispatching event PHY_RSSI_RESULT to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_RSSI_RESULT (LastKnownTime 71933253, EventTime 71947077) in State FT_SCANNING (Role FT, PendOp: FT_INITIAL_SCAN, Hdl: 960816832) 
+[00:00:01.041,100] <inf> dect_mac_dispatcher: DISPATCH: RSSI Report Rcvd (H:960816832, Carr:5, Count:10). Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_RSSI_RESULT in state FT_SCANNING
+[FT_SM] Stored scan result for idx 4: AvgRSSI: -180 (Q7.1), Busy: 0%
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 71947077, EventTime 71947077) in State FT_SCANNING (Role FT, PendOp: FT_INITIAL_SCAN, Hdl: 960816832) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 960816832. Current pending Handle: 960816832, Type: FT_INITIAL_SCAN
+[PHY_IF_MAP] Deregistering handle 960816832 (context 0x507120) from slot 0
+PHY_CTRL_OP_DONE: Matches pending op: Handle 960816832, Type FT_INITIAL_SCAN, Err 0 (SUCCESS) 
+[00:00:01.041,100] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op FT_INITIAL_SCAN. Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_OP_COMPLETE in state FT_SCANNING
+[PHY_CTRL_OP_DONE] Received completion for Handle: 960816832. Current pending Handle: 960816832, Type: FT_INITIAL_SCAN
+PHY_CTRL_OP_DONE: Matches pending op: Handle 960816832, Type FT_INITIAL_SCAN, Err 0 (SUCCESS) 
+[FT_SM] Handling OP_COMPLETE for op_type: FT_INITIAL_SCAN
+
+--- FT DCS OP_COMPLETE DEBUG ---
+[00:00:01.041,100] <inf> dect_mac_sm_ft: FT SM: DCS Scan for channel 5 (idx 5 of 5) completed (err 0).
+  - Current Scan Index (after inc): 5
+  - Comparison Check: (5 < 5) is false (should stop and select)
+--- END FT DCS OP_COMPLETE DEBUG ---
+  > Scan index after inc: 5. Total channels to scan: 5
+  > All scans complete. Triggering carrier selection.
+  - LOGIC: Entering block to finalize scan and select carrier.
+FT SM: DCS scan sequence complete (5 channels scanned).[00:00:01.041,100] <inf> dect_mac_sm_ft: FT SM: DCS scan sequence complete (5 channels scanned).
+[CORE] Clearing pending_op: 14
+[00:00:01.041,100] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: FT_INITIAL_SCAN, Hdl: 960816832)
+[00:00:01.041,100] <inf> dect_mac_sm_ft: [FT_SM] In ft_select_operating_carrier_and_start_beaconing()
+
+[00:00:01.041,100] <inf> dect_mac_sm_ft: FT_DCS_SEL: Evaluating 5 scanned channels. Busy <= 20%, Noisy < -70dBm.
+[00:00:01.041,100] <inf> dect_mac_sm_ft:   Candidate 0: C1, AvgRSSI: -180 dBm(Q7.1), Busy: 0%, Score: -180
+[00:00:01.041,100] <inf> dect_mac_sm_ft:   Candidate 1: C2, AvgRSSI: -220 dBm(Q7.1), Busy: 0%, Score: -220
+[00:00:01.041,100] <inf> dect_mac_sm_ft:   Candidate 2: C3, AvgRSSI: -180 dBm(Q7.1), Busy: 0%, Score: -180
+[00:00:01.041,100] <inf> dect_mac_sm_ft:   Candidate 3: C4, AvgRSSI: -180 dBm(Q7.1), Busy: 0%, Score: -180
+[00:00:01.041,100] <inf> dect_mac_sm_ft:   Candidate 4: C5, AvgRSSI: -180 dBm(Q7.1), Busy: 0%, Score: -180
+[00:00:01.041,100] <inf> dect_mac_sm_ft: FT_DCS_SEL: selected C2 (idx 1) Score: -220
+[DISPATCH] dect_mac_change_state ctx->state:16 != new_state:17 
+[DISPATCH] Changing MAC State: FT_SCANNING -> FT_BEACONING (Role: FT)
+old_public_state:1 != 2:new_public_state 
+g_state_change_cb?No!!! 
+[00:00:01.041,100] <inf> dect_mac_sm_ft: FT SM: Entered BEACONING state on carrier 2.
+[00:00:01.041,100] <inf> dect_mac_sm_ft: FT SM: Starting initial RX window for PT traffic (one beacon period).
+PHY_CTRL_RX: Starting RX op FT_RACH_RX_WINDOW (H:627031785), pending op NONE (H:0).
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_RACH_RX_WINDOW, Handle: 627031785
+PHY_CTRL_RX: Sending RX. Hdl: 627031785, C:2 (ARFCN:1658), Mode:0, Dur:6912000 TU, RxID_Filter:0xDB3B, OpT:FT_RACH_RX_WINDOW, StartTime(ticks):0
+    -  latest_end:0us 
+[MOCK_PHY] RX operation scheduled. Handle: 627031785, Start: 1041100 us, End: 1141100 us
+[PHY_IF_MAP] Registered handle 627031785 to context 0x507120 (Role FT) - g_op_handle_map[0].handle:627031785 
+[00:00:01.041,100] <dbg> dect_mac_sm_ft: ft_start_beaconing_actions: FT_START_BEACONING: SFN anchor will be established with first beacon TX. Initial SFN set to 0.
+[00:00:01.041,100] <wrn> dect_mac_sm_ft: FT_START_BEACONING: ft_cluster_beacon_period_ms is < 10, using fallback 100ms for timer.
+[00:00:01.041,100] <inf> dect_mac_sm_ft: FT_START_BEACONING: Starting k_timer for beacon with period 100 ms.
+[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (-42) 
+[MOCK_TIMELINE] Starting Op Handle 627031785 Type 2 at 1141200 (Sched Start: 1041100)
+[MOCK_TIMELINE] Completing Op Handle 627031785 Type 2 at 1141200 (End: 1141100)
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 71947077, EventTime 78872832) in State FT_BEACONING (Role FT, PendOp: FT_RACH_RX_WINDOW, Hdl: 627031785) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 627031785. Current pending Handle: 627031785, Type: FT_RACH_RX_WINDOW
+[PHY_IF_MAP] Deregistering handle 627031785 (context 0x507120) from slot 0
+PHY_CTRL_OP_DONE: Matches pending op: Handle 627031785, Type FT_RACH_RX_WINDOW, Err 0 (SUCCESS) 
+[00:00:01.141,200] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op FT_RACH_RX_WINDOW. Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_OP_COMPLETE in state FT_BEACONING
+[PHY_CTRL_OP_DONE] Received completion for Handle: 627031785. Current pending Handle: 627031785, Type: FT_RACH_RX_WINDOW
+PHY_CTRL_OP_DONE: Matches pending op: Handle 627031785, Type FT_RACH_RX_WINDOW, Err 0 (SUCCESS) 
+[FT_SM] Handling OP_COMPLETE for op_type: FT_RACH_RX_WINDOW
+[00:00:01.141,200] <dbg> dect_mac_sm_ft: ft_handle_phy_op_complete_ft: FT SM: RACH RX window op completed (err 0). Re-arming for next period.
+[FT_SM_STATE] Before clear (RACH_RX): pending_op_type = FT_RACH_RX_WINDOW
+[CORE] Clearing pending_op: 16
+[00:00:01.141,200] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: FT_RACH_RX_WINDOW, Hdl: 627031785)
+[FT_SM_STATE] After clear (RACH_RX): pending_op_type = NONE
+PHY_CTRL_RX: Starting RX op FT_RACH_RX_WINDOW (H:1185930294), pending op NONE (H:0).
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_RACH_RX_WINDOW, Handle: 1185930294
+PHY_CTRL_RX: Sending RX. Hdl: 1185930294, C:2 (ARFCN:1658), Mode:0, Dur:6912000 TU, RxID_Filter:0xDB3B, OpT:FT_RACH_RX_WINDOW, StartTime(ticks):0
+    -  latest_end:0us 
+[MOCK_PHY] RX operation scheduled. Handle: 1185930294, Start: 1141200 us, End: 1241200 us
+[PHY_IF_MAP] Registered handle 1185930294 to context 0x507120 (Role FT) - g_op_handle_map[0].handle:1185930294 
+[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (-42) 
+[FT_TIMER_CB] FT Beacon Timer Expired. Queueing event.
+[MOCK_TIMELINE] Starting Op Handle 1185930294 Type 2 at 1241300 (Sched Start: 1141200)
+[MOCK_TIMELINE] Completing Op Handle 1185930294 Type 2 at 1241300 (End: 1241200)
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MAC]: dect_mac_process_event_timeout(): msg->type: TMR_BEACON(12) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event TMR_BEACON.
+[DISPATCHER] Dispatching event TMR_BEACON to role FT (0xDB3B)
+MAC Evt Dispatch: Evt TMR_BEACON (LastKnownTime 78872832, EventTime 0) in State FT_BEACONING (Role FT, PendOp: FT_RACH_RX_WINDOW, Hdl: 1185930294) 
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event TMR_BEACON in state FT_BEACONING
+[FT_SM] MAC_EVENT_TIMER_EXPIRED_BEACON ctx->state: 17 
+[FT_SM_DBG] Handling TMR_BEACON in FT_BEACONING state. dect_mac_sm_ft_beacon_timer_expired_action invoked
+[FT_SM] dect_mac_sm_ft_beacon_timer_expired_action ctx->pending_op_type: 16
+[00:00:01.241,300] <inf> dect_mac_sm_ft: FT SM: Beacon time — cancelling RACH RX window to send beacon.
+[00:00:01.241,300] <inf> dect_mac_phy_ctrl: PHY_CTRL: Requesting cancel for PHY op handle 1185930294
+[MOCK_PHY_CANCEL_DBG] Entering mock nrf_modem_dect_phy_cancel for handle 1185930294.
+[PHY_IF] Rcvd event from modem: type=7
+[00:00:01.241,300] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CANCELED (for cancel op itself) result: 3 for handle 1185930294
+[CORE] Clearing pending_op: 16
+[00:00:01.241,300] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: FT_RACH_RX_WINDOW, Hdl: 1185930294)
+[FT_SM] sending beacon -> ft_send_beacon_action()
+[FT_SM] ft_send_beacon_action -> populate_cb_fields_from_ctx 
+[FT_SM] ctx->own_phy_params.is_valid: valid && ctx->own_phy_params.mu: 0 
+CB_SERIALISER: Starting...
+--- Serializing Cluster Beacon IE ---
+  - Wrote Flags Octet: 0x80 (bit_offset: 16)
+  - Wrote Periods Octet: 0x00 (net: 0, clus: 0) (bit_offset: 24)  ..
+  - Wrote Quality Octet: 0x68 (bit_offset: 32)
+[00:00:01.241,300] <dbg> dect_mac_pdu: serialize_cluster_beacon_ie_payload:   - Wrote Max TX Power: 0x07 (bit_offset: 40)
+CB_SERIALISER: Finished...
+[PDU_BUILD_MUX] Building MUX header for IE Type: 9 (0x09), Payload Len: 5
+[00:00:01.241,300] <dbg> dect_mac_pdu: build_beacon_sdu_area_content: BEACON_SDU_AREA: Added MUXed ClusterBeaconIE (MuxHdr 2, Pyld 5). Offset 7.
+  - After writing bitfields, bit_offset = 32
+  - Buffer content: 30 0a 04 0e 
+RACH_SER_DBG: Input channel_abs_num = 2 (0x2)
+RACH_SER_DBG: Truncated and shifted on-air value = 0x0010
+[PDU_BUILD_MUX] Building MUX header for IE Type: 19 (0x13), Payload Len: 10
+[00:00:01.241,300] <dbg> dect_mac_pdu: build_beacon_sdu_area_content: BEACON_SDU_AREA: Added MUXed RACHInfoIE (MuxHdr 2, Pyld 10). Total SDU Area: 19.
+[FT_SM] ft_send_beacon_action -> ctx->own_route_cost: 0 
+[PDU_BUILD_MUX] Building MUX header for IE Type: 17 (0x11), Payload Len: 6
+[FT_SM] ft_send_beacon_action -> route_info_len: 8 
+[00:00:01.241,300] <dbg> dect_mac_sm_ft: ft_send_beacon_action: BEACON_SDU_AREA: Added Route Info IE (len 8).
+[PDU_BUILD_MUX] Building MUX header for IE Type: 18 (0x12), Payload Len: 6
+[00:00:01.241,300] <dbg> dect_mac_sm_ft: ft_add_group_res_alloc_to_beacon: FT_BEACON: Added Group Resource Allocation IE (len 8).
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x572e00. Used blocks: 1
+[PDU_ASSEMBLY_DBG] Entering assemble_final_pdu.
+  -> mac_hdr_type_octet_byte: 0x01
+  -> common_hdr_len: 7
+  -> sdu_area_len: 35
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> Using MAC Header Type: 0x01
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu - mac_hdr_type_octet_byte:0x00000001 
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> current_offset: 43 
+  -> SDU Area len: 35
+  -> Final PDU len: 43
+[PDU_ASSEMBLY_DBG] Final PDU len: 43
+  -> Final PDU hexdump (first 48 bytes): 01 de cc 00 11 22 33 44 49 05 00 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 44 00 01 52 06 86 00 14 03 0a ff 
+[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: 43 (0) 
+[FT_SM] MoKernel Time: ft_send_beacon_action -> beacon_target_start_time: 1383400us 
+[PHY_CTRL_TX] Function called with context 0x507120 (Role: FT)
+[PHY_CTRL_TX] Calling nrf_modem_dect_phy_tx with phy_type: 0  pending_op_type: 0 ctx->pending_op_handle:0 phy_op_handle:1926318319 
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_BEACON, Handle: 1926318319
+
+  - FULL MAC PDU Payload (MAC PDU, len 43):
+01 de cc 00 11 22 33 44 49 05 00 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 44 00 01 52 06 86 00 14 03 0a ff 
+[PCC_BUILD] Building header. Active context role: FT, Network ID LSB to be used: 0x44
+
+--- DEBUG_PROBE: nrf_modem_dect_phy_tx ---
+  - Transmitter is: FT
+  - Number of configured peers: 1
+[MOCK_PHY] Simulate air: queue this packet for all potential peers that are listening 
+  - Packet to Queue for peer 0 (context 0x4a4fc0)
+[MOCK_TX_DBG]   -> Queuing packet for peer.
+[MOCK_PHY] PHY_QUEUE_RX_PACKET Payload Hexdump (first 32 bytes): 	01 de cc 00 11 22 33 44 49 05 00 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 
+[MOCK_PHY] PHY_QUEUE_RX_QUEUE Payload Hexdump (first 32 bytes): 	01 de cc 00 11 22 33 44 49 05 00 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 
+[TX_EVIDENCE] Scheduled TX for op FT_BEACON (Hdl 1926318319)
+  - PCC Header (PHY Type 0):
+01 44 db 3b 70 
+  - PDC Payload (MAC PDU, len 43):
+01 de cc 00 11 22 33 44 49 05 00 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 44 00 01 52 06 86 00 14 03 0a ff 
+[PHY_IF_MAP] Registered handle 1926318319 to context 0x507120 (Role FT) - g_op_handle_map[2].handle:1926318319 
+[00:00:01.241,300] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (ft_send_beacon_action) Freeing SDU buffer: 0x572e00. Used blocks before free: 1
+[00:00:01.241,300] <inf> dect_mac_sm_ft: FT SM: Beacon SFN 0 TX scheduled on C2 (Hdl 1926318319), TargetStart 1383400
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 78872832, EventTime 85791744) in State FT_BEACONING (Role FT, PendOp: FT_BEACON, Hdl: 1926318319) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1185930294. Current pending Handle: 1926318319, Type: FT_BEACON
+[PHY_IF_MAP] Deregistering handle 1185930294 (context 0x507120) from slot 0
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_OP_COMPLETE in state FT_BEACONING
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1185930294. Current pending Handle: 1926318319, Type: FT_BEACON
+[00:00:01.241,300] <dbg> dect_mac_sm_ft: dect_mac_sm_ft_handle_event: FT SM: OP_COMPLETE for handle 1185930294 (err 0), but no matching/active MAC pending_op_type.
+[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (-42) 
+[MOCK_GET_NEXT] ctx->rx_queue[0].active:Active ctx->rx_queue[0].reception_time_us:20114us 
+[MOCK_PROCESS_RX_DBG] Processing packet from slot 0 (Time: 20114). Searching for matching RX op...
+[MOCK_PROCESS_RX_DBG] Delivering packet from slot 0. Handle: 1302235366
+[PHY_IF] Rcvd event from modem: type=9
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 1 (PHY_PCC)	Queued MAC event 1: Found Message (0) 
+[MOCK_PHY] RX_QUEUE:PDC Payload Hexdump (first 8 bytes): 01 de cc 00 11 22 33 44 
+[PHY_IF] Rcvd event from modem: type=11
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 2 (PHY_PDC)	Queued MAC event 2: Found Message (0) 
+[MOCK_TIMELINE] Starting Op Handle 1926318319 Type 1 at 1242400 (Sched Start: 20014)
+[MOCK_TIMELINE] Completing Op Handle 1926318319 Type 1 at 1242400 (End: 20063)
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_PCC(1) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_PCC.
+[DISPATCHER] Dispatching event PHY_PCC to role PT (0xAA08)
+MAC Evt Dispatch: Evt PHY_PCC (LastKnownTime 0, EventTime 20114) in State PT_SCANNING (Role PT, PendOp: PT_SCAN, Hdl: 1302235366) 
+DISPATCH: MAC_EVENT_PHY_PCC
+PCC_DISPATCH: Rcvd. H:1302235366, Status:0, PHYType:0, RSSI2:-30.000000, SNR:20.000000, Carr:2, TID:0 
+PCC_DISPATCH: common_pre_handle_phy_pcc_event - ctx->role:0 && ctx->state:2
+[DISPATCHER] Calling PT SM handler with context 0x508fc0 ctx->role PT
+[PT_SM] pt_handle_phy_pcc_internal Started...
+[PT_PCC_CACHE]: Adding to cachePT_PCC_CACHE: (TID 0) in slot 0.
+[PT_PCC_ADD] PCC Cache State:
+  Slot[0]: VALID | TID:     0 | Time: 20114
+    -> HDR: 01 44 db 3b 70 
+PT_PCC_CACHE: Stored PCC with TID 0 in slot 0. 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_PDC(2) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_PDC.
+[DISPATCHER] Dispatching event PHY_PDC to role PT (0xAA08)
+MAC Evt Dispatch: Evt PHY_PDC (LastKnownTime 20114, EventTime 20114) in State PT_SCANNING (Role PT, PendOp: PT_SCAN, Hdl: 1302235366) 
+DISPATCH: MAC_EVENT_PHY_PDC
+[00:00:01.242,400] <err> dect_mac_dispatcher: PDC_DISPATCH: common_pre_handle_phy_pdc_event TRUE.
+[DISPATCHER] Calling PT SM handler with context 0x508fc0 ctx->role PT
+MUX_PARSE: Starting parse_mac_mux_header... 
+MUX_PARSE: 8-bit length IE - type:9 payload_len:5
+MUX_PARSE: Ending parse_mac_mux_header... parsed_header_len:2
+[00:00:01.242,400] <err> dect_mac_pdu: CB_PARSE: Starting...
+--- Parsing Cluster Beacon IE (len 5 bytes) ---
+  - Parsed SFN: 0x00 (bit_offset: 8)
+  - Parsed Flags Octet: 0x80 (bit_offset: 16)
+    -> tx_pwr:1, pwr_const:0, fo:0, next_ch:0, ttn:0
+  - Parsed Periods Octet: 0x00 (bit_offset: 24)
+    -> net_period_code: 0, clus_period_code: 0
+  - Parsed Quality Octet: 0x68 (bit_offset: 32)
+    -> count_trig: 3, rel_qual: 2, min_qual: 0
+  - Parsed Max TX Power: 0x07 (bit_offset: 40)
+[00:00:01.242,400] <err> dect_mac_pdu: CB_PARSE: Finished...
+[00:00:01.242,400] <inf> dect_mac_sm_pt: PT_SYNC: Synchronized to FT. SFN is now 0, anchor time is 20114.
+[PT_PDC_HANDLER] Received PDC with TID 0. Searching cache...
+[PT_PDC_SEARCH] PCC Cache State:
+  Slot[0]: VALID | TID:     0 | Time: 20114
+    -> HDR: 01 44 db 3b 70 
+[PT_PDC_HANDLER] Found matching PCC with TID 0 in slot 0.
+
+--- DEBUG_PROBE: pt_handle_phy_pdc_internal ---
+
+--- PT PDC HANDLER(ctx->state) (State: PT_SCANNING) ---
+  - Received PDC for TID 0
+  - Current PT State:(dect_mac_get_active_context()->state) PT_SCANNING
+[PT_SM] RX_QUEUE:PDC Payload Hexdump (first 16 bytes): 01 de cc 00 11 22 33 44 49 05 00 80 00 68 07 53 
+ctx->state:PT_SCANNING[2] phy_type:Beacon header_type:1 
+[DEBUG_PROBE] PT received a beacon from FT 0x11223344 Connected to 0x00000000
+[DEBUG_PROBE] PT's PDC handler received a BEACON PDC from FT 0x11223344. Current PT state: PT_SCANNING
+[[PT_SM]] Reconstructed FT Network ID: 0xDECC0044
+MUX_PARSE: Starting parse_mac_mux_header... 
+MUX_PARSE: 8-bit length IE - type:9 payload_len:5
+MUX_PARSE: Ending parse_mac_mux_header... parsed_header_len:2
+MUX_PARSE: Starting parse_mac_mux_header... 
+MUX_PARSE: 8-bit length IE - type:19 payload_len:10
+MUX_PARSE: Ending parse_mac_mux_header... parsed_header_len:2
+MUX_PARSE: Starting parse_mac_mux_header... 
+MUX_PARSE: 8-bit length IE - type:17 payload_len:6
+MUX_PARSE: Ending parse_mac_mux_header... parsed_header_len:2
+MUX_PARSE: Starting parse_mac_mux_header... 
+MUX_PARSE: 8-bit length IE - type:18 payload_len:6
+MUX_PARSE: Ending parse_mac_mux_header... parsed_header_len:2
+MUX_PARSE: Starting parse_mac_mux_header... 
+MUX_PARSE: 8-bit length IE - type:9 payload_len:5
+MUX_PARSE: Ending parse_mac_mux_header... parsed_header_len:2
+[00:00:01.242,400] <err> dect_mac_pdu: CB_PARSE: Starting...
+--- Parsing Cluster Beacon IE (len 5 bytes) ---
+  - Parsed SFN: 0x00 (bit_offset: 8)
+  - Parsed Flags Octet: 0x80 (bit_offset: 16)
+    -> tx_pwr:1, pwr_const:0, fo:0, next_ch:0, ttn:0
+  - Parsed Periods Octet: 0x00 (bit_offset: 24)
+    -> net_period_code: 0, clus_period_code: 0
+  - Parsed Quality Octet: 0x68 (bit_offset: 32)
+    -> count_trig: 3, rel_qual: 2, min_qual: 0
+  - Parsed Max TX Power: 0x07 (bit_offset: 40)
+[00:00:01.242,400] <err> dect_mac_pdu: CB_PARSE: Finished...
+MUX_PARSE: Starting parse_mac_mux_header... 
+MUX_PARSE: 8-bit length IE - type:19 payload_len:10
+MUX_PARSE: Ending parse_mac_mux_header... parsed_header_len:2
+
+--- RACH PARSE DEBUG ---
+Input Payload (len 10): 30 0a 04 0e 58 bf 00 c8 00 10 
+Parsed Flags: sfn_pres=1, chan_pres=1, chan2_pres=0, max_len_slots=0, dect_delay=0
+Parsed Timing: start_ss=10 (read 8 bits), len_type_slots=0, len_val=4
+Parsed RACH Params: max_rach_len=0, cw_min=0, cw_max=0, rep_code=0
+  - Parsed RACH Params: max_rach_len_octet=0x0E, max_rach_pdu_len_units=7
+  - Parsed Timing: start_ss=10 (read 8 bits), len_type_slots=0, len_val=4
+Parsed Resp Window: 191
+RACH_PARSE_DBG: After bitfield parsing and padding:
+  - bit_offset: 48
+  - byte_offset: 6
+  - remaining_bits: 32
+Parsed SFN/Validity: sfn=0, validity=200
+RACH_PARSE_DBG: Read on-air value = 0x0010
+RACH_PARSE_DBG: Calculated channel_abs_num = 2 (0x2)
+Parsed Channel: on_air_val=0x0010, freq_num=2
+MUX_PARSE: Starting parse_mac_mux_header... 
+MUX_PARSE: 8-bit length IE - type:17 payload_len:6
+MUX_PARSE: Ending parse_mac_mux_header... parsed_header_len:2
+MUX_PARSE: Starting parse_mac_mux_header... 
+MUX_PARSE: 8-bit length IE - type:18 payload_len:6
+MUX_PARSE: Ending parse_mac_mux_header... parsed_header_len:2
+[00:00:01.242,400] <dbg> dect_mac_pdu: parse_resource_alloc_ie_payload: RA_PARSE: BMP0: AllocType:2 Add:0 IDPres:0 Repeat:3 SFNPres:0
+[PT_BEACON_PROC] PT Network ID adopted (Scan): 0xDECC0044
+[00:00:01.242,400] <inf> dect_mac_sm_pt: PT_SYNC: Initial sync to FT 0x11223344. SFN is now 0, anchor time is 20114.
+[PT_SM] In pt_process_identified_beacon_and_attempt_assoc.
+[PT_BEACON_PROC] PT Network ID before processing beacon: 0xDECC0044
+PT_BEACON_PROC: No current target. Selecting FT 0xDB3B (RSSI:-60).
+[00:00:01.242,400] <inf> dect_mac_sm_pt: PT_BEACON_PROC: No current target. Selecting FT 0xDB3B (RSSI:-60).
+PT_BEACON_PROC: Selected FT LongID:0x11223344, ShortID:0xDB3B, BeaconRxCarrier:2, RSSI2:-60 dBm 
+[00:00:01.242,400] <inf> dect_mac_sm_pt: PT_BEACON_PROC: Selected FT LongID:0x11223344, ShortID:0xDB3B, BeaconRxCarrier:2, RSSI2:-60 dBm
+[00:00:01.242,400] <dbg> dect_mac_sm_pt: pt_process_identified_beacon_and_attempt_assoc: PT_BEACON_PROC: Parsed Cluster Beacon IE -> cluster_beacon_period_code: 0
+[00:00:01.242,400] <dbg> dect_mac_sm_pt: pt_process_identified_beacon_and_attempt_assoc: PT_BEACON_PROC: Stored beacon_period_ms in target_ft context: 10 ms
+[DISPATCH] dect_mac_change_state ctx->state:2 != new_state:5 
+[DISPATCH] Changing MAC State: PT_SCANNING -> PT_ASSOCIATING (Role: PT)
+old_public_state:1 != 1:new_public_state 
+g_state_change_cb?No!!! 
+PT_BEACON_PROC: Target FT operating_carrier set to: 2 
+[00:00:01.242,400] <inf> dect_mac_sm_pt: PT_BEACON_PROC: Target FT operating_carrier set to: 2
+[00:00:01.242,400] <dbg> dect_mac_sm_pt: pt_process_identified_beacon_and_attempt_assoc: PT_BEACON_PROC: FT SFN0 Anchor: 20114 (Beacon SFN 0 @ 20114)
+PT_BEACON_PROC: Cancelling ongoing scan (handle 1302235366) to associate with FT 0xDB3B.
+[DISPATCH] dect_mac_change_state ctx->state:5 != new_state:4 
+[DISPATCH] Changing MAC State: PT_ASSOCIATING -> PT_CANCELLING_SCAN (Role: PT)
+old_public_state:1 != 3:new_public_state 
+g_state_change_cb?No!!! 
+[00:00:01.242,400] <inf> dect_mac_phy_ctrl: PHY_CTRL: Requesting cancel for PHY op handle 1302235366
+[MOCK_PHY_CANCEL_DBG] Entering mock nrf_modem_dect_phy_cancel for handle 1302235366.
+[MOCK_PHY_CANCEL_DBG] Found handle 1302235366 in timeline slot 0. Deactivating.
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[PHY_IF] Rcvd event from modem: type=7
+[00:00:01.242,400] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CANCELED (for cancel op itself) result: 0 for handle 1302235366
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 85791744, EventTime 1386754) in State FT_BEACONING (Role FT, PendOp: FT_BEACON, Hdl: 1926318319) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1926318319. Current pending Handle: 1926318319, Type: FT_BEACON
+[PHY_IF_MAP] Deregistering handle 1926318319 (context 0x507120) from slot 2
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1926318319, Type FT_BEACON, Err 0 (SUCCESS) 
+[00:00:01.242,400] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op FT_BEACON. Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_OP_COMPLETE in state FT_BEACONING
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1926318319. Current pending Handle: 1926318319, Type: FT_BEACON
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1926318319, Type FT_BEACON, Err 0 (SUCCESS) 
+[FT_SM] Handling OP_COMPLETE for op_type: FT_BEACON
+FT SM: Beacon TX SFN 0 successful.[FT_SM_STATE] Before clear (BEACON): pending_op_type = FT_BEACON
+[CORE] Clearing pending_op: 15
+[00:00:01.242,400] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: FT_BEACON, Hdl: 1926318319)
+[FT_SM_STATE] After clear (BEACON): pending_op_type = NONE
+PHY_CTRL_RX: Starting RX op FT_RACH_RX_WINDOW (H:973293805), pending op NONE (H:0).
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_RACH_RX_WINDOW, Handle: 973293805
+PHY_CTRL_RX: Sending RX. Hdl: 973293805, C:2 (ARFCN:1658), Mode:0, Dur:6912000 TU, RxID_Filter:0xDB3B, OpT:FT_RACH_RX_WINDOW, StartTime(ticks):0
+    -  latest_end:0us 
+[MOCK_PHY] RX operation scheduled. Handle: 973293805, Start: 1242400 us, End: 1342400 us
+[PHY_IF_MAP] Registered handle 973293805 to context 0x507120 (Role FT) - g_op_handle_map[0].handle:973293805 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role PT (0xAA08)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 20114, EventTime 1242400) in State PT_CANCELLING_SCAN (Role PT, PendOp: PT_SCAN, Hdl: 1302235366) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1302235366. Current pending Handle: 1302235366, Type: PT_SCAN
+[PHY_IF_MAP] Deregistering handle 1302235366 (context 0x508fc0) from slot 1
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1302235366, Type PT_SCAN, Err 4105 (OP_CANCELED) 
+[00:00:01.242,400] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op PT_SCAN. Forwarding to SM.
+[DISPATCHER] Calling PT SM handler with context 0x508fc0 ctx->role PT
+[PT_SM] state->MAC_STATE_PT_CANCELLING_SCAN && msg->type == MAC_EVENT_PHY_OP_COMPLETE 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1302235366. Current pending Handle: 1302235366, Type: PT_SCAN
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1302235366, Type PT_SCAN, Err 4105 (OP_CANCELED) 
+[PT_SM] pt_handle_phy_op_complete_internal: completed_op_type:PT_SCAN(1) Started... 
+[PT_SM] completed_op_type->PENDING_OP_PT_SCAN 
+[00:00:01.242,400] <inf> dect_mac_sm_pt: PT SM: Scan successfully canceled (Hdl 1302235366).
+PT SM: Scan cancelled for association. Sending Association Request.
+[CORE] Clearing pending_op: 1
+[00:00:01.242,400] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: PT_SCAN, Hdl: 1302235366)
+[PT_SM_ASSOC_REQ] Action started with context 0x508fc0 (Role: PT)
+[PT_SM] In pt_send_association_request_action. State: PT_CANCELLING_SCAN
+[DISPATCH] dect_mac_change_state ctx->state:4 != new_state:5 
+[DISPATCH] Changing MAC State: PT_CANCELLING_SCAN -> PT_ASSOCIATING (Role: PT)
+old_public_state:3 != 1:new_public_state 
+g_state_change_cb?No!!! 
+[00:00:01.242,400] <inf> dect_mac_sm_pt: PT_SM_ASSOC_REQ: Attempting Association Request to FT 0xDB3B on RACH carrier 2 (Attempt 1).
+[PDU_BUILD_MUX] Building MUX header for IE Type: 10 (0x0A), Payload Len: 3
+[00:00:01.242,400] <dbg> dect_mac_pdu: build_assoc_req_ies_area: ASSOC_REQ_AREA: Added MUXed AssocReqIE (MuxHdr 2, Pyld 3, Total 5 bytes). Current offset 5.
+[PDU_BUILD_MUX] Building MUX header for IE Type: 20 (0x14), Payload Len: 7
+[00:00:01.242,400] <dbg> dect_mac_pdu: build_assoc_req_ies_area: ASSOC_REQ_AREA: Added MUXed RDCapIE (MuxHdr 2, Pyld 7, Total 9 bytes). Current offset 14.
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x572e00. Used blocks: 1
+[PDU_ASSEMBLY_DBG] Entering assemble_final_pdu.
+  -> mac_hdr_type_octet_byte: 0x02
+  -> common_hdr_len: 10
+  -> sdu_area_len: 14
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> Using MAC Header Type: 0x02
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu - mac_hdr_type_octet_byte:0x00000002 
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> current_offset: 25 
+  -> SDU Area len: 14
+  -> Final PDU len: 25
+[PDU_ASSEMBLY_DBG] Final PDU len: 25
+  -> Final PDU hexdump (first 48 bytes): 02 08 01 11 22 33 44 aa bb cc dd 4a 03 00 4a 4a 54 07 21 44 a0 00 16 7c 0c 
+[PT_CREATE_EVIDENCE] Assembled Association Request PDU (len 25) before sending to PHY control:
+02 08 01 11 22 33 44 aa bb cc dd 4a 03 00 4a 4a 54 07 21 44 a0 00 16 7c 0c 
+[PHY_CTRL_TX] Function called with context 0x508fc0 (Role: PT)
+[PHY_CTRL_TX] Calling nrf_modem_dect_phy_tx with phy_type: 1  pending_op_type: 0 ctx->pending_op_handle:0 phy_op_handle:2114955885 
+[PHY_CTRL_SET_PENDING] Set pending op to Type: PT_RACH_ASSOC_REQ, Handle: 2114955885
+
+  - FULL MAC PDU Payload (MAC PDU, len 25):
+02 08 01 11 22 33 44 aa bb cc dd 4a 03 00 4a 4a 54 07 21 44 a0 00 16 7c 0c 
+[PCC_BUILD] Building header. Active context role: PT, Network ID LSB to be used: 0x44
+[PHY_CTRL] pcc2->short_network_id =4404 
+    -  latest_end:0us 
+
+--- DEBUG_PROBE: nrf_modem_dect_phy_tx ---
+  - Transmitter is: PT
+  - Number of configured peers: 1
+[MOCK_PHY] Simulate air: queue this packet for all potential peers that are listening 
+  - Packet to Queue for peer 0 (context 0x442e60)
+[MOCK_TX_DBG]   -> Queuing packet for peer.
+[MOCK_PHY] PHY_QUEUE_RX_PACKET Payload Hexdump (first 32 bytes): 	02 08 01 11 22 33 44 aa bb cc dd 4a 03 00 4a 4a 54 07 21 44 a0 00 16 7c 0c 
+[MOCK_PHY] PHY_QUEUE_RX_QUEUE Payload Hexdump (first 32 bytes): 	02 08 01 11 22 33 44 aa bb cc dd 4a 03 00 4a 4a 54 07 21 44 a0 00 16 7c 0c 
+[TX_EVIDENCE] Scheduled TX for op PT_RACH_ASSOC_REQ (Hdl 2114955885)
+  - PCC Header (PHY Type 1):
+01 44 aa 08 70 db 3b 08 00 00 
+  - PDC Payload (MAC PDU, len 25):
+02 08 01 11 22 33 44 aa bb cc dd 4a 03 00 4a 4a 54 07 21 44 a0 00 16 7c 0c 
+[PHY_IF_MAP] Registered handle 2114955885 to context 0x508fc0 (Role PT) - g_op_handle_map[1].handle:2114955885 
+[00:00:01.242,400] <inf> dect_mac_sm_pt: PT_SM_ASSOC_REQ: Association Request TX scheduled (Hdl 2114955885) to FT 0xDB3B.
+PHY_CTRL_RX: Starting RX op PT_WAIT_ASSOC_RESP (H:1626837490), pending op PT_RACH_ASSOC_REQ (H:2114955885).
+PHY_CTRL_RX: Cannot start RX op PT_WAIT_ASSOC_RESP (H:1626837490), op PT_RACH_ASSOC_REQ (H:2114955885) already pending.
+[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (-42) 
+
+
+[TEST] 4. Drop all subsequent packets from FT to PT to simulate timeout 
+[MOCK_CONFIG] Packet loss rate set to 100%
+
+
+[TEST] 6. PT should now attempt association twice and then fall back to scanning 
+[MOCK_GET_NEXT] ctx->rx_queue[0].active:Active ctx->rx_queue[0].reception_time_us:1242500us 
+[MOCK_TIMELINE] Starting Op Handle 2114955885 Type 1 at 1242600 (Sched Start: 1242400)
+[MOCK_TIMELINE] Completing Op Handle 2114955885 Type 1 at 1242600 (End: 1242428)
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MOCK_TIMELINE] Starting Op Handle 973293805 Type 2 at 1242600 (Sched Start: 1242400)
+[MOCK_PROCESS_RX_DBG] Processing packet from slot 0 (Time: 1242500). Searching for matching RX op...
+[MOCK_RF_LOSS] Probability drop. Time: 1242500, Carrier: 1658
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role PT (0xAA08)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 1242400, EventTime 85876623) in State PT_ASSOCIATING (Role PT, PendOp: PT_RACH_ASSOC_REQ, Hdl: 2114955885) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 2114955885. Current pending Handle: 2114955885, Type: PT_RACH_ASSOC_REQ
+[PHY_IF_MAP] Deregistering handle 2114955885 (context 0x508fc0) from slot 1
+PHY_CTRL_OP_DONE: Matches pending op: Handle 2114955885, Type PT_RACH_ASSOC_REQ, Err 0 (SUCCESS) 
+[00:00:01.242,600] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op PT_RACH_ASSOC_REQ. Forwarding to SM.
+[DISPATCHER] Calling PT SM handler with context 0x508fc0 ctx->role PT
+[PT_SM] dect_mac_sm_pt_handle_event: ctx->state:PT_ASSOCIATING(5):: msg->type:PHY_OP_COMPLETE(0) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 2114955885. Current pending Handle: 2114955885, Type: PT_RACH_ASSOC_REQ
+PHY_CTRL_OP_DONE: Matches pending op: Handle 2114955885, Type PT_RACH_ASSOC_REQ, Err 0 (SUCCESS) 
+[PT_SM] pt_handle_phy_op_complete_internal: completed_op_type:PT_RACH_ASSOC_REQ(2) Started... 
+[PT_SM] completed_op_type->PENDING_OP_PT_RACH_ASSOC_REQ 
+[PT_SM]: Association Request TX successful (Hdl 2114955885). Waiting for Response.
+[DISPATCH] dect_mac_change_state ctx->state:5 != new_state:9 
+[DISPATCH] Changing MAC State: PT_ASSOCIATING -> PT_WAIT_ASSOC_RESP (Role: PT)
+old_public_state:1 != 1:new_public_state 
+g_state_change_cb?No!!! 
+[PT_SM] case PENDING_OP_PT_RACH_ASSOC_REQ: Calling dect_mac_phy_ctrl_start_rx() 
+[CORE] Clearing pending_op: 2
+[00:00:01.242,600] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: PT_RACH_ASSOC_REQ, Hdl: 2114955885)
+PHY_CTRL_RX: Starting RX op PT_WAIT_ASSOC_RESP (H:1589924831), pending op NONE (H:0).
+[PHY_CTRL_SET_PENDING] Set pending op to Type: PT_WAIT_ASSOC_RESP, Handle: 1589924831
+PHY_CTRL_RX: Sending RX. Hdl: 1589924831, C:2 (ARFCN:1658), Mode:1, Dur:6220800 TU, RxID_Filter:0xAA08, OpT:PT_WAIT_ASSOC_RESP, StartTime(ticks):0
+    -  latest_end:0us 
+[MOCK_PHY] RX operation scheduled. Handle: 1589924831, Start: 1242600 us, End: 1332600 us
+[PHY_IF_MAP] Registered handle 1589924831 to context 0x508fc0 (Role PT) - g_op_handle_map[1].handle:1589924831 
+PT_SM: RX scheduled (Hdl 1589924831) for Association Response from FT 0xDB3B.
+[PT_SM] case PENDING_OP_PT_RACH_ASSOC_REQ: The original TX op is complete and the next RX op is scheduled, clear the pending state from the TX op. POINT 2 
+[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (-42) 
+[FT_TIMER_CB] FT Beacon Timer Expired. Queueing event.
+[MOCK_TIMELINE] Starting Op Handle 1589924831 Type 2 at 1332700 (Sched Start: 1242600)
+[MOCK_TIMELINE] Completing Op Handle 1589924831 Type 2 at 1332700 (End: 1332600)
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MAC]: dect_mac_process_event_timeout(): msg->type: TMR_RACH_RESP_WIN(7) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event TMR_RACH_RESP_WIN.
+[DISPATCHER] Dispatching event TMR_RACH_RESP_WIN to role PT (0xAA08)
+MAC Evt Dispatch: Evt TMR_RACH_RESP_WIN (LastKnownTime 85876623, EventTime 0) in State PT_WAIT_ASSOC_RESP (Role PT, PendOp: PT_WAIT_ASSOC_RESP, Hdl: 1589924831) 
+[DISPATCHER] Calling PT SM handler with context 0x508fc0 ctx->role PT
+[00:00:01.332,700] <wrn> dect_mac_sm_pt: PT_RACH_RESP_TIMEOUT: No Association Response from target FT 0xDB3B (L:0x11223344).
+[00:00:01.332,700] <inf> dect_mac_phy_ctrl: PHY_CTRL: Requesting cancel for PHY op handle 1589924831
+[MOCK_PHY_CANCEL_DBG] Entering mock nrf_modem_dect_phy_cancel for handle 1589924831.
+[PHY_IF] Rcvd event from modem: type=7
+[00:00:01.332,700] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CANCELED (for cancel op itself) result: 3 for handle 1589924831
+[00:00:01.332,700] <inf> dect_mac_sm_pt: PT_RACH_RESP_TIMEOUT: Retrying association to FT 0xDB3B (attempt 2 / 2).
+[00:00:01.332,700] <dbg> dect_mac_sm_pt: pt_rach_response_window_timer_expired_action: PT_RACH_RESP_TIMEOUT: Increased CW index to 3 for next attempt.
+[PT_SM_ASSOC_REQ] Action started with context 0x508fc0 (Role: PT)
+[PT_SM] In pt_send_association_request_action. State: PT_WAIT_ASSOC_RESP
+[DISPATCH] dect_mac_change_state ctx->state:9 != new_state:5 
+[DISPATCH] Changing MAC State: PT_WAIT_ASSOC_RESP -> PT_ASSOCIATING (Role: PT)
+old_public_state:1 != 1:new_public_state 
+g_state_change_cb?No!!! 
+[00:00:01.332,700] <inf> dect_mac_sm_pt: PT_SM_ASSOC_REQ: Attempting Association Request to FT 0xDB3B on RACH carrier 2 (Attempt 2).
+[PDU_BUILD_MUX] Building MUX header for IE Type: 10 (0x0A), Payload Len: 3
+[00:00:01.332,700] <dbg> dect_mac_pdu: build_assoc_req_ies_area: ASSOC_REQ_AREA: Added MUXed AssocReqIE (MuxHdr 2, Pyld 3, Total 5 bytes). Current offset 5.
+[PDU_BUILD_MUX] Building MUX header for IE Type: 20 (0x14), Payload Len: 7
+[00:00:01.332,700] <dbg> dect_mac_pdu: build_assoc_req_ies_area: ASSOC_REQ_AREA: Added MUXed RDCapIE (MuxHdr 2, Pyld 7, Total 9 bytes). Current offset 14.
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x573480. Used blocks: 2
+[PDU_ASSEMBLY_DBG] Entering assemble_final_pdu.
+  -> mac_hdr_type_octet_byte: 0x02
+  -> common_hdr_len: 10
+  -> sdu_area_len: 14
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> Using MAC Header Type: 0x02
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu - mac_hdr_type_octet_byte:0x00000002 
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> current_offset: 25 
+  -> SDU Area len: 14
+  -> Final PDU len: 25
+[PDU_ASSEMBLY_DBG] Final PDU len: 25
+  -> Final PDU hexdump (first 48 bytes): 02 08 02 11 22 33 44 aa bb cc dd 4a 03 00 4a 4a 54 07 21 44 a0 00 16 7c 0c 
+[PT_CREATE_EVIDENCE] Assembled Association Request PDU (len 25) before sending to PHY control:
+02 08 02 11 22 33 44 aa bb cc dd 4a 03 00 4a 4a 54 07 21 44 a0 00 16 7c 0c 
+[PHY_CTRL_TX] Function called with context 0x508fc0 (Role: PT)
+[PHY_CTRL_TX] Calling nrf_modem_dect_phy_tx with phy_type: 1  pending_op_type: 4 ctx->pending_op_handle:1589924831 phy_op_handle:1644716430 
+[PHY_CTRL_SET_PENDING] Set pending op to Type: PT_RACH_ASSOC_REQ, Handle: 1644716430
+
+  - FULL MAC PDU Payload (MAC PDU, len 25):
+02 08 02 11 22 33 44 aa bb cc dd 4a 03 00 4a 4a 54 07 21 44 a0 00 16 7c 0c 
+[PCC_BUILD] Building header. Active context role: PT, Network ID LSB to be used: 0x44
+[PHY_CTRL] pcc2->short_network_id =4404 
+    -  latest_end:0us 
+
+--- DEBUG_PROBE: nrf_modem_dect_phy_tx ---
+  - Transmitter is: PT
+  - Number of configured peers: 1
+[MOCK_PHY] Simulate air: queue this packet for all potential peers that are listening 
+  - Packet to Queue for peer 0 (context 0x442e60)
+[MOCK_TX_DBG]   -> Queuing packet for peer.
+[MOCK_PHY] PHY_QUEUE_RX_PACKET Payload Hexdump (first 32 bytes): 	02 08 02 11 22 33 44 aa bb cc dd 4a 03 00 4a 4a 54 07 21 44 a0 00 16 7c 0c 
+[MOCK_PHY] PHY_QUEUE_RX_QUEUE Payload Hexdump (first 32 bytes): 	02 08 02 11 22 33 44 aa bb cc dd 4a 03 00 4a 4a 54 07 21 44 a0 00 16 7c 0c 
+[TX_EVIDENCE] Scheduled TX for op PT_RACH_ASSOC_REQ (Hdl 1644716430)
+  - PCC Header (PHY Type 1):
+01 44 aa 08 70 db 3b 08 00 00 
+  - PDC Payload (MAC PDU, len 25):
+02 08 02 11 22 33 44 aa bb cc dd 4a 03 00 4a 4a 54 07 21 44 a0 00 16 7c 0c 
+[PHY_IF_MAP] Registered handle 1644716430 to context 0x508fc0 (Role PT) - g_op_handle_map[2].handle:1644716430 
+[00:00:01.332,700] <inf> dect_mac_sm_pt: PT_SM_ASSOC_REQ: Association Request TX scheduled (Hdl 1644716430) to FT 0xDB3B.
+[MAC]: dect_mac_process_event_timeout(): msg->type: TMR_BEACON(12) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event TMR_BEACON.
+[DISPATCHER] Dispatching event TMR_BEACON to role FT (0xDB3B)
+MAC Evt Dispatch: Evt TMR_BEACON (LastKnownTime 85791744, EventTime 0) in State FT_BEACONING (Role FT, PendOp: FT_RACH_RX_WINDOW, Hdl: 973293805) 
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event TMR_BEACON in state FT_BEACONING
+[FT_SM] MAC_EVENT_TIMER_EXPIRED_BEACON ctx->state: 17 
+[FT_SM_DBG] Handling TMR_BEACON in FT_BEACONING state. dect_mac_sm_ft_beacon_timer_expired_action invoked
+[FT_SM] dect_mac_sm_ft_beacon_timer_expired_action ctx->pending_op_type: 16
+[00:00:01.332,700] <inf> dect_mac_sm_ft: FT SM: Beacon time — cancelling RACH RX window to send beacon.
+[00:00:01.332,700] <inf> dect_mac_phy_ctrl: PHY_CTRL: Requesting cancel for PHY op handle 973293805
+[MOCK_PHY_CANCEL_DBG] Entering mock nrf_modem_dect_phy_cancel for handle 973293805.
+[MOCK_PHY_CANCEL_DBG] Found handle 973293805 in timeline slot 0. Deactivating.
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[PHY_IF] Rcvd event from modem: type=7
+[00:00:01.332,700] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CANCELED (for cancel op itself) result: 0 for handle 973293805
+[CORE] Clearing pending_op: 16
+[00:00:01.332,700] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: FT_RACH_RX_WINDOW, Hdl: 973293805)
+[FT_SM] sending beacon -> ft_send_beacon_action()
+[FT_SM] ft_send_beacon_action -> populate_cb_fields_from_ctx 
+[FT_SM] ctx->own_phy_params.is_valid: valid && ctx->own_phy_params.mu: 0 
+CB_SERIALISER: Starting...
+--- Serializing Cluster Beacon IE ---
+  - Wrote Flags Octet: 0x80 (bit_offset: 16)
+  - Wrote Periods Octet: 0x00 (net: 0, clus: 0) (bit_offset: 24)  ..
+  - Wrote Quality Octet: 0x68 (bit_offset: 32)
+[00:00:01.332,700] <dbg> dect_mac_pdu: serialize_cluster_beacon_ie_payload:   - Wrote Max TX Power: 0x07 (bit_offset: 40)
+CB_SERIALISER: Finished...
+[PDU_BUILD_MUX] Building MUX header for IE Type: 9 (0x09), Payload Len: 5
+[00:00:01.332,700] <dbg> dect_mac_pdu: build_beacon_sdu_area_content: BEACON_SDU_AREA: Added MUXed ClusterBeaconIE (MuxHdr 2, Pyld 5). Offset 7.
+  - After writing bitfields, bit_offset = 32
+  - Buffer content: 30 0a 04 0e 
+RACH_SER_DBG: Input channel_abs_num = 2 (0x2)
+RACH_SER_DBG: Truncated and shifted on-air value = 0x0010
+[PDU_BUILD_MUX] Building MUX header for IE Type: 19 (0x13), Payload Len: 10
+[00:00:01.332,700] <dbg> dect_mac_pdu: build_beacon_sdu_area_content: BEACON_SDU_AREA: Added MUXed RACHInfoIE (MuxHdr 2, Pyld 10). Total SDU Area: 19.
+[FT_SM] ft_send_beacon_action -> ctx->own_route_cost: 0 
+[PDU_BUILD_MUX] Building MUX header for IE Type: 17 (0x11), Payload Len: 6
+[FT_SM] ft_send_beacon_action -> route_info_len: 8 
+[00:00:01.332,700] <dbg> dect_mac_sm_ft: ft_send_beacon_action: BEACON_SDU_AREA: Added Route Info IE (len 8).
+[PDU_BUILD_MUX] Building MUX header for IE Type: 18 (0x12), Payload Len: 6
+[00:00:01.332,700] <dbg> dect_mac_sm_ft: ft_add_group_res_alloc_to_beacon: FT_BEACON: Added Group Resource Allocation IE (len 8).
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x573b00. Used blocks: 3
+[PDU_ASSEMBLY_DBG] Entering assemble_final_pdu.
+  -> mac_hdr_type_octet_byte: 0x01
+  -> common_hdr_len: 7
+  -> sdu_area_len: 35
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> Using MAC Header Type: 0x01
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu - mac_hdr_type_octet_byte:0x00000001 
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> current_offset: 43 
+  -> SDU Area len: 35
+  -> Final PDU len: 43
+[PDU_ASSEMBLY_DBG] Final PDU len: 43
+  -> Final PDU hexdump (first 48 bytes): 01 de cc 00 11 22 33 44 49 05 01 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 44 00 01 52 06 86 00 14 03 0a ff 
+[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: 43 (0) 
+[FT_SM] MoKernel Time: ft_send_beacon_action -> beacon_target_start_time: 1383400us 
+[PHY_CTRL_TX] Function called with context 0x507120 (Role: FT)
+[PHY_CTRL_TX] Calling nrf_modem_dect_phy_tx with phy_type: 0  pending_op_type: 0 ctx->pending_op_handle:0 phy_op_handle:749102841 
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_BEACON, Handle: 749102841
+
+  - FULL MAC PDU Payload (MAC PDU, len 43):
+01 de cc 00 11 22 33 44 49 05 01 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 44 00 01 52 06 86 00 14 03 0a ff 
+[PCC_BUILD] Building header. Active context role: FT, Network ID LSB to be used: 0x44
+
+--- DEBUG_PROBE: nrf_modem_dect_phy_tx ---
+  - Transmitter is: FT
+  - Number of configured peers: 1
+[MOCK_PHY] Simulate air: queue this packet for all potential peers that are listening 
+  - Packet to Queue for peer 0 (context 0x4a4fc0)
+[MOCK_TX_DBG]   -> Queuing packet for peer.
+[MOCK_PHY] PHY_QUEUE_RX_PACKET Payload Hexdump (first 32 bytes): 	01 de cc 00 11 22 33 44 49 05 01 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 
+[MOCK_PHY] PHY_QUEUE_RX_QUEUE Payload Hexdump (first 32 bytes): 	01 de cc 00 11 22 33 44 49 05 01 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 
+[TX_EVIDENCE] Scheduled TX for op FT_BEACON (Hdl 749102841)
+  - PCC Header (PHY Type 0):
+01 44 db 3b 70 
+  - PDC Payload (MAC PDU, len 43):
+01 de cc 00 11 22 33 44 49 05 01 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 44 00 01 52 06 86 00 14 03 0a ff 
+[PHY_IF_MAP] Registered handle 749102841 to context 0x507120 (Role FT) - g_op_handle_map[3].handle:749102841 
+[00:00:01.332,700] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (ft_send_beacon_action) Freeing SDU buffer: 0x573b00. Used blocks before free: 3
+[00:00:01.332,700] <inf> dect_mac_sm_ft: FT SM: Beacon SFN 1 TX scheduled on C2 (Hdl 749102841), TargetStart 1383400
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role PT (0xAA08)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 85876623, EventTime 92109312) in State PT_ASSOCIATING (Role PT, PendOp: PT_RACH_ASSOC_REQ, Hdl: 1644716430) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1589924831. Current pending Handle: 1644716430, Type: PT_RACH_ASSOC_REQ
+[PHY_IF_MAP] Deregistering handle 1589924831 (context 0x508fc0) from slot 1
+[DISPATCHER] Calling PT SM handler with context 0x508fc0 ctx->role PT
+[PT_SM] dect_mac_sm_pt_handle_event: ctx->state:PT_ASSOCIATING(5):: msg->type:PHY_OP_COMPLETE(0) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1589924831. Current pending Handle: 1644716430, Type: PT_RACH_ASSOC_REQ
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 85791744, EventTime 1332700) in State FT_BEACONING (Role FT, PendOp: FT_BEACON, Hdl: 749102841) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 973293805. Current pending Handle: 749102841, Type: FT_BEACON
+[PHY_IF_MAP] Deregistering handle 973293805 (context 0x507120) from slot 0
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_OP_COMPLETE in state FT_BEACONING
+[PHY_CTRL_OP_DONE] Received completion for Handle: 973293805. Current pending Handle: 749102841, Type: FT_BEACON
+[00:00:01.332,700] <dbg> dect_mac_sm_ft: dect_mac_sm_ft_handle_event: FT SM: OP_COMPLETE for handle 973293805 (err 4105), but no matching/active MAC pending_op_type.
+[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (-42) 
+[MOCK_GET_NEXT] ctx->rx_queue[0].active:Active ctx->rx_queue[0].reception_time_us:20114us 
+[MOCK_GET_NEXT] ctx->rx_queue[0].active:Active ctx->rx_queue[0].reception_time_us:1332800us 
+[MOCK_TIMELINE] Starting Op Handle 1644716430 Type 1 at 1332900 (Sched Start: 1332700)
+[MOCK_PROCESS_RX_DBG] Processing packet from slot 0 (Time: 20114). Searching for matching RX op...
+[MOCK_RF_LOSS] Probability drop. Time: 20114, Carrier: 1658
+[MOCK_TIMELINE] Completing Op Handle 1644716430 Type 1 at 1332900 (End: 1332728)
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MOCK_TIMELINE] Starting Op Handle 749102841 Type 1 at 1332900 (Sched Start: 20014)
+[MOCK_PROCESS_RX_DBG] Processing packet from slot 0 (Time: 1332800). Searching for matching RX op...
+[MOCK_RF_LOSS] Probability drop. Time: 1332800, Carrier: 1658
+[MOCK_TIMELINE] Completing Op Handle 749102841 Type 1 at 1332900 (End: 20063)
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role PT (0xAA08)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 92109312, EventTime 92118159) in State PT_ASSOCIATING (Role PT, PendOp: PT_RACH_ASSOC_REQ, Hdl: 1644716430) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1644716430. Current pending Handle: 1644716430, Type: PT_RACH_ASSOC_REQ
+[PHY_IF_MAP] Deregistering handle 1644716430 (context 0x508fc0) from slot 2
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1644716430, Type PT_RACH_ASSOC_REQ, Err 0 (SUCCESS) 
+[00:00:01.332,900] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op PT_RACH_ASSOC_REQ. Forwarding to SM.
+[DISPATCHER] Calling PT SM handler with context 0x508fc0 ctx->role PT
+[PT_SM] dect_mac_sm_pt_handle_event: ctx->state:PT_ASSOCIATING(5):: msg->type:PHY_OP_COMPLETE(0) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1644716430. Current pending Handle: 1644716430, Type: PT_RACH_ASSOC_REQ
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1644716430, Type PT_RACH_ASSOC_REQ, Err 0 (SUCCESS) 
+[PT_SM] pt_handle_phy_op_complete_internal: completed_op_type:PT_RACH_ASSOC_REQ(2) Started... 
+[PT_SM] completed_op_type->PENDING_OP_PT_RACH_ASSOC_REQ 
+[PT_SM]: Association Request TX successful (Hdl 1644716430). Waiting for Response.
+[DISPATCH] dect_mac_change_state ctx->state:5 != new_state:9 
+[DISPATCH] Changing MAC State: PT_ASSOCIATING -> PT_WAIT_ASSOC_RESP (Role: PT)
+old_public_state:1 != 1:new_public_state 
+g_state_change_cb?No!!! 
+[PT_SM] case PENDING_OP_PT_RACH_ASSOC_REQ: Calling dect_mac_phy_ctrl_start_rx() 
+[CORE] Clearing pending_op: 2
+[00:00:01.332,900] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: PT_RACH_ASSOC_REQ, Hdl: 1644716430)
+PHY_CTRL_RX: Starting RX op PT_WAIT_ASSOC_RESP (H:1148413881), pending op NONE (H:0).
+[PHY_CTRL_SET_PENDING] Set pending op to Type: PT_WAIT_ASSOC_RESP, Handle: 1148413881
+PHY_CTRL_RX: Sending RX. Hdl: 1148413881, C:2 (ARFCN:1658), Mode:1, Dur:6220800 TU, RxID_Filter:0xAA08, OpT:PT_WAIT_ASSOC_RESP, StartTime(ticks):0
+    -  latest_end:0us 
+[MOCK_PHY] RX operation scheduled. Handle: 1148413881, Start: 1332900 us, End: 1422900 us
+[PHY_IF_MAP] Registered handle 1148413881 to context 0x508fc0 (Role PT) - g_op_handle_map[0].handle:1148413881 
+PT_SM: RX scheduled (Hdl 1148413881) for Association Response from FT 0xDB3B.
+[PT_SM] case PENDING_OP_PT_RACH_ASSOC_REQ: The original TX op is complete and the next RX op is scheduled, clear the pending state from the TX op. POINT 2 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 85791744, EventTime 1386754) in State FT_BEACONING (Role FT, PendOp: FT_BEACON, Hdl: 749102841) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 749102841. Current pending Handle: 749102841, Type: FT_BEACON
+[PHY_IF_MAP] Deregistering handle 749102841 (context 0x507120) from slot 3
+PHY_CTRL_OP_DONE: Matches pending op: Handle 749102841, Type FT_BEACON, Err 0 (SUCCESS) 
+[00:00:01.332,900] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op FT_BEACON. Forwarding to SM.
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_OP_COMPLETE in state FT_BEACONING
+[PHY_CTRL_OP_DONE] Received completion for Handle: 749102841. Current pending Handle: 749102841, Type: FT_BEACON
+PHY_CTRL_OP_DONE: Matches pending op: Handle 749102841, Type FT_BEACON, Err 0 (SUCCESS) 
+[FT_SM] Handling OP_COMPLETE for op_type: FT_BEACON
+FT SM: Beacon TX SFN 1 successful.[FT_SM_STATE] Before clear (BEACON): pending_op_type = FT_BEACON
+[CORE] Clearing pending_op: 15
+[00:00:01.332,900] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: FT_BEACON, Hdl: 749102841)
+[FT_SM_STATE] After clear (BEACON): pending_op_type = NONE
+PHY_CTRL_RX: Starting RX op FT_RACH_RX_WINDOW (H:1450167526), pending op NONE (H:0).
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_RACH_RX_WINDOW, Handle: 1450167526
+PHY_CTRL_RX: Sending RX. Hdl: 1450167526, C:2 (ARFCN:1658), Mode:0, Dur:6912000 TU, RxID_Filter:0xDB3B, OpT:FT_RACH_RX_WINDOW, StartTime(ticks):0
+    -  latest_end:0us 
+[MOCK_PHY] RX operation scheduled. Handle: 1450167526, Start: 1332900 us, End: 1432900 us
+[PHY_IF_MAP] Registered handle 1450167526 to context 0x507120 (Role FT) - g_op_handle_map[1].handle:1450167526 
+[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (-42) 
+[FT_TIMER_CB] FT Beacon Timer Expired. Queueing event.
+[MOCK_TIMELINE] Starting Op Handle 1148413881 Type 2 at 1423000 (Sched Start: 1332900)
+[MOCK_TIMELINE] Completing Op Handle 1148413881 Type 2 at 1423000 (End: 1422900)
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MOCK_TIMELINE] Starting Op Handle 1450167526 Type 2 at 1423000 (Sched Start: 1332900)
+[MAC]: dect_mac_process_event_timeout(): msg->type: TMR_RACH_RESP_WIN(7) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event TMR_RACH_RESP_WIN.
+[DISPATCHER] Dispatching event TMR_RACH_RESP_WIN to role FT (0xDB3B)
+MAC Evt Dispatch: Evt TMR_RACH_RESP_WIN (LastKnownTime 85791744, EventTime 0) in State FT_BEACONING (Role FT, PendOp: FT_RACH_RX_WINDOW, Hdl: 1450167526) 
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event TMR_RACH_RESP_WIN in state FT_BEACONING
+[00:00:01.423,000] <dbg> dect_mac_sm_ft: dect_mac_sm_ft_handle_event: FT SM: Unhandled event type TMR_RACH_RESP_WIN in state FT_BEACONING
+[MAC]: dect_mac_process_event_timeout(): msg->type: TMR_BEACON(12) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event TMR_BEACON.
+[DISPATCHER] Dispatching event TMR_BEACON to role FT (0xDB3B)
+MAC Evt Dispatch: Evt TMR_BEACON (LastKnownTime 85791744, EventTime 0) in State FT_BEACONING (Role FT, PendOp: FT_RACH_RX_WINDOW, Hdl: 1450167526) 
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event TMR_BEACON in state FT_BEACONING
+[FT_SM] MAC_EVENT_TIMER_EXPIRED_BEACON ctx->state: 17 
+[FT_SM_DBG] Handling TMR_BEACON in FT_BEACONING state. dect_mac_sm_ft_beacon_timer_expired_action invoked
+[FT_SM] dect_mac_sm_ft_beacon_timer_expired_action ctx->pending_op_type: 16
+[00:00:01.423,000] <inf> dect_mac_sm_ft: FT SM: Beacon time — cancelling RACH RX window to send beacon.
+[00:00:01.423,000] <inf> dect_mac_phy_ctrl: PHY_CTRL: Requesting cancel for PHY op handle 1450167526
+[MOCK_PHY_CANCEL_DBG] Entering mock nrf_modem_dect_phy_cancel for handle 1450167526.
+[MOCK_PHY_CANCEL_DBG] Found handle 1450167526 in timeline slot 0. Deactivating.
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[PHY_IF] Rcvd event from modem: type=7
+[00:00:01.423,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CANCELED (for cancel op itself) result: 0 for handle 1450167526
+[CORE] Clearing pending_op: 16
+[00:00:01.423,000] <dbg> dect_mac_core: dect_mac_core_clear_pending_op: MAC_CORE: Clearing pending op (was Type: FT_RACH_RX_WINDOW, Hdl: 1450167526)
+[FT_SM] sending beacon -> ft_send_beacon_action()
+[FT_SM] ft_send_beacon_action -> populate_cb_fields_from_ctx 
+[FT_SM] ctx->own_phy_params.is_valid: valid && ctx->own_phy_params.mu: 0 
+CB_SERIALISER: Starting...
+--- Serializing Cluster Beacon IE ---
+  - Wrote Flags Octet: 0x80 (bit_offset: 16)
+  - Wrote Periods Octet: 0x00 (net: 0, clus: 0) (bit_offset: 24)  ..
+  - Wrote Quality Octet: 0x68 (bit_offset: 32)
+[00:00:01.423,000] <dbg> dect_mac_pdu: serialize_cluster_beacon_ie_payload:   - Wrote Max TX Power: 0x07 (bit_offset: 40)
+CB_SERIALISER: Finished...
+[PDU_BUILD_MUX] Building MUX header for IE Type: 9 (0x09), Payload Len: 5
+[00:00:01.423,000] <dbg> dect_mac_pdu: build_beacon_sdu_area_content: BEACON_SDU_AREA: Added MUXed ClusterBeaconIE (MuxHdr 2, Pyld 5). Offset 7.
+  - After writing bitfields, bit_offset = 32
+  - Buffer content: 30 0a 04 0e 
+RACH_SER_DBG: Input channel_abs_num = 2 (0x2)
+RACH_SER_DBG: Truncated and shifted on-air value = 0x0010
+[PDU_BUILD_MUX] Building MUX header for IE Type: 19 (0x13), Payload Len: 10
+[00:00:01.423,000] <dbg> dect_mac_pdu: build_beacon_sdu_area_content: BEACON_SDU_AREA: Added MUXed RACHInfoIE (MuxHdr 2, Pyld 10). Total SDU Area: 19.
+[FT_SM] ft_send_beacon_action -> ctx->own_route_cost: 0 
+[PDU_BUILD_MUX] Building MUX header for IE Type: 17 (0x11), Payload Len: 6
+[FT_SM] ft_send_beacon_action -> route_info_len: 8 
+[00:00:01.423,000] <dbg> dect_mac_sm_ft: ft_send_beacon_action: BEACON_SDU_AREA: Added Route Info IE (len 8).
+[PDU_BUILD_MUX] Building MUX header for IE Type: 18 (0x12), Payload Len: 6
+[00:00:01.423,000] <dbg> dect_mac_sm_ft: ft_add_group_res_alloc_to_beacon: FT_BEACON: Added Group Resource Allocation IE (len 8).
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x573b00. Used blocks: 3
+[PDU_ASSEMBLY_DBG] Entering assemble_final_pdu.
+  -> mac_hdr_type_octet_byte: 0x01
+  -> common_hdr_len: 7
+  -> sdu_area_len: 35
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> Using MAC Header Type: 0x01
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu - mac_hdr_type_octet_byte:0x00000001 
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> current_offset: 43 
+  -> SDU Area len: 35
+  -> Final PDU len: 43
+[PDU_ASSEMBLY_DBG] Final PDU len: 43
+  -> Final PDU hexdump (first 48 bytes): 01 de cc 00 11 22 33 44 49 05 02 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 44 00 01 52 06 86 00 14 03 0a ff 
+[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: 43 (0) 
+[FT_SM] MoKernel Time: ft_send_beacon_action -> beacon_target_start_time: 2074600us 
+[PHY_CTRL_TX] Function called with context 0x507120 (Role: FT)
+[PHY_CTRL_TX] Calling nrf_modem_dect_phy_tx with phy_type: 0  pending_op_type: 0 ctx->pending_op_handle:0 phy_op_handle:1972740189 
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_BEACON, Handle: 1972740189
+
+  - FULL MAC PDU Payload (MAC PDU, len 43):
+01 de cc 00 11 22 33 44 49 05 02 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 44 00 01 52 06 86 00 14 03 0a ff 
+[PCC_BUILD] Building header. Active context role: FT, Network ID LSB to be used: 0x44
+
+--- DEBUG_PROBE: nrf_modem_dect_phy_tx ---
+  - Transmitter is: FT
+  - Number of configured peers: 1
+[MOCK_PHY] Simulate air: queue this packet for all potential peers that are listening 
+  - Packet to Queue for peer 0 (context 0x4a4fc0)
+[MOCK_TX_DBG]   -> Queuing packet for peer.
+[MOCK_PHY] PHY_QUEUE_RX_PACKET Payload Hexdump (first 32 bytes): 	01 de cc 00 11 22 33 44 49 05 02 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 
+[MOCK_PHY] PHY_QUEUE_RX_QUEUE Payload Hexdump (first 32 bytes): 	01 de cc 00 11 22 33 44 49 05 02 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 
+[TX_EVIDENCE] Scheduled TX for op FT_BEACON (Hdl 1972740189)
+  - PCC Header (PHY Type 0):
+01 44 db 3b 70 
+  - PDC Payload (MAC PDU, len 43):
+01 de cc 00 11 22 33 44 49 05 02 80 00 68 07 53 0a 30 0a 04 0e 58 bf 00 c8 00 10 51 06 11 22 33 44 00 01 52 06 86 00 14 03 0a ff 
+[PHY_IF_MAP] Registered handle 1972740189 to context 0x507120 (Role FT) - g_op_handle_map[2].handle:1972740189 
+[00:00:01.423,000] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (ft_send_beacon_action) Freeing SDU buffer: 0x573b00. Used blocks before free: 3
+[00:00:01.423,000] <inf> dect_mac_sm_ft: FT SM: Beacon SFN 2 TX scheduled on C2 (Hdl 1972740189), TargetStart 2074600
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role PT (0xAA08)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 92118159, EventTime 98350848) in State PT_WAIT_ASSOC_RESP (Role PT, PendOp: PT_WAIT_ASSOC_RESP, Hdl: 1148413881) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1148413881. Current pending Handle: 1148413881, Type: PT_WAIT_ASSOC_RESP
+[PHY_IF_MAP] Deregistering handle 1148413881 (context 0x508fc0) from slot 0
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1148413881, Type PT_WAIT_ASSOC_RESP, Err 0 (SUCCESS) 
+[00:00:01.423,000] <inf> dect_mac_dispatcher: DISPATCH: OP_COMPLETE for control plane op PT_WAIT_ASSOC_RESP. Forwarding to SM.
+[DISPATCHER] Calling PT SM handler with context 0x508fc0 ctx->role PT
+[PT_SM] dect_mac_sm_pt_handle_event: ctx->state:PT_WAIT_ASSOC_RESP(9):: msg->type:PHY_OP_COMPLETE(0) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1148413881. Current pending Handle: 1148413881, Type: PT_WAIT_ASSOC_RESP
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1148413881, Type PT_WAIT_ASSOC_RESP, Err 0 (SUCCESS) 
+[PT_SM] pt_handle_phy_op_complete_internal: completed_op_type:PT_WAIT_ASSOC_RESP(4) Started... 
+[PT_SM] Handling PHY_OP_COMPLETE for PENDING_OP_PT_WAIT_ASSOC_RESP, Handle=1148413881
+PT SM: RX window for PT_WAIT_ASSOC_RESP closed without receiving a valid response. Triggering timeout logic.
+[00:00:01.423,000] <wrn> dect_mac_sm_pt: PT_RACH_RESP_TIMEOUT: No Association Response from target FT 0xDB3B (L:0x11223344).
+[00:00:01.423,000] <inf> dect_mac_phy_ctrl: PHY_CTRL: Requesting cancel for PHY op handle 1148413881
+[MOCK_PHY_CANCEL_DBG] Entering mock nrf_modem_dect_phy_cancel for handle 1148413881.
+[PHY_IF HANDLER] ***WARNING***: Could not find context for event 7 (handle 1148413881). Using globally active context.
+[PHY_IF] Rcvd event from modem: type=7
+[00:00:01.423,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CANCELED (for cancel op itself) result: 3 for handle 1148413881
+[00:00:01.423,000] <err> dect_mac_sm_pt: PT_RACH_RESP_TIMEOUT: Max association retries (2) for FT 0xDB3B or no valid target. Restarting scan.
+[PT_START_OP_DBG] Entering dect_mac_sm_pt_start_operation...
+[00:00:01.423,000] <inf> dect_mac_core: MAC CORE: Resetting MAC context (Role: PT)
+[DISPATCH] dect_mac_change_state ctx->state:9 != new_state:2 
+[DISPATCH] Changing MAC State: PT_WAIT_ASSOC_RESP -> PT_SCANNING (Role: PT)
+old_public_state:1 != 1:new_public_state 
+g_state_change_cb?No!!! 
+PT_SM_START_DBG: Initializing scan with carrier value: 2 (0x2)
+[00:00:01.423,000] <inf> dect_mac_sm_pt: PT SM: Starting scan for FT beacons on carrier 2.
+PHY_CTRL_RX: Starting RX op PT_SCAN (H:382098517), pending op NONE (H:0).
+[PHY_CTRL_SET_PENDING] Set pending op to Type: PT_SCAN, Handle: 382098517
+PHY_CTRL_RX: Sending RX. Hdl: 382098517, C:2 (ARFCN:1658), Mode:0, Dur:69120000 TU, RxID_Filter:0xFFFF, OpT:PT_SCAN, StartTime(ticks):0
+    -  latest_end:0us 
+[MOCK_PHY] RX operation scheduled. Handle: 382098517, Start: 1423000 us, End: 2423000 us
+[PHY_IF_MAP] Registered handle 382098517 to context 0x508fc0 (Role PT) - g_op_handle_map[0].handle:382098517 
+[MAC]: dect_mac_process_event_timeout(): msg->type: PHY_OP_COMPLETE(0) err:0
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 85791744, EventTime 1423000) in State FT_BEACONING (Role FT, PendOp: FT_BEACON, Hdl: 1972740189) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1450167526. Current pending Handle: 1972740189, Type: FT_BEACON
+[PHY_IF_MAP] Deregistering handle 1450167526 (context 0x507120) from slot 1
+[DISPATCHER] Calling FT SM handler with context 0x507120 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_OP_COMPLETE in state FT_BEACONING
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1450167526. Current pending Handle: 1972740189, Type: FT_BEACON
+[00:00:01.423,000] <dbg> dect_mac_sm_ft: dect_mac_sm_ft_handle_event: FT SM: OP_COMPLETE for handle 1450167526 (err 4105), but no matching/active MAC pending_op_type.
+[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (-42) 
+ PASS - test_rach_max_retries in 1.423 seconds
+===================================================================
+TESTSUITE mac_error_tests succeeded
+
+------ TESTSUITE SUMMARY START ------
+
+SUITE PASS - 100.00% [mac_error_tests]: pass = 1, fail = 0, skip = 0, total = 1 duration = 1.423 seconds
+ - PASS - [mac_error_tests.test_rach_max_retries] duration = 1.423 seconds
+
+------ TESTSUITE SUMMARY END ------
+
+===================================================================
+RunID: 2e7fe63dfb79bb963171d04c54ea0e82
+PROJECT EXECUTION SUCCESSFUL

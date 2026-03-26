@@ -1,0 +1,36 @@
+*** Booting nRF Connect SDK v3.0.2-89ba1294ac9b ***
+*** Using Zephyr OS v4.0.99-f791c49f492c ***
+Running TESTSUITE mac_phy_ctrl_tests
+===================================================================
+START - test_slot_mode
+[00:00:00.000,000] <err> dect_mac_phy_ctrl: PCC_CALC: Payload 5000 bytes (40000 bits) too large for MCS 8 even at max 16 subslots (TBS: 30000 bits). Clamping length.
+ PASS - test_slot_mode in 0.000 seconds
+===================================================================
+START - test_tbs_mu1_beta1
+ PASS - test_tbs_mu1_beta1 in 0.000 seconds
+===================================================================
+START - test_tbs_mu2_beta1
+ PASS - test_tbs_mu2_beta1 in 0.000 seconds
+===================================================================
+START - test_tbs_mu4_beta1
+ PASS - test_tbs_mu4_beta1 in 0.000 seconds
+===================================================================
+START - test_zero_payload
+ PASS - test_zero_payload in 0.000 seconds
+===================================================================
+TESTSUITE mac_phy_ctrl_tests succeeded
+
+------ TESTSUITE SUMMARY START ------
+
+SUITE PASS - 100.00% [mac_phy_ctrl_tests]: pass = 5, fail = 0, skip = 0, total = 5 duration = 0.000 seconds
+ - PASS - [mac_phy_ctrl_tests.test_slot_mode] duration = 0.000 seconds
+ - PASS - [mac_phy_ctrl_tests.test_tbs_mu1_beta1] duration = 0.000 seconds
+ - PASS - [mac_phy_ctrl_tests.test_tbs_mu2_beta1] duration = 0.000 seconds
+ - PASS - [mac_phy_ctrl_tests.test_tbs_mu4_beta1] duration = 0.000 seconds
+ - PASS - [mac_phy_ctrl_tests.test_zero_payload] duration = 0.000 seconds
+
+------ TESTSUITE SUMMARY END ------
+
+===================================================================
+RunID: 23f914fd933450f935f70d9805b7a872
+PROJECT EXECUTION SUCCESSFUL

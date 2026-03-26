@@ -1,0 +1,323 @@
+*** Booting nRF Connect SDK v3.0.2-89ba1294ac9b ***
+*** Using Zephyr OS v4.0.99-f791c49f492c ***
+Running TESTSUITE dect_mac_flow
+===================================================================
+[DECT_MAC] Entering dect_mac_init. Current active context: 0x506180
+[INIT_DBG] Entering dect_mac_init. Current spy pointer: (nil)
+[INIT_DBG] Spy pointer has been reset to: (nil)
+********************************************* STARTING nrf_modem_dect_phy_event_handler_set ************************************
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  nRF DECT PHY event handler registered successfully.
+[PHY_IF] Rcvd event from modem: type=0
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_INIT result: 0 (Temp: 0C, Volt: 0mV, Limit: 0C)
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  DECT PHY Initialized by modem. Requesting latency information.
+[PHY_IF] Rcvd event from modem: type=2
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CONFIGURE result: 0
+[MAC_INIT_PROPAGATION_DBG] About to call dect_mac_api_init with queue pointer: (nil)
+[00:00:00.000,000] <wrn> dect_mac_api: DLC RX queue is NULL. MAC will not be able to deliver received data.
+[INIT_QUEUE_DBG] MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: (nil)
+[00:00:00.000,000] <inf> dect_mac_api: MAC API Initialized. DLC RX queue registered.
+[00:00:00.000,000] <wrn> dect_mac_data_path: DLC TX status callback unregistered (set to NULL).
+START - test_data_transfer
+[MOCK_INIT] Configured Baseline Noise to -90 dBm
+[MOCK_INIT] Configured Baseline Noise to -90 dBm
+[MOCK_INIT] Configured Baseline Noise to -90 dBm
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. 287454020
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Init: Role FT, LongID 0x11223344, ShortID 0xDB3B, NetID 0xDECC0044
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:00.000,000] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:00.000,000] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:00.000,000] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:00.000,000] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:00.000,000] <inf> fs_zms: data wra: 0, 0
+[00:00:00.000,000] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC0044 vs our 0x11223344).
+MAC Core Context Initialized. PSN=0x6CC, OwnHPC=1 
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0x6CC, OwnHPC=1
+[MOCK_PHY] PHY Activated for MAC Context 0x508020. State: ACTIVE
+[PHY_IF] Rcvd event from modem: type=4
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_ACTIVATE result: 0 (Temp: 0C, Volt: 0mV)
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. -1430532899
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Init: Role PT, LongID 0xAABBCCDD, ShortID 0xAA08, NetID 0xDECC00DD
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:00.000,000] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:00.000,000] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:00.000,000] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:00.000,000] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:00.000,000] <inf> fs_zms: data wra: 0, 0
+[00:00:00.000,000] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC00DD vs our 0xAABBCCDD).
+MAC Core Context Initialized. PSN=0xEE1, OwnHPC=1 
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0xEE1, OwnHPC=1
+[MOCK_PHY] PHY Activated for MAC Context 0x509ec0. State: ACTIVE
+[PHY_IF] Rcvd event from modem: type=4
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_ACTIVATE result: 0 (Temp: 0C, Volt: 0mV)
+[TEST_DBG] FT and PT initialized and PHYs activated.
+[DISPATCH] dect_mac_change_state ctx->state:1 != new_state:17 
+[DISPATCH] Changing MAC State: IDLE -> FT_BEACONING (Role: FT)
+old_public_state:1 != 2:new_public_state 
+g_state_change_cb?No!!! 
+[00:00:00.000,000] <inf> dect_mac_sm_ft: FT SM: PT 0xAABBCCDD (S:0xAA08) assigned to new peer slot 0.
+[DISPATCH] dect_mac_change_state ctx->state:1 != new_state:19 
+[DISPATCH] Changing MAC State: IDLE -> ASSOCIATED (Role: PT)
+old_public_state:1 != 2:new_public_state 
+g_state_change_cb?No!!! 
+[TEST_DBG] PT and FT schedules synchronized. Sched start (ticks): 138240
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x574da0. Used blocks: 1
+[API_SEND_DBG] REAL dect_mac_api_send() function was called.
+[SEND_API_DBG] Checking state in dect_mac_api_send. Current state is ASSOCIATED (19).
+PT_SEND_API: Queueing SDU (len 20) to generic MAC TX Flow 1 (for associated FT)
+[DIAGNOSTIC_TRACE] Step 1: SDU (len 20) for flow 1 queued. Queue is now empty: no
+[TEST_DBG] Starting simulation to wait for data reception...
+[SIMULATION] Starting simulation. End time: 1000000 us, Timeout: 1000000 us
+
+--- DEBUG: dect_mac_core_get_peer_slot_idx ---
+Searching for peer with Short ID: 0xAA08
+  - Checking slot 0: is_valid=1, short_rd_id=0xAA08
+  - Match found! Returning slot 0.
+[TEST DBG] FT received data from peer: 0 (Len:0)
+[00:00:00.001,000] <inf> dect_mac_sm_ft: FT_SCHED_RX: Scheduling UL listen for PT 0 (0xAA08) at 138240, dur 144000 ticks. Group: 0
+PHY_CTRL_RX: Starting RX op FT_DATA_RX (H:76053476), pending op NONE (H:0).
+[PHY_CTRL_SET_PENDING] Set pending op to Type: FT_DATA_RX, Handle: 76053476
+[00:00:00.001,000] <err> dect_mac_phy_ctrl: ARFCN_CONV: Attempted to use logical Channel 0 (Invalid).
+PHY_CTRL_RX: Sending RX. Hdl: 76053476, C:0 (ARFCN:0), Mode:2, Dur:144000 TU, RxID_Filter:0xDB3B, OpT:FT_DATA_RX, StartTime(ticks):138240
+[MOCK_PHY] RX operation scheduled. Handle: 76053476, Start: 2000 us, End: 4083 us
+[PHY_IF_MAP] Registered handle 76053476 to context 0x508020 (Role FT) - g_op_handle_map[0].handle:76053476 
+[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:21 
+  - Checking for HARQ retransmissions...
+  - Checking for HARQ retransmissions...
+  - PT Role: Checking for TX opportunity...
+[DEBUG_PROBE] pt_get_next_tx_opportunity called. Current state: ASSOCIATED(19)
+  - Checking UL schedule: is_active = 1, validity_value = 255 ul_duration_subslots=10
+  - out_start_time:138240 ticks 
+[DIAGNOSTIC_TRACE] Step 2: Scheduler ran. Opportunity found: YES
+ &start_time:138240us &carrier:0 &schedule:0u 
+  - PT Role: k_queue is NOT empty(mac_tx_queues[1])...
+[FIT_CHECK_DBG] SDU len: 20
+[FIT_CHECK_DBG] After Hdr Type (size 1): overhead = 1
+[FIT_CHECK_DBG] Size of Unicast Hdr: 10, Size of Data PDU Hdr: 2
+[FIT_CHECK_DBG] After Unicast Hdr (size 10): overhead = 3
+[FIT_CHECK_DBG] After MUX Hdr (size 3): overhead = 6
+[00:00:00.001,000] <wrn> dect_mac_data_path: FIT_CHECK: Peer PHY params unknown. Using own params as fallback.
+TBS_GET: mu_code:0 
+TBS_GET: [mcs_code]0[num_subslots - 1]9 - Returning tbs_bits/8:271 
+[FIT_CHECK_DBG] Final Check: total_pdu_size (26) vs available_bytes (271)
+[SCHED_FIT_DBG] PT Checking if SDU (len 20) fits schedule. Result: YES
+[HEADER_TYPE_DBG] MAC_COMMON_HEADER_TYPE_UNICAST = 0x02
+[HEADER_TYPE_DBG] MAC_COMMON_HEADER_TYPE_DATA_PDU = 0x00
+[HEADER_TYPE_DBG] MAC_COMMON_HEADER_TYPE_BEACON = 0x01
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x575420. Used blocks: 2
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+[TX_DATA_DBG] Assembling data PDU. Using MAC Header Type: 0x00
+[PDU_BUILD_MUX] Building MUX header for IE Type: 4 (0x04), Payload Len: 20
+[PDU_ASSEMBLY_DBG] Entering assemble_final_pdu.
+  -> mac_hdr_type_octet_byte: 0x00
+  -> common_hdr_len: 2
+  -> sdu_area_len: 22
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> Using MAC Header Type: 0x00
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu - mac_hdr_type_octet_byte:0x00000000 
+[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> current_offset: 25 
+  -> SDU Area len: 22
+  -> Final PDU len: 25
+[PDU_ASSEMBLY_DBG] Final PDU len: 25
+  -> Final PDU hexdump (first 48 bytes): 00 1e e2 44 14 74 65 73 74 5f 64 61 74 61 5f 30 31 32 33 34 35 36 37 38 39 
+[PDU_ASSEMBLY_DBG] Called assemble_final_pdu with mac_hdr_type: 0x00
+[PHY_CTRL_TX] Function called with context 0x509ec0 (Role: PT)
+[PHY_CTRL_TX] Calling nrf_modem_dect_phy_tx with phy_type: 1  pending_op_type: 0 ctx->pending_op_handle:0 phy_op_handle:1604170158 
+[PHY_CTRL_SET_PENDING] Set pending op to Type: PT_DATA_TX_HARQ0, Handle: 1604170158
+
+  - FULL MAC PDU Payload (MAC PDU, len 25):
+00 1e e2 44 14 74 65 73 74 5f 64 61 74 61 5f 30 31 32 33 34 35 36 37 38 39 
+[PCC_BUILD] Building header. Active context role: PT, Network ID LSB to be used: 0x44
+[00:00:00.001,000] <wrn> dect_mac_phy_ctrl: PCC_BUILD: HARQ op_type PT_DATA_TX_HARQ0 but no active/valid HARQ proc 0. Using default HARQ fields.
+[PHY_CTRL] pcc2->short_network_id =4404 
+[00:00:00.001,000] <err> dect_mac_phy_ctrl: ARFCN_CONV: Attempted to use logical Channel 0 (Invalid).
+
+--- DEBUG_PROBE: nrf_modem_dect_phy_tx ---
+  - Transmitter is: PT
+  - Number of configured peers: 1
+[MOCK_PHY] Simulate air: queue this packet for all potential peers that are listening 
+  - Packet to Queue for peer 0 (context 0x441ec0)
+[MOCK_TX_DBG]   -> Queuing packet for peer.
+[MOCK_PHY] PHY_QUEUE_RX_PACKET Payload Hexdump (first 32 bytes): 	00 1e e2 44 14 74 65 73 74 5f 64 61 74 61 5f 30 31 32 33 34 35 36 37 38 39 
+[MOCK_PHY] PHY_QUEUE_RX_QUEUE Payload Hexdump (first 32 bytes): 	00 1e e2 44 14 74 65 73 74 5f 64 61 74 61 5f 30 31 32 33 34 35 36 37 38 39 
+[TX_EVIDENCE] Scheduled TX for op PT_DATA_TX_HARQ0 (Hdl 1604170158)
+  - PCC Header (PHY Type 1):
+01 44 aa 08 70 db 3b 08 00 00 
+  - PDC Payload (MAC PDU, len 25):
+00 1e e2 44 14 74 65 73 74 5f 64 61 74 61 5f 30 31 32 33 34 35 36 37 38 39 
+[PHY_IF_MAP] Registered handle 1604170158 to context 0x509ec0 (Role PT) - g_op_handle_map[1].handle:1604170158 
+
+--- DEBUG: dect_mac_core_get_peer_slot_idx ---
+Searching for peer with Short ID: 0xAA08
+  - Checking slot 0: is_valid=1, short_rd_id=0xAA08
+  - Match found! Returning slot 0.
+[TEST DBG] FT received data from peer: 0 (Len:0)
+[MOCK_GET_NEXT] ctx->rx_queue[0].active:Active ctx->rx_queue[0].reception_time_us:2100us 
+[MOCK_TIMELINE] Starting Op Handle 1604170158 Type 1 at 2000 (Sched Start: 2000)
+[MOCK_TIMELINE] Starting Op Handle 76053476 Type 2 at 2000 (Sched Start: 2000)
+[00:00:00.002,028] <inf> dect_mac_sm_ft: FT_SCHED_RX: Scheduling UL listen for PT 0 (0xAA08) at 138240, dur 144000 ticks. Group: 0
+PHY_CTRL_RX: Starting RX op FT_DATA_RX (H:1302235366), pending op FT_DATA_RX (H:76053476).
+PHY_CTRL_RX: Cannot start RX op FT_DATA_RX (H:1302235366), op FT_DATA_RX (H:76053476) already pending.
+[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:21 
+  - Checking for HARQ retransmissions...
+  - Checking for HARQ retransmissions...
+[00:00:00.002,028] <inf> dect_mac_data_path: DP_SVC_TX: Cleaning up completed HARQ process 0 (cleanup 1/8)
+  - PT Role: Checking for TX opportunity...
+[DEBUG_PROBE] pt_get_next_tx_opportunity called. Current state: ASSOCIATED(19)
+  - Checking UL schedule: is_active = 1, validity_value = 255 ul_duration_subslots=10
+[ERROR] pt_get_next_tx_opportunity return FALSE (earliest 167040 ticks, next_occ 138240 ticks)
+[DIAGNOSTIC_TRACE] Step 2: Scheduler ran. Opportunity found: NO
+ &start_time:4290272us &carrier:0 &schedule:139607911956736u 
+
+--- DEBUG: dect_mac_core_get_peer_slot_idx ---
+Searching for peer with Short ID: 0xAA08
+  - Checking slot 0: is_valid=1, short_rd_id=0xAA08
+  - Match found! Returning slot 0.
+[TEST DBG] FT received data from peer: 0 (Len:0)
+[MOCK_GET_NEXT] ctx->rx_queue[0].active:Active ctx->rx_queue[0].reception_time_us:2100us 
+[00:00:00.002,056] <inf> dect_mac_sm_ft: FT_SCHED_RX: Scheduling UL listen for PT 0 (0xAA08) at 138240, dur 144000 ticks. Group: 0
+PHY_CTRL_RX: Starting RX op FT_DATA_RX (H:362229243), pending op FT_DATA_RX (H:76053476).
+PHY_CTRL_RX: Cannot start RX op FT_DATA_RX (H:362229243), op FT_DATA_RX (H:76053476) already pending.
+[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:21 
+  - Checking for HARQ retransmissions...
+  - Checking for HARQ retransmissions...
+  - PT Role: Checking for TX opportunity...
+[DEBUG_PROBE] pt_get_next_tx_opportunity called. Current state: ASSOCIATED(19)
+  - Checking UL schedule: is_active = 1, validity_value = 255 ul_duration_subslots=10
+[ERROR] pt_get_next_tx_opportunity return FALSE (earliest 167040 ticks, next_occ 138240 ticks)
+[DIAGNOSTIC_TRACE] Step 2: Scheduler ran. Opportunity found: NO
+ &start_time:4290272us &carrier:0 &schedule:139607911956736u 
+
+--- DEBUG: dect_mac_core_get_peer_slot_idx ---
+Searching for peer with Short ID: 0xAA08
+  - Checking slot 0: is_valid=1, short_rd_id=0xAA08
+  - Match found! Returning slot 0.
+[TEST DBG] FT received data from peer: 0 (Len:0)
+[MOCK_GET_NEXT] ctx->rx_queue[0].active:Active ctx->rx_queue[0].reception_time_us:2100us 
+[00:00:00.002,084] <inf> dect_mac_sm_ft: FT_SCHED_RX: Scheduling UL listen for PT 0 (0xAA08) at 138240, dur 144000 ticks. Group: 0
+PHY_CTRL_RX: Starting RX op FT_DATA_RX (H:334960208), pending op FT_DATA_RX (H:76053476).
+PHY_CTRL_RX: Cannot start RX op FT_DATA_RX (H:334960208), op FT_DATA_RX (H:76053476) already pending.
+[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:21 
+  - Checking for HARQ retransmissions...
+  - Checking for HARQ retransmissions...
+  - PT Role: Checking for TX opportunity...
+[DEBUG_PROBE] pt_get_next_tx_opportunity called. Current state: ASSOCIATED(19)
+  - Checking UL schedule: is_active = 1, validity_value = 255 ul_duration_subslots=10
+[ERROR] pt_get_next_tx_opportunity return FALSE (earliest 167040 ticks, next_occ 138240 ticks)
+[DIAGNOSTIC_TRACE] Step 2: Scheduler ran. Opportunity found: NO
+ &start_time:4290272us &carrier:0 &schedule:139607911956736u 
+
+--- DEBUG: dect_mac_core_get_peer_slot_idx ---
+Searching for peer with Short ID: 0xAA08
+  - Checking slot 0: is_valid=1, short_rd_id=0xAA08
+  - Match found! Returning slot 0.
+[TEST DBG] FT received data from peer: 0 (Len:0)
+[MOCK_GET_NEXT] ctx->rx_queue[0].active:Active ctx->rx_queue[0].reception_time_us:2100us 
+[MOCK_TIMELINE] Completing Op Handle 1604170158 Type 1 at 2100 (End: 2028)
+[PHY_IF] Rcvd event from modem: type=6
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 0 (PHY_OP_COMPLETE)	Queued MAC event 0: Found Message (0) 
+[MOCK_PROCESS_RX_DBG] Processing packet from slot 0 (Time: 2100). Searching for matching RX op...
+[MOCK_PROCESS_RX_DBG] Delivering packet from slot 0. Handle: 76053476
+[PHY_IF] Rcvd event from modem: type=9
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 1 (PHY_PCC)	Queued MAC event 1: Found Message (0) 
+[MOCK_PHY] RX_QUEUE:PDC Payload Hexdump (first 8 bytes): 00 1e e2 44 14 74 65 73 
+[PHY_IF] Rcvd event from modem: type=11
+[PHY_IF] PRE-QUEUE CHECK: msg.type = 2 (PHY_PDC)	Queued MAC event 2: Found Message (0) 
+[00:00:00.002,112] <inf> dect_mac_sm_ft: FT_SCHED_RX: Scheduling UL listen for PT 0 (0xAA08) at 138240, dur 144000 ticks. Group: 0
+PHY_CTRL_RX: Starting RX op FT_DATA_RX (H:1882140968), pending op FT_DATA_RX (H:76053476).
+PHY_CTRL_RX: Cannot start RX op FT_DATA_RX (H:1882140968), op FT_DATA_RX (H:76053476) already pending.
+[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:21 
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_OP_COMPLETE.
+[DISPATCHER] Dispatching event PHY_OP_COMPLETE to role PT (0xAA08)
+MAC Evt Dispatch: Evt PHY_OP_COMPLETE (LastKnownTime 0, EventTime 140175) in State ASSOCIATED (Role PT, PendOp: PT_DATA_TX_HARQ0, Hdl: 1604170158) 
+[PHY_CTRL_OP_DONE] Received completion for Handle: 1604170158. Current pending Handle: 1604170158, Type: PT_DATA_TX_HARQ0
+[PHY_IF_MAP] Deregistering handle 1604170158 (context 0x509ec0) from slot 1
+PHY_CTRL_OP_DONE: Matches pending op: Handle 1604170158, Type PT_DATA_TX_HARQ0, Err 0 (SUCCESS) 
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_PCC.
+[DISPATCHER] Dispatching event PHY_PCC to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_PCC (LastKnownTime 0, EventTime 2100) in State FT_BEACONING (Role FT, PendOp: FT_DATA_RX, Hdl: 76053476) 
+DISPATCH: MAC_EVENT_PHY_PCC
+PCC_DISPATCH: Rcvd. H:76053476, Status:0, PHYType:1, RSSI2:-30.000000, SNR:20.000000, Carr:0, TID:0 
+PCC_DISPATCH: common_pre_handle_phy_pcc_event - ctx->role:1 && ctx->state:17
+[DISPATCHER] Calling FT SM handler with context 0x508020 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_PCC in state FT_BEACONING
+[FT_RX_EVIDENCE] Received PCC for TID 0:
+01 44 aa 08 70 db 3b 08 00 00 
+[DISPATCH_DBG] Entering dect_mac_event_dispatch for event PHY_PDC.
+[DISPATCHER] Dispatching event PHY_PDC to role FT (0xDB3B)
+MAC Evt Dispatch: Evt PHY_PDC (LastKnownTime 2100, EventTime 2100) in State FT_BEACONING (Role FT, PendOp: FT_DATA_RX, Hdl: 76053476) 
+DISPATCH: MAC_EVENT_PHY_PDC
+[00:00:00.002,112] <err> dect_mac_dispatcher: PDC_DISPATCH: common_pre_handle_phy_pdc_event TRUE.
+[DISPATCHER] Calling FT SM handler with context 0x508020 ctx->role FT
+[FT_SM] dect_mac_sm_ft_handle_event: Received event PHY_PDC in state FT_BEACONING
+[FT_PDC_EVIDENCE] Entering handler for PDC TID 0. Current cache state:
+  - Cache[0]: VALID, TID: 0
+[FT_PDC_HANDLER_DBG] Found matching PCC for PDC TID 0.
+FT_PDC_HANDLER_DBG: Processing PDC for TID 0, associated PCC phy_type:1 assoc_pcc_event->handle:76053476
+[FT_RX_EVIDENCE] Received PDC Payload (len 25) for TID 0:
+00 1e e2 44 14 74 65 73 74 5f 64 61 74 61 5f 30 31 32 33 34 35 36 37 38 39 
+FT_SM_PDC: PDC for Unicast/Data PCC phy_type 1. 
+[FT_PDC_HANDLER_DBG]      -> Identified as DATA. Passing to data path.
+FT_SM_PDC: Feedback buffer adding for PT 0xAA08 
+[FT_DATA_PASS_UP_DBG] Passing SDU to data path (len 22):
+44 14 74 65 73 74 5f 64 61 74 61 5f 30 31 32 33 34 35 36 37 38 39 
+FT_SM_PDC: Received PDC with MAC Common DATA Header Type 0 after security. 
+RX_SDU_HANDLER: Processing MAC SDU Area from 0xAABBCCDD, len 22 
+RX_SDU_HANDLER: remaining_sdu_area_len:22 > 0  	22, MUX_PARSE: Starting parse_mac_mux_header... 
+MUX_PARSE: 8-bit length IE - type:4 payload_len:20
+MUX_PARSE: Ending parse_mac_mux_header... parsed_header_len:2
+RX_SDU_HANDLER: IE type: 0x4 (4), payload_len: 20
+RX_SDU_HANDLER: Higher layer flow detected (ID 4), checking DLC queue...
+
+--- DEBUG: dect_mac_core_get_peer_slot_idx ---
+Searching for peer with Short ID: 0xAA08
+  - Checking slot 0: is_valid=1, short_rd_id=0xAA08
+  - Match found! Returning slot 0.
+RX_SDU_HANDLER: peer->last_rx_sdu_len = 20
+[00:00:00.002,112] <err> dect_mac_data_path: RX_SDU_HANDLER: DLC RX queue is NULL! DLC PDU dropped.
+RX_SDU_HANDLER: g_dlc_rx_sdu_queue_ptr is NULL, cannot append SDU
+RX_SDU_HANDLER: Consumed 22 bytes (header: 2, payload: 20) for IE type 0x4
+RX_SDU_HANDLER: Remaining SDU area length: 0
+RX_SDU_HANDLER: *******************************************   END ITERATION   *******************************************
+RX_SDU_HANDLER: Finished processing MAC SDU Area. Total processed: 22 bytes
+  - Checking for HARQ retransmissions...
+  - Checking for HARQ retransmissions...
+  - PT Role: Checking for TX opportunity...
+[DEBUG_PROBE] pt_get_next_tx_opportunity called. Current state: ASSOCIATED(19)
+  - Checking UL schedule: is_active = 1, validity_value = 255 ul_duration_subslots=10
+  - out_start_time:829440 ticks 
+[DIAGNOSTIC_TRACE] Step 2: Scheduler ran. Opportunity found: YES
+ &start_time:829440us &carrier:0 &schedule:0u 
+
+--- DEBUG: dect_mac_core_get_peer_slot_idx ---
+Searching for peer with Short ID: 0xAA08
+  - Checking slot 0: is_valid=1, short_rd_id=0xAA08
+  - Match found! Returning slot 0.
+[TEST DBG] FT received data from peer: 0 (Len:20)
+[SIMULATION] Break condition met at iteration 6
+[TEST_DBG] Data transfer test PASSED.
+ PASS - test_data_transfer in 0.003 seconds
+===================================================================
+TESTSUITE dect_mac_flow succeeded
+
+------ TESTSUITE SUMMARY START ------
+
+SUITE PASS - 100.00% [dect_mac_flow]: pass = 1, fail = 0, skip = 0, total = 1 duration = 0.003 seconds
+ - PASS - [dect_mac_flow.test_data_transfer] duration = 0.003 seconds
+
+------ TESTSUITE SUMMARY END ------
+
+===================================================================
+RunID: 37e72e38836df136b8373f9ef460e10b
+PROJECT EXECUTION SUCCESSFUL

@@ -1,0 +1,147 @@
+*** Booting nRF Connect SDK v3.0.2-89ba1294ac9b ***
+*** Using Zephyr OS v4.0.99-f791c49f492c ***
+Running TESTSUITE dlc_advanced_tests
+===================================================================
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. 305419896
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Init: Role PT, LongID 0x12345678, ShortID 0xDB3B, NetID 0xDECC0078
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:00.000,000] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:00.000,000] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:00.000,000] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:00.000,000] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:00.000,000] <inf> fs_zms: data wra: 0, 0
+[00:00:00.000,000] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC0078 vs our 0x12345678).
+MAC Core Context Initialized. PSN=0x6CC, OwnHPC=1 
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0x6CC, OwnHPC=1
+[00:00:00.000,000] <wrn> dect_mac_api: DLC RX queue is NULL. MAC will not be able to deliver received data.
+[INIT_QUEUE_DBG] MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: (nil)
+[00:00:00.000,000] <inf> dect_mac_api: MAC API Initialized. DLC RX queue registered.
+[DLC_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue BEFORE init: 0x42a4c0
+[DLC_INIT_QUEUE_DBG] DLC's internal RX queue (g_dlc_internal_mac_rx_queue) is at address: 0x42a4c0
+[DLC_INIT_DBG] k_thread_create for g_dlc_rx_thread_id returned: 0x42a400
+[DECT_MAC] Entering dect_mac_init. Current active context: 0x424f40
+[INIT_DBG] Entering dect_mac_init. Current spy pointer: (nil)
+[INIT_DBG] Spy pointer has been reset to: (nil)
+********************************************* STARTING nrf_modem_dect_phy_event_handler_set ************************************
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  nRF DECT PHY event handler registered successfully.
+[PHY_IF] Rcvd event from modem: type=0
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_INIT result: 0 (Temp: 0C, Volt: 0mV, Limit: 0C)
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  DECT PHY Initialized by modem. Requesting latency information.
+[PHY_IF] Rcvd event from modem: type=2
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CONFIGURE result: 0
+[MAC_INIT_PROPAGATION_DBG] About to call dect_mac_api_init with queue pointer: 0x42a4c0
+[INIT_QUEUE_DBG] MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: 0x42a4c0
+[00:00:00.000,000] <inf> dect_mac_api: MAC API Initialized. DLC RX queue registered.
+[DLC_INIT_QUEUE_DBG] Address of g_dlc_internal_mac_rx_queue AFTER init & start: 0x42a4c0
+[00:00:00.000,000] <inf> dect_dlc: DLC Layer Initialized.
+START - test_dlc_arq_retransmission
+[DLC_SEND_DBG] dlc_send_data received payload at 0x74faaabfcd3a (len 14), flow_id 1:
+72 65 6c 69 61 62 6c 65 20 64 61 74 61 00 
+[DLC_SEND_RH_DBG] Routing header struct before serialization: hop_count=1, hop_limit=5
+[SERIALIZE_RH_DBG] Starting dlc_serialize_routing_header: target_buf=0x74faaabfccd7, target_buf_len=17, rh=0x74faaabfccc6
+  -> bitmap=0x0235
+  -> source_addr=0x12345678
+  -> dest_addr=0x00001234
+  -> hop_count=1, hop_limit=5
+  -> delay=0x00000000
+  -> sequence_number=8
+  -> bitmap: 2 bytes
+  -> source_addr: 4 bytes
+  -> dest_addr: 4 bytes
+  -> hop_count + hop_limit: 2 bytes
+  -> sequence_number: 1 bytes
+[SERIALIZE_RH_DBG] Total required length: 13 bytes, available: 17 bytes
+  -> Wrote bitmap=0x0235 at offset 0
+  -> Wrote source_addr=0x12345678 at offset 2
+  -> Wrote dest_addr=0x00001234 at offset 6
+  -> Wrote hop_count=1 at offset 10
+  -> Wrote hop_limit=5 at offset 11
+  -> Wrote sequence_number=8 at offset 12
+[SERIALIZE_RH_DBG] Serialized Buffer Hexdump (len=13):
+02 35 12 34 56 78 00 00 12 34 01 05 08 
+[SERIALIZE_RH_DBG] Completed serialization. Total bytes written: 13
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4a0060. Used blocks: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4a06e0. Used blocks: 2
+[MAC_API] dect_mac_get_role() Active context is: 0x424f40
+[MAC_SEND_DBG] TEST dect_mac_send() function was called. 
+[00:00:00.000,000] <wrn> dect_dlc: DLC_ARQ_CB: MAC PERMANENT FAILURE for SN 0. Signaling DLC re-TX.
+[TRACE] Starting DLC RX thread entry point
+[TRACE] CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE = 1500
+[TRACE] sizeof(mac_sdu_t) = 1664
+[TRACE] DLC RX thread waiting for packet...
+[00:00:00.000,000] <inf> dect_dlc: DLC TX Service (ARQ) Thread started.
+[MAC_API] dect_mac_get_role() Active context is: 0x424f40
+[ARQ_THREAD_DBG] ARQ service thread started. Active context ROLE is:0
+[00:00:00.000,000] <inf> dect_dlc: DLC_ARQ_SVC: Re-transmitting SDU for SN 0 (attempt 2).
+dlc_parse_routing_header Called: buf=0x497d28, len=27
+[PARSE_RH_RAW_DBG] Raw bytes for bitmap: 0x02 0x35
+[PARSE_RH_DBG] Parsed bitmap=0x0235
+[BITMASK_DBG] DLC_RH_SRC_ADDR_SHIFT = 5, Result = 1
+[PARSE_RH_DBG]  -> source_addr=0x12345678
+[BITMASK_DBG] DLC_RH_DEST_ADDR_SHIFT = 6, Result = 0
+[PARSE_RH_DBG]  -> dest_addr=0x00001234
+[BITMASK_DBG] DLC_RH_HOP_COUNT_LIMIT_SHIFT = 9, Result = 1
+[PARSE_RH_DBG]  -> hop_count=1, hop_limit=5
+[PARSE_RH_DBG]  -> sequence_number=8
+[PARSE_RH_DBG] Parsed Buffer Hexdump (len=13):
+02 35 12 34 56 78 00 00 12 34 01 05 08 
+[PARSE_RH_DBG] Completed parsing. Total bytes parsed: 13
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4a0060. Used blocks: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4a06e0. Used blocks: 2
+[MAC_API] dect_mac_get_role() Active context is: 0x424f40
+[MAC_SEND_DBG] TEST dect_mac_send() function was called. 
+Verified that NACK triggers retransmission logic.
+ PASS - test_dlc_arq_retransmission in 0.011 seconds
+===================================================================
+START - test_dlc_sdu_lifetime_expiry
+[DLC_SEND_DBG] dlc_send_data received payload at 0x74faaa3fbd3a (len 14), flow_id 1:
+65 78 70 69 72 69 6e 67 20 64 61 74 61 00 
+[DLC_SEND_RH_DBG] Routing header struct before serialization: hop_count=1, hop_limit=5
+[SERIALIZE_RH_DBG] Starting dlc_serialize_routing_header: target_buf=0x74faaa3fbcd7, target_buf_len=17, rh=0x74faaa3fbcc6
+  -> bitmap=0x0235
+  -> source_addr=0x12345678
+  -> dest_addr=0x00001234
+  -> hop_count=1, hop_limit=5
+  -> delay=0x00000000
+  -> sequence_number=225
+  -> bitmap: 2 bytes
+  -> source_addr: 4 bytes
+  -> dest_addr: 4 bytes
+  -> hop_count + hop_limit: 2 bytes
+  -> sequence_number: 1 bytes
+[SERIALIZE_RH_DBG] Total required length: 13 bytes, available: 17 bytes
+  -> Wrote bitmap=0x0235 at offset 0
+  -> Wrote source_addr=0x12345678 at offset 2
+  -> Wrote dest_addr=0x00001234 at offset 6
+  -> Wrote hop_count=1 at offset 10
+  -> Wrote hop_limit=5 at offset 11
+  -> Wrote sequence_number=225 at offset 12
+[SERIALIZE_RH_DBG] Serialized Buffer Hexdump (len=13):
+02 35 12 34 56 78 00 00 12 34 01 05 e1 
+[SERIALIZE_RH_DBG] Completed serialization. Total bytes written: 13
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4a0060. Used blocks: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4a06e0. Used blocks: 2
+[MAC_API] dect_mac_get_role() Active context is: 0x424f40
+[MAC_SEND_DBG] TEST dect_mac_send() function was called. 
+Verified that SDU lifetime expiry is handled.
+ PASS - test_dlc_sdu_lifetime_expiry in 0.051 seconds
+===================================================================
+TESTSUITE dlc_advanced_tests succeeded
+
+------ TESTSUITE SUMMARY START ------
+
+SUITE PASS - 100.00% [dlc_advanced_tests]: pass = 2, fail = 0, skip = 0, total = 2 duration = 0.062 seconds
+ - PASS - [dlc_advanced_tests.test_dlc_arq_retransmission] duration = 0.011 seconds
+ - PASS - [dlc_advanced_tests.test_dlc_sdu_lifetime_expiry] duration = 0.051 seconds
+
+------ TESTSUITE SUMMARY END ------
+
+===================================================================
+RunID: f8f5f37758dc8670426271edbe68760d
+PROJECT EXECUTION SUCCESSFUL

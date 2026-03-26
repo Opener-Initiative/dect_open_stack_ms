@@ -1,0 +1,422 @@
+*** Booting nRF Connect SDK v3.0.2-89ba1294ac9b ***
+*** Using Zephyr OS v4.0.99-f791c49f492c ***
+Running TESTSUITE dect_dlc_sar
+===================================================================
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. -1430532899
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Init: Role PT, LongID 0xAABBCCDD, ShortID 0xDB3B, NetID 0xDECC00DD
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:00.000,000] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:00.000,000] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:00.000,000] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:00.000,000] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:00.000,000] <inf> fs_zms: data wra: 0, 0
+[00:00:00.000,000] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC00DD vs our 0xAABBCCDD).
+MAC Core Context Initialized. PSN=0x6CC, OwnHPC=1 
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0x6CC, OwnHPC=1
+[DLC_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue BEFORE init: 0x458ac0
+[DLC_INIT_QUEUE_DBG] DLC's internal RX queue (g_dlc_internal_mac_rx_queue) is at address: 0x458ac0
+[DLC_INIT_DBG] k_thread_create for g_dlc_rx_thread_id returned: 0x458a00
+[DECT_MAC] Entering dect_mac_init. Current active context: 0x42ab40
+[INIT_DBG] Entering dect_mac_init. Current spy pointer: (nil)
+[INIT_DBG] Spy pointer has been reset to: (nil)
+********************************************* STARTING nrf_modem_dect_phy_event_handler_set ************************************
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  nRF DECT PHY event handler registered successfully.
+[PHY_IF] Rcvd event from modem: type=0
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_INIT result: 0 (Temp: 0C, Volt: 0mV, Limit: 0C)
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  DECT PHY Initialized by modem. Requesting latency information.
+[PHY_IF] Rcvd event from modem: type=2
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CONFIGURE result: 0
+[MAC_INIT_PROPAGATION_DBG] About to call dect_mac_api_init with queue pointer: 0x458ac0
+[INIT_QUEUE_DBG] MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: 0x458ac0
+[00:00:00.000,000] <inf> dect_mac_api: MAC API Initialized. DLC RX queue registered.
+[00:00:00.000,000] <inf> dect_mac_data_path: DLC TX status callback registered with MAC Data Path.
+[DLC_INIT_QUEUE_DBG] Address of g_dlc_internal_mac_rx_queue AFTER init & start: 0x458ac0
+[00:00:00.000,000] <inf> dect_dlc: DLC Layer Initialized.
+START - test_rx_reassembly_out_of_order
+[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: 0x402961
+
+--- [TEST] Starting test_rx_reassembly_out_of_order ---
+[SERIALIZE_RH_DBG] Starting dlc_serialize_routing_header: target_buf=0x71a153ffeb23, target_buf_len=517, rh=0x71a153ffe71e
+  -> bitmap=0x0020
+  -> source_addr=0x12345678
+  -> dest_addr=0xAABBCCDD
+  -> hop_count=0, hop_limit=0
+  -> delay=0x00000000
+  -> sequence_number=0
+  -> bitmap: 2 bytes
+  -> source_addr: 4 bytes
+  -> dest_addr: 4 bytes
+[SERIALIZE_RH_DBG] Total required length: 10 bytes, available: 517 bytes
+  -> Wrote bitmap=0x0020 at offset 0
+  -> Wrote source_addr=0x12345678 at offset 2
+  -> Wrote dest_addr=0xAABBCCDD at offset 6
+[SERIALIZE_RH_DBG] Serialized Buffer Hexdump (len=10):
+00 20 12 34 56 78 aa bb cc dd 
+[SERIALIZE_RH_DBG] Completed serialization. Total bytes written: 10
+[TEST] Queuing LAST segment (SN=124, offset=254, len=256)...
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3800. Used blocks: 1
+[TEST] Queuing FIRST segment (SN=124, offset=0, len=254)...
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3e80. Used blocks: 2
+[TEST] Yielding to allow DLC thread to process both segments...
+[TRACE] Starting DLC RX thread entry point
+[TRACE] CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE = 8192
+[TRACE] sizeof(mac_sdu_t) = 1664
+[TRACE] DLC RX thread waiting for packet...
+[TRACE] DLC RX thread got packet 0x4e3800, len 260
+[00:00:00.000,000] <dbg> dect_dlc: find_or_alloc_reassembly_session: DLC_SAR: Allocated reassembly session 0 for SN 124, Svc 1.
+[00:00:00.000,000] <dbg> dect_dlc: dlc_rx_thread_entry: [SAR] SN=124 bytes_received=256 total_sdu_len=510
+[00:00:00.000,000] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_rx_thread_entry) Freeing SDU buffer: 0x4e3800. Used blocks before free: 2
+[TRACE] DLC RX thread waiting for packet...
+[TRACE] DLC RX thread got packet 0x4e3e80, len 256
+[00:00:00.000,000] <dbg> dect_dlc: dlc_rx_thread_entry: [SAR] SN=124 bytes_received=510 total_sdu_len=510
+zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz 
+[DLC_RX_DBG] About to parse SDU payload for routing header (remaining_len=510):
+00 20 12 34 56 78 aa bb cc dd 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f 30 31 32 33 34 35 
+dlc_parse_routing_header Called: buf=0x71a15adfeb20, len=510
+[PARSE_RH_RAW_DBG] Raw bytes for bitmap: 0x00 0x20
+[PARSE_RH_DBG] Parsed bitmap=0x0020
+[BITMASK_DBG] DLC_RH_SRC_ADDR_SHIFT = 5, Result = 1
+[PARSE_RH_DBG]  -> source_addr=0x12345678
+[BITMASK_DBG] DLC_RH_DEST_ADDR_SHIFT = 6, Result = 0
+[PARSE_RH_DBG]  -> dest_addr=0xAABBCCDD
+[BITMASK_DBG] DLC_RH_HOP_COUNT_LIMIT_SHIFT = 9, Result = 0
+[PARSE_RH_DBG] Parsed Buffer Hexdump (len=10):
+00 20 12 34 56 78 aa bb cc dd 
+[PARSE_RH_DBG] Completed parsing. Total bytes parsed: 10
+[DLC_RX_DBG] dest_addr:0xAABBCCDD routing_type:0
+[ROUTING_DBG] Checking destination. dest_addr: 0xAABBCCDD, own_addr: 0xAABBCCDD
+[DLC_SCHED_DBG] Packet (SN 124, Flow 0) enqueued to Lane 1.
+rh_len:10 current_payload_ptr:0x71a15adfeb20 total_msg_size:510 remaining_payload_len:510 
+rh_len:10 current_payload_ptr:0x71a15adfed1e total_msg_size:510 remaining_payload_len:0 
+[00:00:00.000,000] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_rx_thread_entry) Freeing SDU buffer: 0x4e3e80. Used blocks before free: 1
+[TRACE] DLC RX thread waiting for packet...
+[00:00:00.000,000] <inf> dect_dlc: DLC TX Service (ARQ) Thread started.
+[MAC_API] dect_mac_get_role() Active context is: 0x42ab40
+[ARQ_THREAD_DBG] ARQ service thread started. Active context ROLE is:0
+[TEST] Attempting to receive reassembled packet...
+[DLC_RECV_DBG] delivery_item->is_app_sdu:Yes *app_level_payload_len_inout:512 
+  -> Freeing app_sdu_buf at address: 0x4c7b40 to slab g_dlc_app_sdu_slab
+[TEST] dlc_receive_data returned: 0
+[TEST] --- Test PASSED ---
+[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: (nil)
+ PASS - test_rx_reassembly_out_of_order in 0.051 seconds
+===================================================================
+START - test_rx_reassembly_timeout
+[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: 0x402961
+
+--- RUNNING TEST: dect_dlc_sar_test_rx_reassembly_timeout ---
+
+--- [TEST] Starting test_rx_reassembly_timeout ---
+[TEST] 1. Queuing FIRST segment (SN=125) to trigger reassembly session...
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3e80. Used blocks: 1
+[TEST] 2. Yielding to allow DLC thread to start the reassembly timer...
+[TRACE] DLC RX thread got packet 0x4e3e80, len 102
+[00:00:00.050,100] <dbg> dect_dlc: find_or_alloc_reassembly_session: DLC_SAR: Allocated reassembly session 0 for SN 125, Svc 1.
+[00:00:00.050,100] <dbg> dect_dlc: dlc_rx_thread_entry: [SAR] SN=125 bytes_received=100 total_sdu_len=0
+[00:00:00.050,100] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_rx_thread_entry) Freeing SDU buffer: 0x4e3e80. Used blocks before free: 1
+[TRACE] DLC RX thread waiting for packet...
+[TEST] Advancing time 600ms to trigger reassembly timeout...
+[TEST] Attempting to receive data after timeout...
+[TEST] --- Test PASSED ---
+[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: (nil)
+ PASS - test_rx_reassembly_timeout in 0.611 seconds
+===================================================================
+START - test_sar_large_sdu_stress
+[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: 0x402961
+
+--- RUNNING TEST: dect_dlc_sar_test_sar_large_sdu_stress ---
+[DLC_SEND_DBG] dlc_send_data received payload at 0x429040 (len 4096), flow_id 1:
+55 54 57 56 51 50 53 52 5d 5c 5f 5e 59 58 5b 5a 45 44 47 46 41 40 43 42 4d 4c 4f 4e 49 48 4b 4a 
+[DLC_SEND_RH_DBG] Routing header struct before serialization: hop_count=1, hop_limit=5
+[SERIALIZE_RH_DBG] Starting dlc_serialize_routing_header: target_buf=0x71a1537fdc97, target_buf_len=17, rh=0x71a1537fdc86
+  -> bitmap=0x0235
+  -> source_addr=0xAABBCCDD
+  -> dest_addr=0x44332211
+  -> hop_count=1, hop_limit=5
+  -> delay=0x00000000
+  -> sequence_number=8
+  -> bitmap: 2 bytes
+  -> source_addr: 4 bytes
+  -> dest_addr: 4 bytes
+  -> hop_count + hop_limit: 2 bytes
+  -> sequence_number: 1 bytes
+[SERIALIZE_RH_DBG] Total required length: 13 bytes, available: 17 bytes
+  -> Wrote bitmap=0x0235 at offset 0
+  -> Wrote source_addr=0xAABBCCDD at offset 2
+  -> Wrote dest_addr=0x44332211 at offset 6
+  -> Wrote hop_count=1 at offset 10
+  -> Wrote hop_limit=5 at offset 11
+  -> Wrote sequence_number=8 at offset 12
+[SERIALIZE_RH_DBG] Serialized Buffer Hexdump (len=13):
+02 35 aa bb cc dd 44 33 22 11 01 05 08 
+[SERIALIZE_RH_DBG] Completed serialization. Total bytes written: 13
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3e80. Used blocks: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3800. Used blocks: 2
+[MAC_API] dect_mac_get_role() Active context is: 0x42ab40
+[MAC_SEND_DBG] TEST dect_mac_send() function was called. 
+[00:00:00.660,300] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (test_send_spy_callback) Freeing SDU buffer: 0x4e3800. Used blocks before free: 2
+[00:00:00.660,300] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_send_segmented) Freeing SDU buffer: 0x4e3e80. Used blocks before free: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3e80. Used blocks: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3800. Used blocks: 2
+[MAC_API] dect_mac_get_role() Active context is: 0x42ab40
+[MAC_SEND_DBG] TEST dect_mac_send() function was called. 
+[00:00:00.660,300] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (test_send_spy_callback) Freeing SDU buffer: 0x4e3800. Used blocks before free: 2
+[00:00:00.660,300] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_send_segmented) Freeing SDU buffer: 0x4e3e80. Used blocks before free: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3e80. Used blocks: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3800. Used blocks: 2
+[MAC_API] dect_mac_get_role() Active context is: 0x42ab40
+[MAC_SEND_DBG] TEST dect_mac_send() function was called. 
+[00:00:00.660,300] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (test_send_spy_callback) Freeing SDU buffer: 0x4e3800. Used blocks before free: 2
+[00:00:00.660,300] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_send_segmented) Freeing SDU buffer: 0x4e3e80. Used blocks before free: 1
+[TEST] Large SDU resulted in 3 segments
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3e80. Used blocks: 1
+[TRACE] Injecting segment 0 into RX queue (len 1636, data ptr 0x4e3e80)...
+[TRACE] Injection of segment 0 complete.
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3800. Used blocks: 2
+[TRACE] Injecting segment 1 into RX queue (len 1636, data ptr 0x4e3800)...
+[TRACE] Injection of segment 1 complete.
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e4500. Used blocks: 3
+[TRACE] Injecting segment 2 into RX queue (len 847, data ptr 0x4e4500)...
+[TRACE] Injection of segment 2 complete.
+[TRACE] DLC RX thread got packet 0x4e3e80, len 1636
+[00:00:00.660,300] <dbg> dect_dlc: find_or_alloc_reassembly_session: DLC_SAR: Allocated reassembly session 1 for SN 0, Svc 1.
+[00:00:00.660,300] <dbg> dect_dlc: dlc_rx_thread_entry: [SAR] SN=0 bytes_received=1634 total_sdu_len=0
+[00:00:00.660,300] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_rx_thread_entry) Freeing SDU buffer: 0x4e3e80. Used blocks before free: 3
+[TRACE] DLC RX thread waiting for packet...
+[TRACE] DLC RX thread got packet 0x4e3800, len 1636
+[00:00:00.660,300] <dbg> dect_dlc: dlc_rx_thread_entry: [SAR] SN=0 bytes_received=3266 total_sdu_len=0
+[00:00:00.660,300] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_rx_thread_entry) Freeing SDU buffer: 0x4e3800. Used blocks before free: 2
+[TRACE] DLC RX thread waiting for packet...
+[TRACE] DLC RX thread got packet 0x4e4500, len 847
+[00:00:00.660,300] <dbg> dect_dlc: dlc_rx_thread_entry: [SAR] SN=0 bytes_received=4109 total_sdu_len=4109
+zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz 
+[DLC_RX_DBG] About to parse SDU payload for routing header (remaining_len=4109):
+02 35 aa bb cc dd 44 33 22 11 01 05 08 55 54 57 56 51 50 53 52 5d 5c 5f 5e 59 58 5b 5a 45 44 47 46 41 40 43 42 4d 4c 4f 4e 49 48 4b 4a 75 74 77 76 71 70 73 72 7d 7c 7f 7e 79 78 7b 7a 65 64 67 
+dlc_parse_routing_header Called: buf=0x71a15adfdd10, len=4109
+[PARSE_RH_RAW_DBG] Raw bytes for bitmap: 0x02 0x35
+[PARSE_RH_DBG] Parsed bitmap=0x0235
+[BITMASK_DBG] DLC_RH_SRC_ADDR_SHIFT = 5, Result = 1
+[PARSE_RH_DBG]  -> source_addr=0xAABBCCDD
+[BITMASK_DBG] DLC_RH_DEST_ADDR_SHIFT = 6, Result = 0
+[PARSE_RH_DBG]  -> dest_addr=0x44332211
+[BITMASK_DBG] DLC_RH_HOP_COUNT_LIMIT_SHIFT = 9, Result = 1
+[PARSE_RH_DBG]  -> hop_count=1, hop_limit=5
+[PARSE_RH_DBG]  -> sequence_number=8
+[PARSE_RH_DBG] Parsed Buffer Hexdump (len=13):
+02 35 aa bb cc dd 44 33 22 11 01 05 08 
+[PARSE_RH_DBG] Completed parsing. Total bytes parsed: 13
+[DLC_RX_DBG] dest_addr:0x44332211 routing_type:5
+[DUPLICATE_CHECK_DBG] Parsed src_addr: 0xAABBCCDD, seq_num: 8
+[ROUTING_DBG] Checking destination. dest_addr: 0x44332211, own_addr: 0xAABBCCDD
+[DLC_SCHED_DBG] Packet (SN 0, Flow 0) enqueued to Lane 1.
+rh_len:13 current_payload_ptr:0x71a15adfdd10 total_msg_size:4109 remaining_payload_len:4109 
+rh_len:13 current_payload_ptr:0x71a15adfed1d total_msg_size:4109 remaining_payload_len:0 
+[00:00:00.660,300] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_rx_thread_entry) Freeing SDU buffer: 0x4e4500. Used blocks before free: 1
+[TRACE] DLC RX thread waiting for packet...
+[DLC_RECV_DBG] delivery_item->is_app_sdu:Yes *app_level_payload_len_inout:4196 
+  -> Freeing app_sdu_buf at address: 0x4c7b40 to slab g_dlc_app_sdu_slab
+[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: (nil)
+ PASS - test_sar_large_sdu_stress in 0.101 seconds
+===================================================================
+START - test_sar_max_mtu_sdu
+[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: 0x402961
+
+--- RUNNING TEST: dect_dlc_sar_test_sar_max_mtu_sdu ---
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42a560 (len 1280), flow_id 1:
+00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 
+[DLC_SEND_RH_DBG] Routing header struct before serialization: hop_count=1, hop_limit=5
+[SERIALIZE_RH_DBG] Starting dlc_serialize_routing_header: target_buf=0x71a1537fdca7, target_buf_len=17, rh=0x71a1537fdc96
+  -> bitmap=0x0235
+  -> source_addr=0xAABBCCDD
+  -> dest_addr=0x44332211
+  -> hop_count=1, hop_limit=5
+  -> delay=0x00000000
+  -> sequence_number=225
+  -> bitmap: 2 bytes
+  -> source_addr: 4 bytes
+  -> dest_addr: 4 bytes
+  -> hop_count + hop_limit: 2 bytes
+  -> sequence_number: 1 bytes
+[SERIALIZE_RH_DBG] Total required length: 13 bytes, available: 17 bytes
+  -> Wrote bitmap=0x0235 at offset 0
+  -> Wrote source_addr=0xAABBCCDD at offset 2
+  -> Wrote dest_addr=0x44332211 at offset 6
+  -> Wrote hop_count=1 at offset 10
+  -> Wrote hop_limit=5 at offset 11
+  -> Wrote sequence_number=225 at offset 12
+[SERIALIZE_RH_DBG] Serialized Buffer Hexdump (len=13):
+02 35 aa bb cc dd 44 33 22 11 01 05 e1 
+[SERIALIZE_RH_DBG] Completed serialization. Total bytes written: 13
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e4500. Used blocks: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3800. Used blocks: 2
+[MAC_API] dect_mac_get_role() Active context is: 0x42ab40
+[MAC_SEND_DBG] TEST dect_mac_send() function was called. 
+[00:00:00.760,400] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (test_send_spy_callback) Freeing SDU buffer: 0x4e3800. Used blocks before free: 2
+[00:00:00.760,400] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_send_segmented) Freeing SDU buffer: 0x4e4500. Used blocks before free: 1
+[TEST] SDU 1280B resulted in 1 segments
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e4500. Used blocks: 1
+[TRACE] DLC RX thread got packet 0x4e4500, len 1295
+  -> sdu_buf ptr: 0x4e4500
+zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz 
+[DLC_RX_DBG] About to parse SDU payload for routing header (remaining_len=1293):
+02 35 aa bb cc dd 44 33 22 11 01 05 e1 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f 30 31 32 
+dlc_parse_routing_header Called: buf=0x4e450a, len=1293
+[PARSE_RH_RAW_DBG] Raw bytes for bitmap: 0x02 0x35
+[PARSE_RH_DBG] Parsed bitmap=0x0235
+[BITMASK_DBG] DLC_RH_SRC_ADDR_SHIFT = 5, Result = 1
+[PARSE_RH_DBG]  -> source_addr=0xAABBCCDD
+[BITMASK_DBG] DLC_RH_DEST_ADDR_SHIFT = 6, Result = 0
+[PARSE_RH_DBG]  -> dest_addr=0x44332211
+[BITMASK_DBG] DLC_RH_HOP_COUNT_LIMIT_SHIFT = 9, Result = 1
+[PARSE_RH_DBG]  -> hop_count=1, hop_limit=5
+[PARSE_RH_DBG]  -> sequence_number=225
+[PARSE_RH_DBG] Parsed Buffer Hexdump (len=13):
+02 35 aa bb cc dd 44 33 22 11 01 05 e1 
+[PARSE_RH_DBG] Completed parsing. Total bytes parsed: 13
+[DLC_RX_DBG] dest_addr:0x44332211 routing_type:5
+[DUPLICATE_CHECK_DBG] Parsed src_addr: 0xAABBCCDD, seq_num: 225
+[ROUTING_DBG] Checking destination. dest_addr: 0x44332211, own_addr: 0xAABBCCDD
+[DLC_SCHED_DBG] Packet (SN 1, Flow 0) enqueued to Lane 1.
+rh_len:13 current_payload_ptr:0x4e450a total_msg_size:1293 remaining_payload_len:1293 
+rh_len:13 current_payload_ptr:0x4e4a17 total_msg_size:1293 remaining_payload_len:0 
+[00:00:00.760,400] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_rx_thread_entry) Freeing SDU buffer: 0x4e4500. Used blocks before free: 1
+[TRACE] DLC RX thread waiting for packet...
+[DLC_RECV_DBG] delivery_item->is_app_sdu:Yes *app_level_payload_len_inout:1300 
+  -> Freeing app_sdu_buf at address: 0x4c7b40 to slab g_dlc_app_sdu_slab
+[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: (nil)
+ PASS - test_sar_max_mtu_sdu in 0.051 seconds
+===================================================================
+START - test_sar_min_sdu
+[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: 0x402961
+
+--- RUNNING TEST: dect_dlc_sar_test_sar_min_sdu ---
+[DLC_SEND_DBG] dlc_send_data received payload at 0x71a153ffed07 (len 1), flow_id 1:
+a5 
+[DLC_SEND_RH_DBG] Routing header struct before serialization: hop_count=1, hop_limit=5
+[SERIALIZE_RH_DBG] Starting dlc_serialize_routing_header: target_buf=0x71a153ffeca7, target_buf_len=17, rh=0x71a153ffec96
+  -> bitmap=0x0235
+  -> source_addr=0xAABBCCDD
+  -> dest_addr=0x44332211
+  -> hop_count=1, hop_limit=5
+  -> delay=0x00000000
+  -> sequence_number=228
+  -> bitmap: 2 bytes
+  -> source_addr: 4 bytes
+  -> dest_addr: 4 bytes
+  -> hop_count + hop_limit: 2 bytes
+  -> sequence_number: 1 bytes
+[SERIALIZE_RH_DBG] Total required length: 13 bytes, available: 17 bytes
+  -> Wrote bitmap=0x0235 at offset 0
+  -> Wrote source_addr=0xAABBCCDD at offset 2
+  -> Wrote dest_addr=0x44332211 at offset 6
+  -> Wrote hop_count=1 at offset 10
+  -> Wrote hop_limit=5 at offset 11
+  -> Wrote sequence_number=228 at offset 12
+[SERIALIZE_RH_DBG] Serialized Buffer Hexdump (len=13):
+02 35 aa bb cc dd 44 33 22 11 01 05 e4 
+[SERIALIZE_RH_DBG] Completed serialization. Total bytes written: 13
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e4500. Used blocks: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3800. Used blocks: 2
+[MAC_API] dect_mac_get_role() Active context is: 0x42ab40
+[MAC_SEND_DBG] TEST dect_mac_send() function was called. 
+[00:00:00.810,500] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (test_send_spy_callback) Freeing SDU buffer: 0x4e3800. Used blocks before free: 2
+[00:00:00.810,500] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_send_segmented) Freeing SDU buffer: 0x4e4500. Used blocks before free: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e4500. Used blocks: 1
+[TRACE] DLC RX thread got packet 0x4e4500, len 16
+  -> sdu_buf ptr: 0x4e4500
+zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz 
+[DLC_RX_DBG] About to parse SDU payload for routing header (remaining_len=14):
+02 35 aa bb cc dd 44 33 22 11 01 05 e4 a5 
+dlc_parse_routing_header Called: buf=0x4e450a, len=14
+[PARSE_RH_RAW_DBG] Raw bytes for bitmap: 0x02 0x35
+[PARSE_RH_DBG] Parsed bitmap=0x0235
+[BITMASK_DBG] DLC_RH_SRC_ADDR_SHIFT = 5, Result = 1
+[PARSE_RH_DBG]  -> source_addr=0xAABBCCDD
+[BITMASK_DBG] DLC_RH_DEST_ADDR_SHIFT = 6, Result = 0
+[PARSE_RH_DBG]  -> dest_addr=0x44332211
+[BITMASK_DBG] DLC_RH_HOP_COUNT_LIMIT_SHIFT = 9, Result = 1
+[PARSE_RH_DBG]  -> hop_count=1, hop_limit=5
+[PARSE_RH_DBG]  -> sequence_number=228
+[PARSE_RH_DBG] Parsed Buffer Hexdump (len=13):
+02 35 aa bb cc dd 44 33 22 11 01 05 e4 
+[PARSE_RH_DBG] Completed parsing. Total bytes parsed: 13
+[DLC_RX_DBG] dest_addr:0x44332211 routing_type:5
+[DUPLICATE_CHECK_DBG] Parsed src_addr: 0xAABBCCDD, seq_num: 228
+[ROUTING_DBG] Checking destination. dest_addr: 0x44332211, own_addr: 0xAABBCCDD
+[DLC_SCHED_DBG] Packet (SN 2, Flow 0) enqueued to Lane 1.
+rh_len:13 current_payload_ptr:0x4e450a total_msg_size:14 remaining_payload_len:14 
+rh_len:13 current_payload_ptr:0x4e4518 total_msg_size:14 remaining_payload_len:0 
+[00:00:00.810,500] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_rx_thread_entry) Freeing SDU buffer: 0x4e4500. Used blocks before free: 1
+[TRACE] DLC RX thread waiting for packet...
+[DLC_RECV_DBG] delivery_item->is_app_sdu:Yes *app_level_payload_len_inout:16 
+  -> Freeing app_sdu_buf at address: 0x4c7b40 to slab g_dlc_app_sdu_slab
+[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: (nil)
+ PASS - test_sar_min_sdu in 0.011 seconds
+===================================================================
+START - test_tx_segmentation
+[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: 0x402961
+
+--- RUNNING TEST: dect_dlc_sar_test_tx_segmentation ---
+[DLC_SEND_DBG] dlc_send_data received payload at 0x71a153ffe364 (len 2500), flow_id 1:
+00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 
+[DLC_SEND_RH_DBG] Routing header struct before serialization: hop_count=1, hop_limit=5
+[SERIALIZE_RH_DBG] Starting dlc_serialize_routing_header: target_buf=0x71a153ffe307, target_buf_len=17, rh=0x71a153ffe2f6
+  -> bitmap=0x0235
+  -> source_addr=0xAABBCCDD
+  -> dest_addr=0x11223344
+  -> hop_count=1, hop_limit=5
+  -> delay=0x00000000
+  -> sequence_number=174
+  -> bitmap: 2 bytes
+  -> source_addr: 4 bytes
+  -> dest_addr: 4 bytes
+  -> hop_count + hop_limit: 2 bytes
+  -> sequence_number: 1 bytes
+[SERIALIZE_RH_DBG] Total required length: 13 bytes, available: 17 bytes
+  -> Wrote bitmap=0x0235 at offset 0
+  -> Wrote source_addr=0xAABBCCDD at offset 2
+  -> Wrote dest_addr=0x11223344 at offset 6
+  -> Wrote hop_count=1 at offset 10
+  -> Wrote hop_limit=5 at offset 11
+  -> Wrote sequence_number=174 at offset 12
+[SERIALIZE_RH_DBG] Serialized Buffer Hexdump (len=13):
+02 35 aa bb cc dd 11 22 33 44 01 05 ae 
+[SERIALIZE_RH_DBG] Completed serialization. Total bytes written: 13
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e4500. Used blocks: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3800. Used blocks: 2
+[MAC_API] dect_mac_get_role() Active context is: 0x42ab40
+[MAC_SEND_DBG] TEST dect_mac_send() function was called. 
+[00:00:00.820,600] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (test_send_spy_callback) Freeing SDU buffer: 0x4e3800. Used blocks before free: 2
+[00:00:00.820,600] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_send_segmented) Freeing SDU buffer: 0x4e4500. Used blocks before free: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e4500. Used blocks: 1
+[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: 0x4e3800. Used blocks: 2
+[MAC_API] dect_mac_get_role() Active context is: 0x42ab40
+[MAC_SEND_DBG] TEST dect_mac_send() function was called. 
+[00:00:00.820,600] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (test_send_spy_callback) Freeing SDU buffer: 0x4e3800. Used blocks before free: 2
+[00:00:00.820,600] <dbg> dect_mac_api: dect_mac_api_buffer_free_internal: (dlc_send_segmented) Freeing SDU buffer: 0x4e4500. Used blocks before free: 1
+[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: (nil)
+ PASS - test_tx_segmentation in 0.000 seconds
+===================================================================
+TESTSUITE dect_dlc_sar succeeded
+
+------ TESTSUITE SUMMARY START ------
+
+SUITE PASS - 100.00% [dect_dlc_sar]: pass = 6, fail = 0, skip = 0, total = 6 duration = 0.825 seconds
+ - PASS - [dect_dlc_sar.test_rx_reassembly_out_of_order] duration = 0.051 seconds
+ - PASS - [dect_dlc_sar.test_rx_reassembly_timeout] duration = 0.611 seconds
+ - PASS - [dect_dlc_sar.test_sar_large_sdu_stress] duration = 0.101 seconds
+ - PASS - [dect_dlc_sar.test_sar_max_mtu_sdu] duration = 0.051 seconds
+ - PASS - [dect_dlc_sar.test_sar_min_sdu] duration = 0.011 seconds
+ - PASS - [dect_dlc_sar.test_tx_segmentation] duration = 0.000 seconds
+
+------ TESTSUITE SUMMARY END ------
+
+===================================================================
+RunID: 37c80f543b112bfb329bba78bcd4c401
+PROJECT EXECUTION SUCCESSFUL

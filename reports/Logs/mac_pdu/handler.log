@@ -1,0 +1,82 @@
+*** Booting nRF Connect SDK v3.0.2-89ba1294ac9b ***
+*** Using Zephyr OS v4.0.99-f791c49f492c ***
+Running TESTSUITE dect_mac_pdu
+===================================================================
+START - test_assoc_req_ie_serialization
+
+--- RACH PARSE DEBUG ---
+  - Input Payload (len 4): 08 4a 4a 0c 
+ PASS - test_assoc_req_ie_serialization in 0.000 seconds
+===================================================================
+START - test_assoc_resp_ie_serialization
+/* --- Test Case 1: Association ACCEPT with HARQ mods and Group Assign --- */ 
+/* --- Test Case 2: Association REJECT --- */ 
+ PASS - test_assoc_resp_ie_serialization in 0.000 seconds
+===================================================================
+START - test_cluster_beacon_ie_serialization
+/* --- Test Case 2: test_cluster_beacon_ie_serialization --- */ 
+CB_SERIALISER: Starting...
+--- Serializing Cluster Beacon IE ---
+  - Wrote Flags Octet: 0x80 (bit_offset: 16)
+  - Wrote Periods Octet: 0x38 (net: 3, clus: 8) (bit_offset: 24)  ..
+  - Wrote Quality Octet: 0x89 (bit_offset: 32)
+[00:00:00.000,000] <dbg> dect_mac_pdu: serialize_cluster_beacon_ie_payload:   - Wrote Max TX Power: 0x0A (bit_offset: 40)
+CB_SERIALISER: Finished...
+[00:00:00.000,000] <err> dect_mac_pdu: CB_PARSE: Starting...
+--- Parsing Cluster Beacon IE (len 5 bytes) ---
+  - Parsed SFN: 0xAB (bit_offset: 8)
+  - Parsed Flags Octet: 0x80 (bit_offset: 16)
+    -> tx_pwr:1, pwr_const:0, fo:0, next_ch:0, ttn:0
+  - Parsed Periods Octet: 0x38 (bit_offset: 24)
+    -> net_period_code: 3, clus_period_code: 8
+  - Parsed Quality Octet: 0x89 (bit_offset: 32)
+    -> count_trig: 4, rel_qual: 2, min_qual: 1
+  - Parsed Max TX Power: 0x0A (bit_offset: 40)
+[00:00:00.000,000] <err> dect_mac_pdu: CB_PARSE: Finished...
+ PASS - test_cluster_beacon_ie_serialization in 0.000 seconds
+===================================================================
+START - test_rach_info_ie_serialization
+  - After writing bitfields, bit_offset = 32
+  - Buffer content: 30 0a 04 00 
+RACH_SER_DBG: Input channel_abs_num = 1152 (0x480)
+RACH_SER_DBG: Truncated and shifted on-air value = 0x2400
+
+--- RACH PARSE DEBUG ---
+Input Payload (len 10): 30 0a 04 00 55 00 55 c8 24 00 
+Parsed Flags: sfn_pres=1, chan_pres=1, chan2_pres=0, max_len_slots=0, dect_delay=0
+Parsed Timing: start_ss=10 (read 8 bits), len_type_slots=0, len_val=4
+Parsed RACH Params: max_rach_len=0, cw_min=0, cw_max=0, rep_code=0
+  - Parsed RACH Params: max_rach_len_octet=0x00, max_rach_pdu_len_units=0
+  - Parsed Timing: start_ss=10 (read 8 bits), len_type_slots=0, len_val=4
+Parsed Resp Window: 0
+RACH_PARSE_DBG: After bitfield parsing and padding:
+  - bit_offset: 48
+  - byte_offset: 6
+  - remaining_bits: 32
+Parsed SFN/Validity: sfn=85, validity=200
+RACH_PARSE_DBG: Read on-air value = 0x2400
+RACH_PARSE_DBG: Calculated channel_abs_num = 1152 (0x480)
+Parsed Channel: on_air_val=0x2400, freq_num=1152
+ PASS - test_rach_info_ie_serialization in 0.000 seconds
+===================================================================
+START - test_rd_capability_ie_serialization
+[00:00:00.000,000] <dbg> dect_mac_pdu: parse_rd_capability_ie_payload: RD_CAP_PARSE: Summary: NumPHYAddSets:1, RelVer:1, GrpAs:0 Paging:0 OpM:0x2 Mesh:1 Sched:0 MACSec:0x1
+[00:00:00.000,000] <dbg> dect_mac_pdu: parse_rd_capability_ie_payload: RD_CAP_PARSE: Parsed PHY Set 0: mu_code=1, beta_code=3, max_mcs_code=11
+ PASS - test_rd_capability_ie_serialization in 0.000 seconds
+===================================================================
+TESTSUITE dect_mac_pdu succeeded
+
+------ TESTSUITE SUMMARY START ------
+
+SUITE PASS - 100.00% [dect_mac_pdu]: pass = 5, fail = 0, skip = 0, total = 5 duration = 0.000 seconds
+ - PASS - [dect_mac_pdu.test_assoc_req_ie_serialization] duration = 0.000 seconds
+ - PASS - [dect_mac_pdu.test_assoc_resp_ie_serialization] duration = 0.000 seconds
+ - PASS - [dect_mac_pdu.test_cluster_beacon_ie_serialization] duration = 0.000 seconds
+ - PASS - [dect_mac_pdu.test_rach_info_ie_serialization] duration = 0.000 seconds
+ - PASS - [dect_mac_pdu.test_rd_capability_ie_serialization] duration = 0.000 seconds
+
+------ TESTSUITE SUMMARY END ------
+
+===================================================================
+RunID: 70272516b957f430f432cc06f8b4f1d9
+PROJECT EXECUTION SUCCESSFUL

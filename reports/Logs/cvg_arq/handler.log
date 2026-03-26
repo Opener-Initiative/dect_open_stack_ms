@@ -1,0 +1,858 @@
+*** Booting nRF Connect SDK v3.0.2-89ba1294ac9b ***
+*** Using Zephyr OS v4.0.99-f791c49f492c ***
+Running TESTSUITE cvg_arq
+===================================================================
+START - test_aa_flow_control_window_blocks
+[TEST DBG] cvg_arq_before Started... 
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. -1430532899
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Init: Role PT, LongID 0xAABBCCDD, ShortID 0xDB3B, NetID 0xDECC00DD
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:00.000,000] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:00.000,000] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:00.000,000] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:00.000,000] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:00.000,000] <inf> fs_zms: data wra: 0, 0
+[00:00:00.000,000] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC00DD vs our 0xAABBCCDD).
+MAC Core Context Initialized. PSN=0x6CC, OwnHPC=1 
+[00:00:00.000,000] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0x6CC, OwnHPC=1
+[DLC_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue BEFORE init: 0x4309c0
+[DLC_INIT_QUEUE_DBG] DLC's internal RX queue (g_dlc_internal_mac_rx_queue) is at address: 0x4309c0
+[DLC_INIT_DBG] k_thread_create for g_dlc_rx_thread_id returned: 0x430900
+[DECT_MAC] Entering dect_mac_init. Current active context: 0x429120
+[INIT_DBG] Entering dect_mac_init. Current spy pointer: (nil)
+[INIT_DBG] Spy pointer has been reset to: (nil)
+********************************************* STARTING nrf_modem_dect_phy_event_handler_set ************************************
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  nRF DECT PHY event handler registered successfully.
+[PHY_IF] Rcvd event from modem: type=0
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_INIT result: 0 (Temp: 0C, Volt: 0mV, Limit: 0C)
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  DECT PHY Initialized by modem. Requesting latency information.
+[PHY_IF] Rcvd event from modem: type=2
+[00:00:00.000,000] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CONFIGURE result: 0
+[MAC_INIT_PROPAGATION_DBG] About to call dect_mac_api_init with queue pointer: 0x4309c0
+[INIT_QUEUE_DBG] MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: 0x4309c0
+[00:00:00.000,000] <inf> dect_mac_api: MAC API Initialized. DLC RX queue registered.
+[00:00:00.000,000] <inf> dect_mac_data_path: DLC TX status callback registered with MAC Data Path.
+[DLC_INIT_QUEUE_DBG] Address of g_dlc_internal_mac_rx_queue AFTER init & start: 0x4309c0
+[00:00:00.000,000] <inf> dect_dlc: DLC Layer Initialized.
+[CVG_INIT_DBG] Created RX thread with ID: 0x42f720
+[CVG_INIT_DBG] About to call k_thread_start on CVG threads...
+[CVG_INIT_DBG]   -> Starting ARQ thread: 0x42f660
+[CVG_INIT_DBG]   -> Starting TX thread: 0x42f7e0
+[CVG_INIT_DBG]   -> Starting RX thread: 0x42f720
+[00:00:00.000,000] <inf> dect_cvg: CVG Layer Initialized.
+CVG_CFG: dect_cvg_configure_flow -> Svc:4, Win:4, Life:200ms[00:00:00.000,000] <inf> dect_cvg: CVG Flow configured. Service: 4, Window Size: 4
+[TEST_SETUP_DBG] About to call k_thread_start on CVG threads...
+[TEST_SETUP_DBG]   -> Starting ARQ thread: 0x42f660
+[TEST_SETUP_DBG]   -> Starting TX thread: 0x42f7e0
+[TEST_SETUP_DBG]   -> Starting RX thread: 0x42f720
+[TRACE] Starting DLC RX thread entry point
+[TRACE] CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE = 1500
+[TRACE] sizeof(mac_sdu_t) = 1664
+[TRACE] DLC RX thread waiting for packet...
+[00:00:00.000,000] <inf> dect_dlc: DLC TX Service (ARQ) Thread started.
+[MAC_API] dect_mac_get_role() Active context is: 0x429120
+[ARQ_THREAD_DBG] ARQ service thread started. Active context ROLE is:0
+[CVG_THREAD_DBG] ARQ Service Thread has started execution.
+[CVG_THREAD_DBG] TX Thread has started execution.
+[CVG TX] About to get item from FIFO.
+[CVG_THREAD_DBG] RX Thread has started execution.
+[00:00:00.000,000] <inf> dect_cvg: CVG RX Thread started.
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[DECT CVG SEND] Starting dect_cvg_send ...
+[DECT CVG SEND] Parameters: endpoint_id=0x8003, dest_long_id=0x11223344, app_sdu_len=1
+[DECT CVG SEND] App SDU content (first 16 bytes): 01 
+[DECT CVG SEND] Attempting to allocate TX queue item from slab...
+[DECT CVG SEND] Successfully allocated TX queue item at 0x49e440
+[DECT CVG SEND] Attempting to allocate app SDU buffer from slab...
+[DECT CVG SEND] Successfully allocated app SDU buffer at 0x49e540
+[DECT CVG SEND] Copying 1 bytes from app_sdu to SDU buffer...
+[DECT CVG SEND] SDU buffer prepared: len=1
+[DECT CVG SEND] TX queue item configured:
+[DECT CVG SEND]   - app_sdu_buf: 0x49e540
+[DECT CVG SEND]   - endpoint_id: 0x8003
+[DECT CVG SEND]   - dest_long_id: 0x11223344
+[DECT CVG SEND] Putting TX item into g_app_to_cvg_tx_fifo...
+[DECT CVG SEND] Successfully queued TX item for processing
+[DECT CVG SEND] Ending dect_cvg_send - SUCCESS
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...
+[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.
+[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ea80 (len 7), flow_id 3:
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[DECT CVG SEND] Starting dect_cvg_send ...
+[DECT CVG SEND] Parameters: endpoint_id=0x8003, dest_long_id=0x11223344, app_sdu_len=1
+[DECT CVG SEND] App SDU content (first 16 bytes): 01 
+[DECT CVG SEND] Attempting to allocate TX queue item from slab...
+[DECT CVG SEND] Successfully allocated TX queue item at 0x49e440
+[DECT CVG SEND] Attempting to allocate app SDU buffer from slab...
+[DECT CVG SEND] Successfully allocated app SDU buffer at 0x49ebc0
+[DECT CVG SEND] Copying 1 bytes from app_sdu to SDU buffer...
+[DECT CVG SEND] SDU buffer prepared: len=1
+[DECT CVG SEND] TX queue item configured:
+[DECT CVG SEND]   - app_sdu_buf: 0x49ebc0
+[DECT CVG SEND]   - endpoint_id: 0x8003
+[DECT CVG SEND]   - dest_long_id: 0x11223344
+[DECT CVG SEND] Putting TX item into g_app_to_cvg_tx_fifo...
+[DECT CVG SEND] Successfully queued TX item for processing
+[DECT CVG SEND] Ending dect_cvg_send - SUCCESS
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...
+[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.
+[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ea80 (len 7), flow_id 3:
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[DECT CVG SEND] Starting dect_cvg_send ...
+[DECT CVG SEND] Parameters: endpoint_id=0x8003, dest_long_id=0x11223344, app_sdu_len=1
+[DECT CVG SEND] App SDU content (first 16 bytes): 01 
+[DECT CVG SEND] Attempting to allocate TX queue item from slab...
+[DECT CVG SEND] Successfully allocated TX queue item at 0x49e440
+[DECT CVG SEND] Attempting to allocate app SDU buffer from slab...
+[DECT CVG SEND] Successfully allocated app SDU buffer at 0x49f240
+[DECT CVG SEND] Copying 1 bytes from app_sdu to SDU buffer...
+[DECT CVG SEND] SDU buffer prepared: len=1
+[DECT CVG SEND] TX queue item configured:
+[DECT CVG SEND]   - app_sdu_buf: 0x49f240
+[DECT CVG SEND]   - endpoint_id: 0x8003
+[DECT CVG SEND]   - dest_long_id: 0x11223344
+[DECT CVG SEND] Putting TX item into g_app_to_cvg_tx_fifo...
+[DECT CVG SEND] Successfully queued TX item for processing
+[DECT CVG SEND] Ending dect_cvg_send - SUCCESS
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...
+[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.
+[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ea80 (len 7), flow_id 3:
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[DECT CVG SEND] Starting dect_cvg_send ...
+[DECT CVG SEND] Parameters: endpoint_id=0x8003, dest_long_id=0x11223344, app_sdu_len=1
+[DECT CVG SEND] App SDU content (first 16 bytes): 01 
+[DECT CVG SEND] Attempting to allocate TX queue item from slab...
+[DECT CVG SEND] Successfully allocated TX queue item at 0x49e440
+[DECT CVG SEND] Attempting to allocate app SDU buffer from slab...
+[DECT CVG SEND] Successfully allocated app SDU buffer at 0x49f8c0
+[DECT CVG SEND] Copying 1 bytes from app_sdu to SDU buffer...
+[DECT CVG SEND] SDU buffer prepared: len=1
+[DECT CVG SEND] TX queue item configured:
+[DECT CVG SEND]   - app_sdu_buf: 0x49f8c0
+[DECT CVG SEND]   - endpoint_id: 0x8003
+[DECT CVG SEND]   - dest_long_id: 0x11223344
+[DECT CVG SEND] Putting TX item into g_app_to_cvg_tx_fifo...
+[DECT CVG SEND] Successfully queued TX item for processing
+[DECT CVG SEND] Ending dect_cvg_send - SUCCESS
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...
+[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.
+[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ea80 (len 7), flow_id 3:
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[DECT CVG SEND] Starting dect_cvg_send ...
+[DECT CVG SEND] Parameters: endpoint_id=0x8003, dest_long_id=0x11223344, app_sdu_len=1
+[DECT CVG SEND] App SDU content (first 16 bytes): 01 
+[DECT CVG SEND] Attempting to allocate TX queue item from slab...
+[DECT CVG SEND] Successfully allocated TX queue item at 0x49e440
+[DECT CVG SEND] Attempting to allocate app SDU buffer from slab...
+[DECT CVG SEND] Successfully allocated app SDU buffer at 0x49ff40
+[DECT CVG SEND] Copying 1 bytes from app_sdu to SDU buffer...
+[DECT CVG SEND] SDU buffer prepared: len=1
+[DECT CVG SEND] TX queue item configured:
+[DECT CVG SEND]   - app_sdu_buf: 0x49ff40
+[DECT CVG SEND]   - endpoint_id: 0x8003
+[DECT CVG SEND]   - dest_long_id: 0x11223344
+[DECT CVG SEND] Putting TX item into g_app_to_cvg_tx_fifo...
+[DECT CVG SEND] Successfully queued TX item for processing
+[DECT CVG SEND] Ending dect_cvg_send - SUCCESS
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: 0
+[CVG_RX_DBG] Calling dlc_receive_data...
+[00:00:00.142,800] <inf> dect_cvg: CVG_ARQ_SVC: Processing ACK for SN 0.
+[00:00:00.142,800] <inf> dect_cvg: CVG_ARQ: ACK received for CVG SDU with SN 0.
+[ACK_HANDLER_DBG] About to free sdu_ctx->sdu at address: 0x49e540
+[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...
+[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.
+[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ea80 (len 7), flow_id 3:
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+ PASS - test_aa_flow_control_window_blocks in 0.691 seconds
+===================================================================
+START - test_arq_ack_generation
+[TEST DBG] cvg_arq_before Started... 
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:00.690,800] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. -1430532899
+[00:00:00.690,800] <inf> dect_mac_core: MAC Core Init: Role PT, LongID 0xAABBCCDD, ShortID 0xAA08, NetID 0xDECC00DD
+[00:00:00.690,800] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:00.690,800] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:00.690,800] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:00.690,800] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:00.690,800] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:00.690,800] <inf> fs_zms: data wra: 0, 0
+[00:00:00.690,800] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:00.690,800] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC00DD vs our 0xAABBCCDD).
+MAC Core Context Initialized. PSN=0xEE1, OwnHPC=1 
+[00:00:00.690,800] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0xEE1, OwnHPC=1
+[DLC_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue BEFORE init: 0x4309c0
+[DLC_INIT_QUEUE_DBG] DLC's internal RX queue (g_dlc_internal_mac_rx_queue) is at address: 0x4309c0
+[DLC_INIT_DBG] k_thread_create for g_dlc_rx_thread_id returned: 0x430900
+[DECT_MAC] Entering dect_mac_init. Current active context: 0x429120
+[INIT_DBG] Entering dect_mac_init. Current spy pointer: (nil)
+[INIT_DBG] Spy pointer has been reset to: (nil)
+********************************************* STARTING nrf_modem_dect_phy_event_handler_set ************************************
+[00:00:00.690,800] <inf> dect_mac_phy_if: [PHY_IF]  nRF DECT PHY event handler registered successfully.
+[PHY_IF] Rcvd event from modem: type=0
+[00:00:00.690,800] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_INIT result: 0 (Temp: 0C, Volt: 0mV, Limit: 0C)
+[00:00:00.690,800] <inf> dect_mac_phy_if: [PHY_IF]  DECT PHY Initialized by modem. Requesting latency information.
+[PHY_IF] Rcvd event from modem: type=2
+[00:00:00.690,800] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CONFIGURE result: 0
+[MAC_INIT_PROPAGATION_DBG] About to call dect_mac_api_init with queue pointer: 0x4309c0
+[INIT_QUEUE_DBG] MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: 0x4309c0
+[00:00:00.690,800] <inf> dect_mac_api: MAC API Initialized. DLC RX queue registered.
+[00:00:00.690,800] <inf> dect_mac_data_path: DLC TX status callback registered with MAC Data Path.
+[DLC_INIT_QUEUE_DBG] Address of g_dlc_internal_mac_rx_queue AFTER init & start: 0x4309c0
+[00:00:00.690,800] <inf> dect_dlc: DLC Layer Initialized.
+[CVG_INIT_DBG] Created RX thread with ID: 0x42f720
+[CVG_INIT_DBG] About to call k_thread_start on CVG threads...
+[CVG_INIT_DBG]   -> Starting ARQ thread: 0x42f660
+[CVG_INIT_DBG]   -> Starting TX thread: 0x42f7e0
+[CVG_INIT_DBG]   -> Starting RX thread: 0x42f720
+[00:00:00.690,800] <inf> dect_cvg: CVG Layer Initialized.
+CVG_CFG: dect_cvg_configure_flow -> Svc:4, Win:4, Life:200ms[00:00:00.690,800] <inf> dect_cvg: CVG Flow configured. Service: 4, Window Size: 4
+[TEST_SETUP_DBG] About to call k_thread_start on CVG threads...
+[TEST_SETUP_DBG]   -> Starting ARQ thread: 0x42f660
+[TEST_SETUP_DBG]   -> Starting TX thread: 0x42f7e0
+[TEST_SETUP_DBG]   -> Starting RX thread: 0x42f720
+[TRACE] Starting DLC RX thread entry point
+[TRACE] CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE = 1500
+[TRACE] sizeof(mac_sdu_t) = 1664
+[TRACE] DLC RX thread waiting for packet...
+[00:00:00.690,800] <inf> dect_dlc: DLC TX Service (ARQ) Thread started.
+[MAC_API] dect_mac_get_role() Active context is: 0x429120
+[ARQ_THREAD_DBG] ARQ service thread started. Active context ROLE is:0
+[CVG_THREAD_DBG] ARQ Service Thread has started execution.
+[CVG_THREAD_DBG] TX Thread has started execution.
+[CVG TX] About to get item from FIFO.
+[CVG_THREAD_DBG] RX Thread has started execution.
+[00:00:00.690,800] <inf> dect_cvg: CVG RX Thread started.
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: 0
+[CVG_RX_ACK_GEN_DBG] Received data packet with SN=42. Preparing to send ACK.
+[DECT RX DELIVERY] Starting cleartext payload delivery to application...
+[DECT RX DELIVERY] Payload details: ptr=0x42f063, len=2
+[DECT RX DELIVERY] Payload content (first 16 bytes): aa bb 
+[DECT RX DELIVERY] Complete payload (2 bytes): aa bb 
+[DECT RX DELIVERY] Attempting to allocate SDU buffer from g_cvg_app_sdu_slab...
+[DECT RX DELIVERY] k_mem_slab_alloc result: 0, app_sdu pointer: 0x49e540
+[DECT RX DELIVERY] SUCCESS: SDU buffer allocated at 0x49e540
+[DECT RX DELIVERY] Copying 2 bytes from payload to SDU buffer...
+[DECT RX DELIVERY] SDU buffer prepared: len=2
+[DECT RX DELIVERY] Copied data in SDU buffer (first 16 bytes): aa bb 
+[DECT RX DELIVERY] Putting SDU buffer into g_cvg_to_app_rx_fifo...
+[DECT RX DELIVERY] SUCCESS: SDU buffer queued for application delivery
+[DECT RX DELIVERY] Completed payload delivery process
+[00:00:00.741,800] <dbg> dect_cvg: send_cvg_arq_feedback: CVG_ARQ_TX: Sending ACK for SN 42 (fb_info 0) to 0x12345678.
+[DLC_SEND_DBG] dlc_send_data received payload at 0x7ba734ffece5 (len 3), flow_id 0:
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+ PASS - test_arq_ack_generation in 0.571 seconds
+===================================================================
+START - test_arq_retransmission_on_timeout
+[TEST DBG] cvg_arq_before Started... 
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:01.261,100] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. -1430532899
+[00:00:01.261,100] <inf> dect_mac_core: MAC Core Init: Role PT, LongID 0xAABBCCDD, ShortID 0x7BE4, NetID 0xDECC00DD
+[00:00:01.261,100] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:01.261,100] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:01.261,100] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:01.261,100] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:01.261,100] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:01.261,100] <inf> fs_zms: data wra: 0, 0
+[00:00:01.261,100] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:01.261,100] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC00DD vs our 0xAABBCCDD).
+MAC Core Context Initialized. PSN=0x1AE, OwnHPC=1 
+[00:00:01.261,100] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0x1AE, OwnHPC=1
+[DLC_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue BEFORE init: 0x4309c0
+[DLC_INIT_QUEUE_DBG] DLC's internal RX queue (g_dlc_internal_mac_rx_queue) is at address: 0x4309c0
+[DLC_INIT_DBG] k_thread_create for g_dlc_rx_thread_id returned: 0x430900
+[DECT_MAC] Entering dect_mac_init. Current active context: 0x429120
+[INIT_DBG] Entering dect_mac_init. Current spy pointer: (nil)
+[INIT_DBG] Spy pointer has been reset to: (nil)
+********************************************* STARTING nrf_modem_dect_phy_event_handler_set ************************************
+[00:00:01.261,100] <inf> dect_mac_phy_if: [PHY_IF]  nRF DECT PHY event handler registered successfully.
+[PHY_IF] Rcvd event from modem: type=0
+[00:00:01.261,100] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_INIT result: 0 (Temp: 0C, Volt: 0mV, Limit: 0C)
+[00:00:01.261,100] <inf> dect_mac_phy_if: [PHY_IF]  DECT PHY Initialized by modem. Requesting latency information.
+[PHY_IF] Rcvd event from modem: type=2
+[00:00:01.261,100] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CONFIGURE result: 0
+[MAC_INIT_PROPAGATION_DBG] About to call dect_mac_api_init with queue pointer: 0x4309c0
+[INIT_QUEUE_DBG] MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: 0x4309c0
+[00:00:01.261,100] <inf> dect_mac_api: MAC API Initialized. DLC RX queue registered.
+[00:00:01.261,100] <inf> dect_mac_data_path: DLC TX status callback registered with MAC Data Path.
+[DLC_INIT_QUEUE_DBG] Address of g_dlc_internal_mac_rx_queue AFTER init & start: 0x4309c0
+[00:00:01.261,100] <inf> dect_dlc: DLC Layer Initialized.
+[CVG_INIT_DBG] Created RX thread with ID: 0x42f720
+[CVG_INIT_DBG] About to call k_thread_start on CVG threads...
+[CVG_INIT_DBG]   -> Starting ARQ thread: 0x42f660
+[CVG_INIT_DBG]   -> Starting TX thread: 0x42f7e0
+[CVG_INIT_DBG]   -> Starting RX thread: 0x42f720
+[00:00:01.261,100] <inf> dect_cvg: CVG Layer Initialized.
+CVG_CFG: dect_cvg_configure_flow -> Svc:4, Win:4, Life:200ms[00:00:01.261,100] <inf> dect_cvg: CVG Flow configured. Service: 4, Window Size: 4
+[TEST_SETUP_DBG] About to call k_thread_start on CVG threads...
+[TEST_SETUP_DBG]   -> Starting ARQ thread: 0x42f660
+[TEST_SETUP_DBG]   -> Starting TX thread: 0x42f7e0
+[TEST_SETUP_DBG]   -> Starting RX thread: 0x42f720
+[TRACE] Starting DLC RX thread entry point
+[TRACE] CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE = 1500
+[TRACE] sizeof(mac_sdu_t) = 1664
+[TRACE] DLC RX thread waiting for packet...
+[00:00:01.261,100] <inf> dect_dlc: DLC TX Service (ARQ) Thread started.
+[MAC_API] dect_mac_get_role() Active context is: 0x429120
+[ARQ_THREAD_DBG] ARQ service thread started. Active context ROLE is:0
+[CVG_THREAD_DBG] ARQ Service Thread has started execution.
+[CVG_THREAD_DBG] TX Thread has started execution.
+[CVG TX] About to get item from FIFO.
+[CVG_THREAD_DBG] RX Thread has started execution.
+[00:00:01.261,100] <inf> dect_cvg: CVG RX Thread started.
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[DECT CVG SEND] Starting dect_cvg_send ...
+[DECT CVG SEND] Parameters: endpoint_id=0x8003, dest_long_id=0x11223344, app_sdu_len=1
+[DECT CVG SEND] App SDU content (first 16 bytes): cc 
+[DECT CVG SEND] Attempting to allocate TX queue item from slab...
+[DECT CVG SEND] Successfully allocated TX queue item at 0x49e440
+[DECT CVG SEND] Attempting to allocate app SDU buffer from slab...
+[DECT CVG SEND] Successfully allocated app SDU buffer at 0x4a05c0
+[DECT CVG SEND] Copying 1 bytes from app_sdu to SDU buffer...
+[DECT CVG SEND] SDU buffer prepared: len=1
+[DECT CVG SEND] TX queue item configured:
+[DECT CVG SEND]   - app_sdu_buf: 0x4a05c0
+[DECT CVG SEND]   - endpoint_id: 0x8003
+[DECT CVG SEND]   - dest_long_id: 0x11223344
+[DECT CVG SEND] Putting TX item into g_app_to_cvg_tx_fifo...
+[DECT CVG SEND] Successfully queued TX item for processing
+[DECT CVG SEND] Ending dect_cvg_send - SUCCESS
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...
+[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.
+[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ea80 (len 7), flow_id 3:
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[00:00:01.511,200] <wrn> dect_cvg: CVG_ARQ_SVC: Processing NACK/Timeout for SN 0.
+[00:00:01.511,200] <inf> dect_cvg: CVG_ARQ_SVC: Retransmitting SDU SN 0 (attempt 2).
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ea80 (len 7), flow_id 3:
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+ PASS - test_arq_retransmission_on_timeout in 0.811 seconds
+===================================================================
+START - test_sdu_lifetime_expiry
+[TEST DBG] cvg_arq_before Started... 
+[CORE_INIT_DBG] Entered dect_mac_core_init.
+[CORE_INIT_DBG] 1. Context retrieved.
+[CORE_INIT_DBG] 2. Context zeroed.
+[00:00:02.071,500] <inf> dect_mac_core: MAC Core: No Long RD ID provisioned. Generating a random one. -1430532899
+[00:00:02.071,500] <inf> dect_mac_core: MAC Core Init: Role PT, LongID 0xAABBCCDD, ShortID 0x88E6, NetID 0xDECC00DD
+[00:00:02.071,500] <inf> dect_mac_core: MAC Core: Own PHY Params -> mu_code: 0 (val 2^0), beta_code: 0 (val 1)
+[00:00:02.071,500] <inf> dect_mac_data_path: MAC Data Path Initialized (HARQ Timers and Processes set up).
+[00:00:02.071,500] <inf> dect_mac_nvs: ZMS Init: Partition size 0x4000, Sector size 0x1000, Sector count 4
+[00:00:02.071,500] <inf> fs_zms: 4 Sectors of 4096 bytes
+[00:00:02.071,500] <inf> fs_zms: alloc wra: 0, fc0
+[00:00:02.071,500] <inf> fs_zms: data wra: 0, 0
+[00:00:02.071,500] <wrn> dect_mac_nvs: HPC not found in ZMS (err: -2). Initializing to 1.
+[CORE_INIT_DBG] State is now set to: IDLE (1)
+[00:00:02.071,500] <inf> dect_mac_core: MAC Core: MAC Security is disabled. PSK not loaded.
+MAC CORE: **** network_id_32bit, own_long_rd_id (0xDECC00DD vs our 0xAABBCCDD).
+MAC Core Context Initialized. PSN=0xDFB, OwnHPC=1 
+[00:00:02.071,500] <inf> dect_mac_core: MAC Core Context Initialized. PSN=0xDFB, OwnHPC=1
+[DLC_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue BEFORE init: 0x4309c0
+[DLC_INIT_QUEUE_DBG] DLC's internal RX queue (g_dlc_internal_mac_rx_queue) is at address: 0x4309c0
+[DLC_INIT_DBG] k_thread_create for g_dlc_rx_thread_id returned: 0x430900
+[DECT_MAC] Entering dect_mac_init. Current active context: 0x429120
+[INIT_DBG] Entering dect_mac_init. Current spy pointer: (nil)
+[INIT_DBG] Spy pointer has been reset to: (nil)
+********************************************* STARTING nrf_modem_dect_phy_event_handler_set ************************************
+[00:00:02.071,500] <inf> dect_mac_phy_if: [PHY_IF]  nRF DECT PHY event handler registered successfully.
+[PHY_IF] Rcvd event from modem: type=0
+[00:00:02.071,500] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_INIT result: 0 (Temp: 0C, Volt: 0mV, Limit: 0C)
+[00:00:02.071,500] <inf> dect_mac_phy_if: [PHY_IF]  DECT PHY Initialized by modem. Requesting latency information.
+[PHY_IF] Rcvd event from modem: type=2
+[00:00:02.071,500] <inf> dect_mac_phy_if: [PHY_IF]  NRF_MODEM_DECT_PHY_EVT_CONFIGURE result: 0
+[MAC_INIT_PROPAGATION_DBG] About to call dect_mac_api_init with queue pointer: 0x4309c0
+[INIT_QUEUE_DBG] MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: 0x4309c0
+[00:00:02.071,500] <inf> dect_mac_api: MAC API Initialized. DLC RX queue registered.
+[00:00:02.071,500] <inf> dect_mac_data_path: DLC TX status callback registered with MAC Data Path.
+[DLC_INIT_QUEUE_DBG] Address of g_dlc_internal_mac_rx_queue AFTER init & start: 0x4309c0
+[00:00:02.071,500] <inf> dect_dlc: DLC Layer Initialized.
+[CVG_INIT_DBG] Created RX thread with ID: 0x42f720
+[CVG_INIT_DBG] About to call k_thread_start on CVG threads...
+[CVG_INIT_DBG]   -> Starting ARQ thread: 0x42f660
+[CVG_INIT_DBG]   -> Starting TX thread: 0x42f7e0
+[CVG_INIT_DBG]   -> Starting RX thread: 0x42f720
+[00:00:02.071,500] <inf> dect_cvg: CVG Layer Initialized.
+CVG_CFG: dect_cvg_configure_flow -> Svc:4, Win:4, Life:200ms[00:00:02.071,500] <inf> dect_cvg: CVG Flow configured. Service: 4, Window Size: 4
+[TEST_SETUP_DBG] About to call k_thread_start on CVG threads...
+[TEST_SETUP_DBG]   -> Starting ARQ thread: 0x42f660
+[TEST_SETUP_DBG]   -> Starting TX thread: 0x42f7e0
+[TEST_SETUP_DBG]   -> Starting RX thread: 0x42f720
+[TRACE] Starting DLC RX thread entry point
+[TRACE] CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE = 1500
+[TRACE] sizeof(mac_sdu_t) = 1664
+[TRACE] DLC RX thread waiting for packet...
+[00:00:02.071,500] <inf> dect_dlc: DLC TX Service (ARQ) Thread started.
+[MAC_API] dect_mac_get_role() Active context is: 0x429120
+[ARQ_THREAD_DBG] ARQ service thread started. Active context ROLE is:0
+[CVG_THREAD_DBG] ARQ Service Thread has started execution.
+[CVG_THREAD_DBG] TX Thread has started execution.
+[CVG TX] About to get item from FIFO.
+[CVG_THREAD_DBG] RX Thread has started execution.
+[00:00:02.071,500] <inf> dect_cvg: CVG RX Thread started.
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[DECT CVG SEND] Starting dect_cvg_send ...
+[DECT CVG SEND] Parameters: endpoint_id=0x8003, dest_long_id=0x11223344, app_sdu_len=1
+[DECT CVG SEND] App SDU content (first 16 bytes): 02 
+[DECT CVG SEND] Attempting to allocate TX queue item from slab...
+[DECT CVG SEND] Successfully allocated TX queue item at 0x49e440
+[DECT CVG SEND] Attempting to allocate app SDU buffer from slab...
+[DECT CVG SEND] Successfully allocated app SDU buffer at 0x4a0c40
+[DECT CVG SEND] Copying 1 bytes from app_sdu to SDU buffer...
+[DECT CVG SEND] SDU buffer prepared: len=1
+[DECT CVG SEND] TX queue item configured:
+[DECT CVG SEND]   - app_sdu_buf: 0x4a0c40
+[DECT CVG SEND]   - endpoint_id: 0x8003
+[DECT CVG SEND]   - dest_long_id: 0x11223344
+[DECT CVG SEND] Putting TX item into g_app_to_cvg_tx_fifo...
+[DECT CVG SEND] Successfully queued TX item for processing
+[DECT CVG SEND] Ending dect_cvg_send - SUCCESS
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...
+[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.
+[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ea80 (len 7), flow_id 3:
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[00:00:02.321,600] <wrn> dect_cvg: CVG_ARQ_SVC: Processing NACK/Timeout for SN 0.
+[00:00:02.321,600] <inf> dect_cvg: CVG_ARQ_SVC: Retransmitting SDU SN 0 (attempt 2).
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ea80 (len 7), flow_id 3:
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[DECT CVG SEND] Starting dect_cvg_send ...
+[DECT CVG SEND] Parameters: endpoint_id=0x8003, dest_long_id=0x11223344, app_sdu_len=1
+[DECT CVG SEND] App SDU content (first 16 bytes): 02 
+[DECT CVG SEND] Attempting to allocate TX queue item from slab...
+[DECT CVG SEND] Successfully allocated TX queue item at 0x49e440
+[DECT CVG SEND] Attempting to allocate app SDU buffer from slab...
+[DECT CVG SEND] Successfully allocated app SDU buffer at 0x4a12c0
+[DECT CVG SEND] Copying 1 bytes from app_sdu to SDU buffer...
+[DECT CVG SEND] SDU buffer prepared: len=1
+[DECT CVG SEND] TX queue item configured:
+[DECT CVG SEND]   - app_sdu_buf: 0x4a12c0
+[DECT CVG SEND]   - endpoint_id: 0x8003
+[DECT CVG SEND]   - dest_long_id: 0x11223344
+[DECT CVG SEND] Putting TX item into g_app_to_cvg_tx_fifo...
+[DECT CVG SEND] Successfully queued TX item for processing
+[DECT CVG SEND] Ending dect_cvg_send - SUCCESS
+[CVG TX] Got item from FIFO
+[CVG TX] flow->service_type:4 >= 3
+[MUTEX_DBG] cvg_tx_thread_entry: Attempting to lock mutex...
+[MUTEX_DBG] cvg_tx_thread_entry: Mutex locked.
+[MUTEX_DBG] cvg_tx_thread_entry: Unlocking mutex...
+[DLC_SEND_DBG] dlc_send_data received payload at 0x42ea80 (len 7), flow_id 3:
+2    oooooooooooooooooooooooooooooooooooooooooooooooooo
+5   oooooooooooooooooooooooooooooooooooooooooooooooooo
+[CVG TX] About to get item from FIFO.
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+[CVG_RX_DBG] dlc_receive_data returned with code: -11
+[CVG_RX_DBG] Calling dlc_receive_data...
+ PASS - test_sdu_lifetime_expiry in 0.821 seconds
+===================================================================
+TESTSUITE cvg_arq succeeded
+
+------ TESTSUITE SUMMARY START ------
+
+SUITE PASS - 100.00% [cvg_arq]: pass = 4, fail = 0, skip = 0, total = 4 duration = 2.894 seconds
+ - PASS - [cvg_arq.test_aa_flow_control_window_blocks] duration = 0.691 seconds
+ - PASS - [cvg_arq.test_arq_ack_generation] duration = 0.571 seconds
+ - PASS - [cvg_arq.test_arq_retransmission_on_timeout] duration = 0.811 seconds
+ - PASS - [cvg_arq.test_sdu_lifetime_expiry] duration = 0.821 seconds
+
+------ TESTSUITE SUMMARY END ------
+
+===================================================================
+RunID: 815204e8f58ecce0f1c0b80591f4e941
+PROJECT EXECUTION SUCCESSFUL
