@@ -101,7 +101,7 @@ uint32_t get_tbs_for_schedule(uint8_t num_subslots, uint8_t mcs_code, uint8_t mu
 		break;
 	}
 
-	uint32_t tbs_bits = selected_tbs_table[mcs_code][num_subslots - 0];
+	uint32_t tbs_bits = selected_tbs_table[mcs_code][num_subslots - 1];
 
     printk("TBS_GET: [mcs_code]%d[num_subslots - 1]%d - Returning tbs_bits/8:%d \n", mcs_code, num_subslots - 1, tbs_bits/8);
 	return tbs_bits / 8;

@@ -16,10 +16,8 @@
 
 #include <dect_dlc.h>
 #include <mac/dect_mac.h>
-// #if IS_ENABLED(CONFIG_ZTEST)		
 #include <mac/dect_mac_core.h>
-// #endif
-// #include <mac/dect_mac_core.h>
+
 
 #if IS_ENABLED(CONFIG_ZTEST) || IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)
 #include <mocks/mock_nrf_modem_dect_phy.h> /* For g_mock_phy_context_override */
@@ -41,7 +39,7 @@ static int (*g_dlc_receive_spy_cb)(dlc_service_type_t *, uint32_t *, uint8_t *, 
 #endif /* IS_ENABLED(CONFIG_DECT_DLC_API_MOCK) */
 
 
-#define DLC_NET_BUF_USER_DATA_SIZE 16
+#define DLC_NET_BUF_USER_DATA_SIZE CONFIG_NET_BUF_USER_DATA_SIZE // 16
 BUILD_ASSERT(sizeof(dect_buf_meta_t) <= DLC_NET_BUF_USER_DATA_SIZE,
 	     "dect_buf_meta_t exceeds DLC_NET_BUF_USER_DATA_SIZE");
 
@@ -50,16 +48,16 @@ BUILD_ASSERT(sizeof(dect_buf_meta_t) <= DLC_NET_BUF_USER_DATA_SIZE,
 #define MAX_DLC_RETRANSMISSION_JOBS      8
 #define DLC_RETRANSMISSION_TIMEOUT_MS    10000
 #define DLC_MAX_RETRIES                  3
-#define DLC_REASSEMBLY_BUF_SIZE          (CONFIG_DECT_MAC_SDU_MAX_SIZE * 5)
-#define DLC_REASSEMBLY_TIMEOUT_MS        5000
-#define DLC_DUPLICATE_CACHE_SIZE         16
+#define DLC_REASSEMBLY_BUF_SIZE          (CONFIG_DECT_MAC_SDU_MAX_SIZE * 5) // 5
+#define DLC_REASSEMBLY_TIMEOUT_MS        10000
+#define DLC_DUPLICATE_CACHE_SIZE         CONFIG_DECT_DLC_DUPLICATE_COUNT // 16
 
 /*
  * net_buf pool for data SDUs flowing from MAC→DLC (SAR/reassembly path).
  * The pool is NOT used for CVG delivery — that path uses dlc_app_sdu_t slabs.
  */
-#define DLC_PKT_BUF_FRAG_SIZE  256
-#define DLC_PKT_BUF_COUNT      48
+#define DLC_PKT_BUF_FRAG_SIZE  CONFIG_DECT_DLC_NET_BUF_FRAG_SIZE //256
+#define DLC_PKT_BUF_COUNT      CONFIG_DECT_DLC_NET_BUF_COUNT //48
 
 NET_BUF_POOL_FIXED_DEFINE(dlc_rx_pool, DLC_PKT_BUF_COUNT,
 			  DLC_PKT_BUF_FRAG_SIZE,

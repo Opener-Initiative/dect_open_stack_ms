@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2024 Manulytica Ltd
 #
-# SPDX-License-Identifier: Apache-2.0
+
 
 # This is the main Kconfig file for the dect_nrplus_driver library.
 # It is automatically sourced by the Zephyr build system because it is

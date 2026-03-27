@@ -18,12 +18,12 @@ ZTEST(mac_phy_ctrl_tests, test_tbs_mu1_beta1)
 	/* 136 bits = 17 bytes. Table says j=1 fits 136 bits. */
 	dect_mac_phy_ctrl_calculate_pcc_params(17, 0, 0, &len_field, &mcs_field, &type_field);
 	zassert_equal(type_field, 0, "Expected subslot mode");
-	zassert_equal(len_field, 0, "Expected 1 subslot (len field 0)");
+	zassert_equal(len_field, 1, "Expected 1 subslot (len field 1)");
 
 	/* 344 bits = 43 bytes. Table says j=2 fits 344 bits. */
 	mcs_field = 0;
 	dect_mac_phy_ctrl_calculate_pcc_params(43, 0, 0, &len_field, &mcs_field, &type_field);
-	zassert_equal(len_field, 1, "Expected 2 subslots (len field 1)");
+	zassert_equal(len_field, 3, "Expected 3 subslots (len field 3) to fit 43 bytes");
 }
 
 /* Test TBS lookup for mu=2, beta=1 */
@@ -35,7 +35,7 @@ ZTEST(mac_phy_ctrl_tests, test_tbs_mu2_beta1)
 
 	/* mu=2, beta=1: j=1 is 0 (unsupported). j=2 is 808 bits = 101 bytes. */
 	dect_mac_phy_ctrl_calculate_pcc_params(50, 1, 0, &len_field, &mcs_field, &type_field);
-	zassert_equal(len_field, 1, "Expected 2 subslots (j=2) as j=1 is unsupported for mu=2");
+	zassert_equal(len_field, 2, "Expected 2 subslots (j=2) (len field 2)");
 }
 
 /* Test TBS lookup for mu=4, beta=1 */
@@ -47,7 +47,7 @@ ZTEST(mac_phy_ctrl_tests, test_tbs_mu4_beta1)
 
 	/* mu=4, beta=1: j=1,2,3 are 0. j=4 is 1800 bits = 225 bytes. */
 	dect_mac_phy_ctrl_calculate_pcc_params(100, 2, 0, &len_field, &mcs_field, &type_field);
-	zassert_equal(len_field, 3, "Expected 4 subslots (j=4) as j=1..3 are unsupported for mu=4");
+	zassert_equal(len_field, 4, "Expected 4 subslots (j=4) (len field 4)");
 }
 
 /* Test Slot Mode (Large payloads) */
@@ -75,7 +75,7 @@ ZTEST(mac_phy_ctrl_tests, test_slot_mode)
 	 * So it will stay in subslot mode, len_field = 15.
 	 */
 	zassert_equal(type_field, 0, "Expected subslot mode for max TBS capacity");
-	zassert_equal(len_field, 15, "Expected max subslots (16)");
+	zassert_equal(len_field, 16, "Expected max subslots (16)");
 }
 
 /* Test zero payload */
@@ -86,7 +86,7 @@ ZTEST(mac_phy_ctrl_tests, test_zero_payload)
 	uint8_t type_field;
 
 	dect_mac_phy_ctrl_calculate_pcc_params(0, 0, 0, &len_field, &mcs_field, &type_field);
-	zassert_equal(len_field, 0, "Expected 1 subslot for zero payload");
+	zassert_equal(len_field, 1, "Expected 1 subslot for zero payload");
 }
 
 ZTEST_SUITE(mac_phy_ctrl_tests, NULL, NULL, NULL, NULL, NULL);

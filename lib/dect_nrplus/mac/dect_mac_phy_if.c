@@ -178,13 +178,15 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 	case NRF_MODEM_DECT_PHY_EVT_PCC:
 		msg_to_queue.type = MAC_EVENT_PHY_PCC;
 		memcpy(&msg_to_queue.data.pcc, &event->pcc, sizeof(event->pcc));
+		printk("[PHY_IF] Rcvd PCC: Hdl:%u, TID:%u\n", event->pcc.handle, event->pcc.transaction_id);
 		break;
 
 	case NRF_MODEM_DECT_PHY_EVT_PDC:
 		msg_to_queue.type = MAC_EVENT_PHY_PDC;
 		memcpy(&msg_to_queue.data.pdc, &event->pdc, sizeof(event->pdc));
-		
-		// TODO:
+		printk("[PHY_IF] Rcvd PDC: Hdl:%u, TID:%u, Size:%zu\n",
+		       event->pdc.handle, event->pdc.transaction_id, event->pdc.len);
+		break;
 		// /* Early filtering for Unicast packets not addressed to us */
 		// dect_mac_header_type_octet_t *hdr_type = (void *)event->pdc.data;
 		// if (hdr_type->mac_header_type == MAC_COMMON_HEADER_TYPE_UNICAST) {

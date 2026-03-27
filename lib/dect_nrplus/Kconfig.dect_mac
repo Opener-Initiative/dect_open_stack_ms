@@ -1,3 +1,6 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
 # /* lib/dect_nrplus/Kconfig.dect_mac */
 # Kconfig for DECT NR+ MAC Layer
 
@@ -86,7 +89,8 @@ config DECT_MAC_THREAD_PRIORITY
 
 config DECT_MAC_THREAD_SERVICE_INTERVAL_MS
 	int "MAC thread periodic service interval (ms)"
-	default 50 # Reduced for potentially faster scheduling/TX service
+	default 50 if ZTEST # Reduced for potentially faster scheduling/TX service
+    default 50000
 	help
 	  Timeout for k_msgq_get in the MAC thread. Allows periodic servicing
 	  of TX queues and scheduled operations even if no external events.
@@ -199,6 +203,7 @@ endif # DECT_MAC_SECURITY_ENABLE
         int "PT Keep-Alive Interval (ms)"
         default 20000 # 20 seconds
         help
+          Needs FIXING
           Interval at which the PT sends a Keep-Alive message to the FT
           when associated and idle, to maintain the association.
 
@@ -214,6 +219,24 @@ endif # DECT_MAC_SECURITY_ENABLE
         depends on DECT_MAC_PT_MOBILITY_ENABLE
         help
           Interval at which an associated PT performs a background scan for other FTs.
+
+    config DECT_MAC_PT_STARTUP_DELAY_MS
+        int "PT Initial Startup Delay before scanning (ms)"
+        default 0 if ZTEST
+        default 1000
+        help
+          Delay in milliseconds between MAC initialization and the start of the first
+          beacon scan. This allows the system, modem, and FT devices to fully settle
+          before scanning begins.
+
+    config DECT_MAC_PT_SCAN_DURATION_MS
+        int "PT Beacon Scan window duration per channel (ms)"
+        default 1000 if ZTEST
+        default 5000
+        help
+          The duration of the continuous RX window when scanning for FT beacons
+          on a specific carrier. A longer window increases the chance of catching
+          infrequent beacons.
 
     config DECT_MAC_PT_MOBILITY_RSSI_BOOST_FOR_TEST
         bool "Mobility: Boost Candidate RSSI for Handover Testing"
@@ -338,12 +361,12 @@ endif # DECT_MAC_SECURITY_ENABLE
 
     config DECT_MAC_FT_CLUSTER_BEACON_MS
         int "FT Cluster Beacon Interval (ms)"
-        default 2000
+        default 4000
         help
           Interval for FT Cluster Beacon (10,50,100,500,1k,1.5k,2k,4k,8k,16k,32k ms).
     config DECT_MAC_FT_NETWORK_BEACON_MS
         int "FT Network Beacon Interval (ms)"
-        default 2000
+        default 4000
         help
           Interval for FT Network Beacon (50,100,500,1k,1.5k,2k,4k ms).
     config DECT_MAC_FT_MAX_ASSOCIATED_PTS
@@ -465,9 +488,16 @@ endmenu # FT Mobility Parameters
 # endif # DECT_MAC_ROLE_FT
 
 
-
-
 # MAC General Parameters
+config DECT_MAC_SCHEDULING_MARGIN_US
+    int "MAC Processing Scheduling Margin (us)"
+    default 3000 if ZTEST
+    default 50000
+    help
+      Additional time margin in microseconds added to the PHY scheduling
+      start time to account for MAC processing delays, serial logging,
+      and PDU construction time.
+
 config DECT_MAC_RSSI_THR_MIN_DBM
     int "RSSI Threshold Min for 'free' channel (dBm)"
     default -90
@@ -574,17 +604,18 @@ config DECT_MAC_SHELL_ENABLE
 
 config DECT_MAC_PDU_MAX_SIZE
     int "Maximum total MAC PDU size for PHY"
-    default 4096 
+    default 4096 if ZTEST
+    default 2048
+    # default 1638 
+    # (true ETSI MAC PDU max) 
     # Increased to allow TESTING
     # Increased to allow larger payloads with headers/MIC
-    # default 2048 
 
 
 config DECT_MAC_SDU_MAX_SIZE
     int "Maximum MAC SDU (DLC PDU / MAC SDU Area) payload size"
     default 1636
-
-    
+  
 
 config DECT_MAC_PCC_CACHE_SIZE
 	int "PCC event cache size"

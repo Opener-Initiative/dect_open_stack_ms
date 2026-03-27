@@ -16,7 +16,7 @@
     #if IS_ENABLED(CONFIG_ZTEST) && IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)
     #define MAX_MAC_SDU_BUFFERS_CONFIG 64
     #else
-    #define MAX_MAC_SDU_BUFFERS_CONFIG 32
+    #define MAX_MAC_SDU_BUFFERS_CONFIG 48
     #endif
 #endif
 
@@ -94,7 +94,7 @@ struct mac_sdu;
 #if IS_ENABLED(CONFIG_ZTEST)
 #define MAX_PENDING_PCC_TRANSACTIONS 16
 #else
-#define MAX_PENDING_PCC_TRANSACTIONS 4
+#define MAX_PENDING_PCC_TRANSACTIONS CONFIG_DECT_MAC_PCC_CACHE_SIZE // 8
 #endif
 
 
@@ -444,6 +444,7 @@ typedef struct {
 	uint32_t beacon_rx_count;
 	uint16_t assoc_attempt_count;
 	uint16_t rach_tx_count;
+	uint8_t current_ft_sfn;
 } pt_context_t;
 
 
@@ -605,7 +606,7 @@ typedef struct dect_mac_context {
 
     uint64_t last_known_modem_time;
     uint64_t last_event_system_uptime_ticks; /* Zephyr system uptime ticks when last_known_modem_time was updated */
-    uint64_t ft_sfn_zero_modem_time_anchor;
+    uint64_t ft_sfn0_modem_time_anchor;
     uint8_t  current_sfn_at_anchor_update;
     uint64_t last_phy_op_end_time; /* Modem time when the last scheduled PHY op will end */    
     /* Cache for in-flight PCCs waiting for their corresponding PDCs. */

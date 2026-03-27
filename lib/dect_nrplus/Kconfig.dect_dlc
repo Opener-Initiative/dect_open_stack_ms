@@ -1,6 +1,7 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
 # /* lib/dect_nrplus/Kconfig.dect_dlc */
-# Copyright (c) 2023 Nordic Semiconductor ASA
-# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
 
 menuconfig DECT_DLC_LAYER
 	bool "DECT NR+ DLC Layer Support"
@@ -21,7 +22,7 @@ menuconfig DECT_DLC_LAYER
 
 config DECT_DLC_RX_THREAD_STACK_SIZE
 	int "DLC RX thread stack size"
-	default 2048
+	default 1024
 	help
 	  Stack size for the DLC layer's RX thread. This thread
 	  receives data from the MAC layer, performs reassembly,
@@ -35,7 +36,7 @@ config DECT_DLC_RX_THREAD_PRIORITY
 
 config DECT_DLC_TX_SERVICE_THREAD_STACK_SIZE
 	int "DLC TX service thread stack size"
-	default 2048
+	default 1024
 	help
 	  Stack size for the DLC layer's TX service thread. This thread
 	  handles background tasks like ARQ retransmissions.
@@ -86,11 +87,18 @@ config DECT_DLC_NET_BUF_FRAG_SIZE
 
 config DECT_DLC_NET_BUF_COUNT
 	int "DLC net_buf pool total fragment count"
-	default 48
+	default 32
 	range 16 256
 	help
 	  Total fragments in the DLC+CVG data pool.
 	  RAM = NET_BUF_COUNT * NET_BUF_FRAG_SIZE. Default: 48*256 = 12 KB.
+
+config DECT_DLC_DUPLICATE_COUNT
+	int "DLC duplicate cache count"
+	default 16
+	range 4 128
+	help
+	  Number of messages in the duplicate cache.
 
 config NET_BUF_USER_DATA_SIZE
 	int "DLC net_buf data size"
@@ -98,7 +106,6 @@ config NET_BUF_USER_DATA_SIZE
 	range 16 256
 	help
 	  Size of the user data field in each net_buf fragment.
-
 
 if ZTEST
 

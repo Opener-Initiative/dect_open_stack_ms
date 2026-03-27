@@ -14,6 +14,7 @@
 #include <mac/dect_mac_sm_pt.h>
 #include <mac/dect_mac_sm_ft.h>
 #include <mac/dect_mac_types.h>
+#include <mac/dect_mac_timeline_utils.h>
 #include <mac/dect_mac_main_dispatcher.h>
 
 
@@ -206,6 +207,10 @@ void dect_mac_start(void)
 
 
 	if (ctx->role == MAC_ROLE_PT) {
+#if defined(CONFIG_DECT_MAC_PT_STARTUP_DELAY_MS) && CONFIG_DECT_MAC_PT_STARTUP_DELAY_MS > 0
+		LOG_INF("PT SM: Applying %d ms startup delay before first scan.", CONFIG_DECT_MAC_PT_STARTUP_DELAY_MS);
+		k_msleep(CONFIG_DECT_MAC_PT_STARTUP_DELAY_MS);
+#endif
 		// printk("[MAC_START_DBG] Entering dect_mac_start...\n");
 		dect_mac_sm_pt_start_operation();
 	} else {
@@ -271,6 +276,8 @@ int dect_mac_process_event_timeout(k_timeout_t timeout)
 
 void dect_mac_service(void)
 {
+	dect_mac_context_t *ctx = dect_mac_get_active_context();
+	dect_mac_timeline_sync_sfn(ctx);
 	dect_mac_data_path_service_tx();
 }
 

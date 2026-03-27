@@ -1,7 +1,10 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
 # /* lib/dect_nrplus/Kconfig.dect_cdd */
 # // Overview: Creates the missing Kconfig file for the CDD service. This defines the DECT_CDD_LAYER symbol, resolving the build warning.
 # Copyright (c) 2024 Manulytica Ltd
-# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+
 
 menuconfig DECT_CDD_LAYER
 	bool "DECT NR+ CDD Service Support"

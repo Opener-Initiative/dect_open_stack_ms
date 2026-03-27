@@ -509,12 +509,13 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
     ctx->pending_op_type = PENDING_OP_NONE;
     ctx->pending_op_handle = 0;
     ctx->last_known_modem_time = 0;
-    ctx->ft_sfn_zero_modem_time_anchor = 0;
+    ctx->ft_sfn0_modem_time_anchor = 0;
     ctx->current_sfn_at_anchor_update = 0;
     ctx->last_phy_op_end_time = 0;
 
     // Initialize security context
     dect_mac_nvs_init();
+	LOG_INF("MAC Core: NVS initialized.");
 	// psa_generate_random((uint8_t *)&ctx->psn, sizeof(ctx->psn));
     dect_mac_rand_get((uint8_t *)&ctx->psn, sizeof(ctx->psn));
 	ctx->psn &= 0x0FFF; /* Ensure it's a 12-bit value */

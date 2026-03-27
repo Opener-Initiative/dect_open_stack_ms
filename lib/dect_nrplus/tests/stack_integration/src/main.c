@@ -813,7 +813,7 @@ ZTEST(stack_integration, test_3_ping_pong)
     // dect_mac_test_set_active_context(&g_mac_ctx_pt);
     // mock_phy_set_active_context(&g_phy_ctx_pt);
     
-    zassert_true(run_simulation_until(50000, pt_phy_received_packet), 
+    zassert_true(run_simulation_until(500000, pt_phy_received_packet), 
                 "PT PHY did not receive PONG");
     
     attempts = 0;

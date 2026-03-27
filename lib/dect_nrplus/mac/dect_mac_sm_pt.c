@@ -471,7 +471,7 @@ void dect_mac_sm_pt_start_operation(void)
 	uint32_t phy_op_handle;
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
 
-	int ret = dect_mac_phy_ctrl_start_rx(scan_carrier, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ * 1000,
+	int ret = dect_mac_phy_ctrl_start_rx(scan_carrier, CONFIG_DECT_MAC_PT_SCAN_DURATION_MS * NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ,
 					   NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS,
 					   phy_op_handle, 0xFFFF,
 					   PENDING_OP_PT_SCAN, 0);
@@ -519,11 +519,11 @@ static void pt_handle_phy_pdc_pt(const struct nrf_modem_dect_phy_pdc_event *pdc_
 		if (mux_hdr_len > 0 && ie_type == IE_TYPE_CLUSTER_BEACON) {
 			dect_mac_cluster_beacon_ie_fields_t cb_fields;
 			if (parse_cluster_beacon_ie_payload(ie_payload, ie_len, &cb_fields) == 0) {
-				ctx->ft_sfn_zero_modem_time_anchor = event_modem_time - k_us_to_ticks_ceil64(cb_fields.sfn * FRAME_DURATION_MS_NOMINAL * 1000);
+				ctx->ft_sfn0_modem_time_anchor = event_modem_time - k_us_to_ticks_ceil64(cb_fields.sfn * FRAME_DURATION_MS_NOMINAL * 1000);
 				ctx->current_sfn_at_anchor_update = cb_fields.sfn;
-				ctx->role_ctx.ft.sfn = cb_fields.sfn;
+				ctx->role_ctx.pt.current_ft_sfn = cb_fields.sfn;
 				LOG_INF("PT_SYNC: Synchronized to FT. SFN is now %u, anchor time is %llu.",
-					ctx->role_ctx.ft.sfn, ctx->ft_sfn_zero_modem_time_anchor);
+					ctx->role_ctx.pt.current_ft_sfn, ctx->ft_sfn0_modem_time_anchor);
 			}
 		}
 	}	
@@ -597,9 +597,10 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 	case MAC_STATE_PT_CANCELLING_SCAN:
 		if (msg->type == MAC_EVENT_PHY_OP_COMPLETE) {
 		printk("[PT_SM] state->MAC_STATE_PT_CANCELLING_SCAN && msg->type == MAC_EVENT_PHY_OP_COMPLETE \n");
-			pt_handle_phy_op_complete_internal(
-				&msg->data.op_complete,
-				dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete));
+			pending_op_type_t op = dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete);
+			if (op != PENDING_OP_NONE) {
+				pt_handle_phy_op_complete_internal(&msg->data.op_complete, op);
+			}
 		}
 		break;
 
@@ -613,11 +614,13 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 	// printk("[PT_SM] MAC_STATE_PT_WAIT_ASSOC_RESP: ctx->state:%s(%d):: msg->type:%s(%d) \n", dect_mac_state_to_str(ctx->state), ctx->state, dect_mac_event_to_str(msg->type), msg->type);
 		switch (msg->type) {
 		case MAC_EVENT_PHY_OP_COMPLETE:
-			// printk("[PT_SM] state->MAC_STATE_PT_ASSOCIATING && msg->type == MAC_EVENT_PHY_OP_COMPLETE ****************************************\n");
 			printk("[PT_SM] dect_mac_sm_pt_handle_event: ctx->state:%s(%d):: msg->type:%s(%d) \n", dect_mac_state_to_str(ctx->state), ctx->state, dect_mac_event_to_str(msg->type), msg->type);
-			pt_handle_phy_op_complete_internal(
-				&msg->data.op_complete,
-				dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete));
+			{
+				pending_op_type_t op = dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete);
+				if (op != PENDING_OP_NONE) {
+					pt_handle_phy_op_complete_internal(&msg->data.op_complete, op);
+				}
+			}
 			// printk("[PT_SM] state->MAC_STATE_PT_ASSOCIATING && msg->type == MAC_EVENT_PHY_OP_COMPLETE ****************************************\n");
 
 			break;
@@ -648,9 +651,12 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 		printk("[PT_SM] state->MAC_STATE_ASSOCIATED : msg->type:%d  \n", msg->type);
 		switch (msg->type) {
 		case MAC_EVENT_PHY_OP_COMPLETE:
-			pt_handle_phy_op_complete_internal(
-				&msg->data.op_complete,
-				dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete));
+			{
+				pending_op_type_t op = dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete);
+				if (op != PENDING_OP_NONE) {
+					pt_handle_phy_op_complete_internal(&msg->data.op_complete, op);
+				}
+			}
 			break;
 		case MAC_EVENT_PHY_PCC:
 			pt_handle_phy_pcc_internal(&msg->data.pcc, msg->modem_time_of_event);
@@ -706,9 +712,12 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 
 		switch (msg->type) {
 		case MAC_EVENT_PHY_OP_COMPLETE:
-			pt_handle_phy_op_complete_internal(
-				&msg->data.op_complete,
-				dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete));
+			{
+				pending_op_type_t op = dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete);
+				if (op != PENDING_OP_NONE) {
+					pt_handle_phy_op_complete_internal(&msg->data.op_complete, op);
+				}
+			}
 			break;
 		case MAC_EVENT_PHY_PCC:
 			pt_handle_phy_pcc_internal(&msg->data.pcc, msg->modem_time_of_event);
@@ -769,51 +778,30 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
             }
             break;
         case PENDING_OP_PT_SCAN:
-			printk("[PT_SM] completed_op_type->PENDING_OP_PT_SCAN \n");
-			if (event->err == NRF_MODEM_DECT_PHY_ERR_OP_CANCELED) {
-				LOG_INF("PT SM: Scan successfully canceled (Hdl %u).", event->handle);
-				if (ctx->state == MAC_STATE_PT_CANCELLING_SCAN) {
-					printk("PT SM: Scan cancelled for association. Sending Association Request.\n");
-					// LOG_INF("PT SM: Scan cancelled for association. Sending Association Request now.");
-					/* CRITICAL FIX: Clear the pending state of the completed scan
-					* BEFORE attempting to schedule the new TX operation.
-					*/
-					dect_mac_core_clear_pending_op();
-					pt_send_association_request_action();
-
-					/* Start an RX operation to listen for the response */
-					uint32_t phy_rx_op_handle;
-					dect_mac_rand_get((uint8_t *)&phy_rx_op_handle, sizeof(phy_rx_op_handle));
-					uint32_t resp_win_ms = ctx->role_ctx.pt.current_ft_rach_params.response_window_duration_us / 1000;
-					if (resp_win_ms == 0) { resp_win_ms = 200; }
-					uint32_t rx_duration_modem_units = modem_us_to_ticks(
-						(resp_win_ms + 50) * 1000, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
-
-					dect_mac_phy_ctrl_start_rx(
-						ctx->role_ctx.pt.target_ft.operating_carrier,
-						rx_duration_modem_units,
-						NRF_MODEM_DECT_PHY_RX_MODE_SEMICONTINUOUS,
-						phy_rx_op_handle, ctx->own_short_rd_id,
-						PENDING_OP_PT_WAIT_ASSOC_RESP, 0);
-				} else {
-					printk("PT SM: Scan cancelled in unexpected state %s. Restarting scan.",
-						dect_mac_state_to_str(ctx->state));
-					dect_mac_sm_pt_start_operation();
-					// LOG_WRN("PT SM: Scan cancelled in unexpected state %s. Restarting scan.",
-					// 	dect_mac_state_to_str(ctx->state));
-					// dect_mac_sm_pt_start_operation();
-				}
+			printk("[PT_SM] completed_op_type->PENDING_OP_PT_SCAN (err %d)\n", event->err);
+			if (ctx->state == MAC_STATE_PT_CANCELLING_SCAN) {
+				/* We were cancelling the scan specifically to associate with an FT.
+				 * This covers both err == OP_CANCELED and err == SUCCESS (if it happened
+				 * to finish just as we sent the cancel).
+				 */
+				printk("PT SM: Scan stopped for association. Sending Association Request.\n");
+				dect_mac_core_clear_pending_op();
+				pt_send_association_request_action();
+			} else if (event->err == NRF_MODEM_DECT_PHY_ERR_OP_CANCELED) {
+				LOG_INF("PT SM: Scan successfully canceled (Hdl %u) in state %s. Restarting.",
+					event->handle, dect_mac_state_to_str(ctx->state));
+				dect_mac_core_clear_pending_op();
+				dect_mac_sm_pt_start_operation();
 			} else if (event->err != NRF_MODEM_DECT_PHY_SUCCESS) {
-                printk("PT_SM: Scan PHY op failed (err %d, %s). Restarting scan after delay.\n", event->err, nrf_modem_dect_phy_err_to_str(event->err));
-				// LOG_ERR("PT_SM: Scan PHY op failed (err %d, %s). Restarting scan after delay.", event->err, nrf_modem_dect_phy_err_to_str(event->err));
-                // k_sleep(K_MSEC(1000 + (sys_rand32_get() % 1000)));
+                printk("PT_SM: Scan PHY op failed (err %d, %s). Restarting scan after delay.\n",
+					event->err, nrf_modem_dect_phy_err_to_str(event->err));
 				uint8_t random_byte;
 				sys_rand_get(&random_byte, sizeof(random_byte));
-				k_sleep(K_MSEC(1000 + (random_byte % 100)));  // 0-99ms additional delay				
+				k_sleep(K_MSEC(1000 + (random_byte % 100)));
                 dect_mac_sm_pt_start_operation();
             } else {
-                printk("PT_SM: Scan PHY op completed (Hdl %u), but no suitable FT found during PDC parsing. Restarting scan.\n", event->handle);
-				// LOG_INF("PT_SM: Scan PHY op completed (Hdl %u), but no suitable FT found during PDC parsing. Restarting scan.", event->handle);
+                printk("PT_SM: Scan PHY op completed normally (Hdl %u), but no target was selected during parsing. Restarting scan.\n",
+					event->handle);
                 dect_mac_sm_pt_start_operation();
             }
             break;
@@ -1182,7 +1170,7 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 	uint16_t pdc_payload_len = pdc_event->len;
 
 	const uint8_t *data = pdc_event->data;
-	size_t len = 16; /* Adjust this based on your needs */
+	size_t len = 32; /* Adjust this based on your needs */
 	printk("[PT_SM] RX_QUEUE:PDC Payload Hexdump (first %zu bytes): ", len);
 	for (size_t i = 0; i < len && i < pdc_payload_len; i++) {
 		printk("%02x ", data[i]);
@@ -1340,7 +1328,21 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 		while (l > 0) {
 			uint8_t ie_type; uint16_t ie_len; const uint8_t *ie_payload;
 			int mux_len = parse_mac_mux_header(p, l, &ie_type, &ie_len, &ie_payload);
-			if (mux_len <= 0 || (l < (size_t)mux_len + ie_len)) break;
+			
+
+			printk("[PT_PDC_PARSE] First pass: Remaining buffer length: %zu, buffer pos offset: %zu\n", l, p - sdu_area_ptr);
+			// if (mux_len <= 0 || (l < (size_t)mux_len + ie_len)) break;
+			if (mux_len <= 0 || (l < (size_t)mux_len + ie_len)) {
+				printk("[PT_PDC_PARSE] Parse failed: mux_len=%d, l=%zu, ie_len=%u\n", 
+					mux_len, l, ie_len);
+				printk("[PT_PDC_PARSE] Dumping remaining buffer:\n");
+				for (size_t i = 0; i < MIN(l, 32); i++) {
+					printk("%02x ", p[i]);
+				}
+				printk("\n");
+				break;
+			}
+
 			if (ie_type == IE_TYPE_RD_CAPABILITY) {
 				if (parse_rd_capability_ie_payload(ie_payload, ie_len, &ft_caps_parsed) == 0) {
 					ft_cap_found = true;
@@ -1359,7 +1361,19 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 		while (l > 0) {
 			uint8_t ie_type; uint16_t ie_len; const uint8_t *ie_payload;
 			int mux_len = parse_mac_mux_header(p, l, &ie_type, &ie_len, &ie_payload);
-			if (mux_len <= 0 || (l < (size_t)mux_len + ie_len)) break;
+
+			printk("[PT_PDC_PARSE] Second pass: Remaining buffer length: %zu, buffer pos offset: %zu\n", l, p - sdu_area_ptr);
+			// if (mux_len <= 0 || (l < (size_t)mux_len + ie_len)) break;
+			if (mux_len <= 0 || (l < (size_t)mux_len + ie_len)) {
+				printk("[PT_PDC_PARSE] Parse failed: mux_len=%d, l=%zu, ie_len=%u\n", 
+					mux_len, l, ie_len);
+				printk("[PT_PDC_PARSE] Dumping remaining buffer:\n");
+				for (size_t i = 0; i < MIN(l, 32); i++) {
+					printk("%02x ", p[i]);
+				}
+				printk("\n");
+				break;
+			}
 
 			if (ie_type == IE_TYPE_CLUSTER_BEACON) {
 				if (parse_cluster_beacon_ie_payload(ie_payload, ie_len, &cb_fields_parsed) == 0) cb_found = true;
@@ -1415,11 +1429,11 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 				printk("[PT_BEACON_PROC] PT Network ID adopted (Scan): 0x%08X\n", ctx->network_id_32bit);
 
 				uint64_t frame_duration_ticks = FRAME_DURATION_TICKS;
-				ctx->ft_sfn_zero_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
-				ctx->current_sfn_at_anchor_update = cb_fields_parsed.sfn;
-				ctx->role_ctx.ft.sfn = cb_fields_parsed.sfn;
+				ctx->ft_sfn0_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
+				ctx->current_sfn_at_anchor_update = 0;
+				ctx->role_ctx.pt.current_ft_sfn = cb_fields_parsed.sfn;
 				LOG_INF("PT_SYNC: Initial sync to FT 0x%08X. SFN is now %u, anchor time is %llu.",
-					ft_long_id, ctx->role_ctx.ft.sfn, ctx->ft_sfn_zero_modem_time_anchor);
+					ft_long_id, ctx->role_ctx.pt.current_ft_sfn, ctx->ft_sfn0_modem_time_anchor);
 
 				pt_process_identified_beacon_and_attempt_assoc(
 					ctx, &cb_fields_parsed, &rach_fields_parsed, ft_long_id,
@@ -1431,19 +1445,19 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 				if (ft_long_id == ctx->role_ctx.pt.target_ft.long_rd_id) {
 					ctx->network_id_32bit = ft_network_id;
 					uint64_t frame_duration_ticks = FRAME_DURATION_TICKS;
-					ctx->ft_sfn_zero_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
+					ctx->ft_sfn0_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
 					ctx->current_sfn_at_anchor_update = cb_fields_parsed.sfn;
-					ctx->role_ctx.ft.sfn = cb_fields_parsed.sfn;
-					LOG_DBG("PT_SYNC: Target FT sync update. SFN %u.", ctx->role_ctx.ft.sfn);
+					ctx->role_ctx.pt.current_ft_sfn = cb_fields_parsed.sfn;
+					LOG_DBG("PT_SYNC: Target FT sync update. SFN %u.", ctx->role_ctx.pt.current_ft_sfn);
 				}
 			} else if (ctx->state == MAC_STATE_ASSOCIATED) {
 				/* Connected: sync with our associated FT */
 				if (ft_long_id == ctx->role_ctx.pt.associated_ft.long_rd_id) {
 					ctx->network_id_32bit = ft_network_id;
 					uint64_t frame_duration_ticks = FRAME_DURATION_TICKS;
-					ctx->ft_sfn_zero_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
+					ctx->ft_sfn0_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
 					ctx->current_sfn_at_anchor_update = cb_fields_parsed.sfn;
-					ctx->role_ctx.ft.sfn = cb_fields_parsed.sfn;
+					ctx->role_ctx.pt.current_ft_sfn = cb_fields_parsed.sfn;
 				}
 				pt_evaluate_mobility_candidate(ctx, &cb_fields_parsed, 
 								rach_found ? &rach_fields_parsed : NULL,
@@ -1818,14 +1832,14 @@ static void pt_process_identified_beacon_and_attempt_assoc(dect_mac_context_t *c
         uint64_t new_sfn0_estimate = beacon_pcc_rx_time -
                                      ((uint64_t)cb_fields->sfn * frame_duration_ticks);
 
-        if (ctx->ft_sfn_zero_modem_time_anchor == 0 || select_this_ft) {
-            ctx->ft_sfn_zero_modem_time_anchor = new_sfn0_estimate;
+        if (ctx->ft_sfn0_modem_time_anchor == 0 || select_this_ft) {
+            ctx->ft_sfn0_modem_time_anchor = new_sfn0_estimate;
         } else {
-            ctx->ft_sfn_zero_modem_time_anchor = (ctx->ft_sfn_zero_modem_time_anchor + new_sfn0_estimate) / 2;
+            ctx->ft_sfn0_modem_time_anchor = (ctx->ft_sfn0_modem_time_anchor + new_sfn0_estimate) / 2;
         }
         ctx->current_sfn_at_anchor_update = cb_fields->sfn;
         LOG_DBG("PT_BEACON_PROC: FT SFN0 Anchor: %llu (Beacon SFN %u @ %llu)",
-                ctx->ft_sfn_zero_modem_time_anchor, cb_fields->sfn, beacon_pcc_rx_time);
+                ctx->ft_sfn0_modem_time_anchor, cb_fields->sfn, beacon_pcc_rx_time);
 
         memcpy(&ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields,
                rach_fields, sizeof(dect_mac_rach_info_ie_fields_t));
@@ -2196,10 +2210,31 @@ static void pt_send_association_request_action(void)
 
 	uint32_t phy_op_handle;
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
+
+	/* Calculate RACH TX time based on FT's SFN0 anchor and advertised subslots.
+	 * We target current_sfn + 2 to allow for processing/setup latency.
+	 */
+	uint8_t target_sfn = (ctx->role_ctx.pt.current_ft_sfn + 2) & 0xFF;
+	uint16_t start_ss = ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields.start_subslot_index;
+	uint64_t rach_tx_time = 0;
+
+	if (ctx->ft_sfn0_modem_time_anchor != 0) {
+		rach_tx_time = calculate_target_modem_time(ctx,
+			ctx->ft_sfn0_modem_time_anchor,
+			0, /* anchor is for SFN 0 */
+			target_sfn,
+			start_ss,
+			ft_mu_for_rach_timing,
+			ctx->own_phy_params.beta);
+	}
+
+	printk("PT_SM_ASSOC_REQ: Scheduling RACH TX for SFN %u, SS %u. TargetStart:%llu\n",
+		target_sfn, start_ss, rach_tx_time);
+
 	ret = dect_mac_phy_ctrl_start_tx_assembled(
 		ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel, full_mac_pdu_for_phy,
 		pdu_len, ctx->role_ctx.pt.target_ft.short_rd_id, false, phy_op_handle,
-		PENDING_OP_PT_RACH_ASSOC_REQ, true, 0, ctx->role_ctx.pt.target_ft.peer_mu, NULL);
+		PENDING_OP_PT_RACH_ASSOC_REQ, true, rach_tx_time, ctx->role_ctx.pt.target_ft.peer_mu, NULL);
 
 	/* If the TX was successfully scheduled, the HARQ process now owns the buffer.
 	 * If it failed, we must free it here.
@@ -2406,10 +2441,10 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 				ctx->role_ctx.pt.associated_ft.short_rd_id);
 
 			printk("[DEBUG_PROBE] SFN at Assoc Resp time: FT's SFN (from beacon)=%u, PT's current SFN=%u\n",
-			       ctx->current_sfn_at_anchor_update, ctx->role_ctx.ft.sfn);
+			       ctx->current_sfn_at_anchor_update, ctx->role_ctx.pt.current_ft_sfn);
 			
 			// /* Synchronize the PT's SFN with the FT's SFN from the beacon */
-			// ctx->role_ctx.ft.sfn = ctx->current_sfn_at_anchor_update;
+			// ctx->role_ctx.pt.current_ft_sfn = ctx->current_sfn_at_anchor_update;
 			
 			uint32_t frame_duration_ticks_val = FRAME_DURATION_TICKS;
 			if (frame_duration_ticks_val == 0) {
@@ -2448,7 +2483,7 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 			if (res_alloc_fields.sfn_present) {
 				dl_sched->sfn_of_initial_occurrence = res_alloc_fields.sfn_val;
 				dl_sched->next_occurrence_modem_time = calculate_target_modem_time(
-					ctx, ctx->ft_sfn_zero_modem_time_anchor,
+					ctx, ctx->ft_sfn0_modem_time_anchor,
 					ctx->current_sfn_at_anchor_update, res_alloc_fields.sfn_val,
 					dl_sched->dl_start_subslot, ft_mu_code,
 					ctx->role_ctx.pt.associated_ft.peer_beta);
@@ -2463,8 +2498,8 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 				uint64_t current_frame_start_approx =
 					(now_plus_processing_delay / frame_duration_ticks_val) *
 					frame_duration_ticks_val;
-				if (current_frame_start_approx < ctx->ft_sfn_zero_modem_time_anchor) {
-					current_frame_start_approx = ctx->ft_sfn_zero_modem_time_anchor;
+				if (current_frame_start_approx < ctx->ft_sfn0_modem_time_anchor) {
+					current_frame_start_approx = ctx->ft_sfn0_modem_time_anchor;
 				}
 				uint32_t ft_subslot_duration = get_subslot_duration_ticks_for_mu(ft_mu_code);
 				uint64_t candidate_time =
@@ -2503,7 +2538,7 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 				if (res_alloc_fields.sfn_present) {
 					ul_sched->sfn_of_initial_occurrence = res_alloc_fields.sfn_val;
 					ul_sched->next_occurrence_modem_time = calculate_target_modem_time(
-						ctx, ctx->ft_sfn_zero_modem_time_anchor,
+						ctx, ctx->ft_sfn0_modem_time_anchor,
 						ctx->current_sfn_at_anchor_update,
 						res_alloc_fields.sfn_val, ul_sched->ul_start_subslot,
 						ft_mu_code, ctx->role_ctx.pt.associated_ft.peer_beta);
@@ -2520,9 +2555,9 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 						 frame_duration_ticks_val) *
 						frame_duration_ticks_val;
 					if (current_frame_start_approx <
-					    ctx->ft_sfn_zero_modem_time_anchor) {
+					    ctx->ft_sfn0_modem_time_anchor) {
 						current_frame_start_approx =
-							ctx->ft_sfn_zero_modem_time_anchor;
+							ctx->ft_sfn0_modem_time_anchor;
 					}
 					uint32_t ft_subslot_duration = get_subslot_duration_ticks_for_mu(ft_mu_code);
 					uint64_t candidate_time =
@@ -3613,8 +3648,8 @@ void dect_mac_sm_pt_beacon_listen_timer_expired_action(void)
 
 	// /* Calculate the expected arrival time of the next beacon */
 	// uint64_t next_beacon_time = calculate_target_modem_time(
-	// 	ctx, ctx->ft_sfn_zero_modem_time_anchor, ctx->current_sfn_at_anchor_update,
-	// 	(ctx->role_ctx.ft.sfn + 1) & 0xFF, /* Target next SFN */
+	// 	ctx, ctx->ft_sfn0_modem_time_anchor, ctx->current_sfn_at_anchor_update,
+	// 	(ctx->role_ctx.pt.current_ft_sfn + 1) & 0xFF, /* Target next SFN */
 	// 	0, /* Beacons are at subslot 0 */
 	// 	ctx->role_ctx.pt.associated_ft.peer_mu, ctx->role_ctx.pt.associated_ft.peer_beta);
 

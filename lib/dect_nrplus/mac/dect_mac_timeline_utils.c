@@ -53,6 +53,28 @@ uint64_t modem_ticks_to_us(uint64_t ticks, uint32_t tick_rate_khz)
 	return (ticks * 1000U) / tick_rate_khz;
 }
 
+uint64_t dect_mac_estimate_modem_now(dect_mac_context_t *ctx)
+{
+	if (!ctx || ctx->last_event_system_uptime_ticks == 0) {
+		return ctx ? ctx->last_known_modem_time : 0;
+	}
+
+	uint64_t now_ticks = k_uptime_ticks();
+	uint64_t elapsed_system_ticks = 0;
+
+	if (now_ticks >= ctx->last_event_system_uptime_ticks) {
+		elapsed_system_ticks = now_ticks - ctx->last_event_system_uptime_ticks;
+	} else {
+		/* Handle 64-bit rollover (extremely unlikely for uptime, but for robustness) */
+		elapsed_system_ticks = (UINT64_MAX - ctx->last_event_system_uptime_ticks) + now_ticks + 1;
+	}
+
+	uint64_t elapsed_us = k_ticks_to_us_floor64(elapsed_system_ticks);
+	uint64_t elapsed_modem_ticks = modem_us_to_ticks(elapsed_us, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+
+	return ctx->last_known_modem_time + elapsed_modem_ticks;
+}
+
 
 /**
  * @brief Calculates the duration of one subslot in modem time ticks for a given mu_code.
@@ -146,17 +168,38 @@ uint64_t calculate_target_modem_time(dect_mac_context_t *ctx, uint64_t sfn_zero_
     uint64_t anchor_relevance_frame_start_time = sfn_zero_anchor_time +
                                                  ((uint64_t)sfn_of_anchor_relevance * frame_duration_ticks_val);
 
-    int16_t sfn_diff = (int16_t)target_sfn_val - (int16_t)sfn_of_anchor_relevance;
-    if (sfn_diff > 128) { sfn_diff -= 256; }
-    else if (sfn_diff < -128) { sfn_diff += 256; }
+    /* Determine how many full 256-frame epochs have passed since the anchor relevance time
+     * to ensure we target a frame close to 'now'.
+     */
+    uint64_t now = ctx->last_known_modem_time;
+    uint64_t epoch_duration_ticks = (uint64_t)256 * frame_duration_ticks_val;
+    uint64_t cycles_since_relevance = 0;
 
-    uint64_t target_frame_start_time = anchor_relevance_frame_start_time + ((int64_t)sfn_diff * frame_duration_ticks_val);
+    if (now > anchor_relevance_frame_start_time) {
+        cycles_since_relevance = (now - anchor_relevance_frame_start_time) / epoch_duration_ticks;
+    }
+
+    uint64_t epoch_start_time = anchor_relevance_frame_start_time + (cycles_since_relevance * epoch_duration_ticks);
+
+    /* SFN diff within an epoch (0-255) */
+    int16_t sfn_diff = (int16_t)target_sfn_val - (int16_t)sfn_of_anchor_relevance;
+    if (sfn_diff < 0) {
+        sfn_diff += 256;
+    }
+
+    uint64_t target_frame_start_time = epoch_start_time + ((int64_t)sfn_diff * frame_duration_ticks_val);
+
+    /* Ensure the result is in the future (at least 500us cushion for PHY processing) */
+    uint32_t safety_margin_ticks = modem_us_to_ticks(500, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+    while (target_frame_start_time + safety_margin_ticks < now) {
+        target_frame_start_time += epoch_duration_ticks;
+    }
+
     uint64_t target_subslot_offset_in_frame_ticks = (uint64_t)target_subslot_idx * subslot_duration_ticks_val;
     uint64_t final_target_time = target_frame_start_time + target_subslot_offset_in_frame_ticks;
 
-    LOG_DBG("CALC_TIME: AnchorSFN %u (rel. to SFN0@%llu), TargetSFN %u, TargetSS %u (using link_mu_code %u) => FinalTime %llu",
-            sfn_of_anchor_relevance, sfn_zero_anchor_time,
-            target_sfn_val, target_subslot_idx, mu_code_for_calc, final_target_time);
+    LOG_DBG("CALC_TIME: AnchorSFN %u, TargetSFN %u, EpochCycles %llu, TargetStart %llu (Now %llu)",
+            sfn_of_anchor_relevance, target_sfn_val, cycles_since_relevance, final_target_time, now);
 
     return final_target_time;
 }
@@ -256,15 +299,16 @@ void update_next_occurrence(dect_mac_context_t *ctx, dect_mac_schedule_t *schedu
 	}
 
 	if (schedule->validity_value != 0xFF && schedule->sfn_of_initial_occurrence != 0xFF &&
-	    ctx->ft_sfn_zero_modem_time_anchor != 0) {
-		uint64_t ticks_from_sfn0_anchor =
-			schedule->next_occurrence_modem_time - ctx->ft_sfn_zero_modem_time_anchor;
-		if (schedule->next_occurrence_modem_time < ctx->ft_sfn_zero_modem_time_anchor) {
+	    ctx->ft_sfn0_modem_time_anchor != 0) {
+		/* Current time in frames relative to sfn0 anchor */
+		uint64_t ticks_from_sfn0_anchor;
+		if (schedule->next_occurrence_modem_time < ctx->ft_sfn0_modem_time_anchor) {
+			/* Handle potential 64-bit rollover (modem ticks) */
 			ticks_from_sfn0_anchor =
-				(UINT64_MAX - ctx->ft_sfn_zero_modem_time_anchor) +
-				current_modem_time + 1;
+				(UINT64_MAX - ctx->ft_sfn0_modem_time_anchor) +
+				schedule->next_occurrence_modem_time + 1;
 		} else {
-			ticks_from_sfn0_anchor = current_modem_time - ctx->ft_sfn_zero_modem_time_anchor;
+			ticks_from_sfn0_anchor = schedule->next_occurrence_modem_time - ctx->ft_sfn0_modem_time_anchor;
 		}
 
 		uint64_t frames_from_sfn0_anchor_now =
@@ -313,4 +357,38 @@ void update_next_occurrence(dect_mac_context_t *ctx, dect_mac_schedule_t *schedu
 	LOG_DBG("SCHED_UPD: Updated schedule (Ch %u, SS %u): next occurrence at %llu",
 		schedule->channel, current_schedule_start_subslot,
 		schedule->next_occurrence_modem_time);
+}
+
+uint8_t dect_mac_get_current_sfn(dect_mac_context_t *ctx)
+{
+	if (ctx->ft_sfn0_modem_time_anchor == 0) {
+		return 0;
+	}
+
+	uint64_t now = ctx->last_known_modem_time;
+	uint64_t ticks_from_anchor;
+
+	if (now < ctx->ft_sfn0_modem_time_anchor) {
+		/* Rollover case */
+		ticks_from_anchor = (UINT64_MAX - ctx->ft_sfn0_modem_time_anchor) + now + 1;
+	} else {
+		ticks_from_anchor = now - ctx->ft_sfn0_modem_time_anchor;
+	}
+
+	uint32_t frame_duration_ticks = FRAME_DURATION_TICKS;
+	uint64_t frames_since_anchor = ticks_from_anchor / frame_duration_ticks;
+	
+	/* SFN is 8-bit, wraps every 256 frames */
+	return (uint8_t)((ctx->current_sfn_at_anchor_update + frames_since_anchor) % 256);
+}
+
+void dect_mac_timeline_sync_sfn(dect_mac_context_t *ctx)
+{
+	uint8_t current_sfn = dect_mac_get_current_sfn(ctx);
+
+	if (ctx->role == MAC_ROLE_FT) {
+		ctx->role_ctx.ft.sfn = current_sfn;
+	} else if (ctx->role == MAC_ROLE_PT) {
+		ctx->role_ctx.pt.current_ft_sfn = current_sfn;
+	}
 }

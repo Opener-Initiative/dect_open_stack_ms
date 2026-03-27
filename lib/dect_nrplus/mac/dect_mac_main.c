@@ -90,7 +90,7 @@ void dect_mac_thread_entry(void *p1, void *p2, void *p3)
         pm_device_busy_set(dev);
 
         if (ctx->state >= MAC_STATE_PT_ASSOCIATING) {
-            dect_mac_data_path_service_tx();
+            dect_mac_service();
         }
 
         pm_device_busy_clear(dev);

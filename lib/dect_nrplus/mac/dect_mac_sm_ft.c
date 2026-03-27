@@ -206,8 +206,7 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
         case MAC_EVENT_PHY_OP_COMPLETE:
             {
                 pending_op_type_t completed_op = dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete);
-				if (true){
-                // if (completed_op != PENDING_OP_NONE && completed_op !=  PENDING_OP_NONE) {
+                if (completed_op != PENDING_OP_NONE) {
                     ft_handle_phy_op_complete_ft(&msg->data.op_complete, completed_op);
                     
                     if (completed_op == PENDING_OP_FT_ASSOC_RESP) {
@@ -420,7 +419,7 @@ bool ft_get_next_tx_opportunity(int peer_slot_idx, uint64_t *out_start_time,
 // 						  : pt_sched->ul_start_subslot;
 
 // 		pt_sched->next_occurrence_modem_time = calculate_target_modem_time(
-// 			ctx, ctx->ft_sfn_zero_modem_time_anchor, 0, new_schedule_fields->sfn_val,
+// 			ctx, ctx->ft_sfn0_modem_time_anchor, 0, new_schedule_fields->sfn_val,
 // 			primary_start_ss, ctx->own_phy_params.mu, ctx->own_phy_params.beta);
 // 		update_next_occurrence(ctx, pt_sched, ctx->last_known_modem_time, ctx->own_phy_params.mu);
 		
@@ -981,10 +980,10 @@ static void ft_start_beaconing_actions(void) {
     ctx->role_ctx.ft.sfn = 0; // FT starts its SFN count from 0
     uint32_t first_beacon_tx_attempt_delay_ms = 150; // Small delay before trying to send the first beacon
 
-    // Initialize ft_sfn_zero_modem_time_anchor to 0.
+    // Initialize ft_sfn0_modem_time_anchor to 0.
     // It will be set accurately when the first beacon (SFN 0) is scheduled for transmission
     // in ft_send_beacon_action, based on its target PHY operation start time.
-    ctx->ft_sfn_zero_modem_time_anchor = 0;
+    ctx->ft_sfn0_modem_time_anchor = 0;
     // current_sfn_at_anchor_update for FT will effectively be 0 when anchor is first set.
     // This field is primarily for the PT to know the SFN context of the anchor time it receives.
     // For the FT, its anchor is *defined* at SFN 0.
@@ -1201,37 +1200,40 @@ printk("[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: %d (%d) \n", clearte
 	printk("[FT_SM] ft_send_beacon_action -> frame_duration_ticks_val: %u ctx->last_known_modem_time: %llu \n", frame_duration_ticks_val, ctx->last_known_modem_time);
 	if (frame_duration_ticks_val == 0) {
 		beacon_target_start_time = 0;
-	} else if (ctx->ft_sfn_zero_modem_time_anchor == 0) {
+	} else if (ctx->ft_sfn0_modem_time_anchor == 0) {
 		uint32_t initial_tx_delay_ticks =
-			modem_us_to_ticks(5000, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+			modem_us_to_ticks(CONFIG_DECT_MAC_SCHEDULING_MARGIN_US, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+		uint64_t estimated_now = dect_mac_estimate_modem_now(ctx);
 		beacon_target_start_time =
-			(ctx->last_known_modem_time > 0
-				 ? ctx->last_known_modem_time
+			(estimated_now > 0
+				 ? estimated_now
 				 : modem_us_to_ticks(1000, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ)) +
 			initial_tx_delay_ticks;
 	} else {
 		beacon_target_start_time = calculate_target_modem_time(
-			ctx, ctx->ft_sfn_zero_modem_time_anchor, 0, ctx->role_ctx.ft.sfn, 0,
+			ctx, ctx->ft_sfn0_modem_time_anchor, 0, ctx->role_ctx.ft.sfn, 0,
 			ctx->own_phy_params.mu, ctx->own_phy_params.beta);
 	}
 
 	if (beacon_target_start_time != 0) {
+		/* Add a MAC processing margin to account for serial logging and PDU construction delays */
 		uint32_t min_prep_time_ticks = modem_us_to_ticks(
 			ctx->phy_latency.idle_to_active_tx_us +
-				ctx->phy_latency.scheduled_operation_startup_us,
+				ctx->phy_latency.scheduled_operation_startup_us + CONFIG_DECT_MAC_SCHEDULING_MARGIN_US,
 			NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 
 
-		if (ctx->last_known_modem_time > 0 &&
-		    beacon_target_start_time < (ctx->last_known_modem_time + min_prep_time_ticks)) {
+		uint64_t check_now = dect_mac_estimate_modem_now(ctx);
+		if (check_now > 0 &&
+		    beacon_target_start_time < (check_now + min_prep_time_ticks)) {
 			uint64_t earliest_possible_start_from_now =
-				ctx->last_known_modem_time + min_prep_time_ticks;
+				check_now + min_prep_time_ticks;
 			uint64_t frames_since_anchor = 0;
 
-			if (earliest_possible_start_from_now >= ctx->ft_sfn_zero_modem_time_anchor) {
+			if (earliest_possible_start_from_now >= ctx->ft_sfn0_modem_time_anchor) {
 				frames_since_anchor =
 					(earliest_possible_start_from_now -
-					 ctx->ft_sfn_zero_modem_time_anchor +
+					 ctx->ft_sfn0_modem_time_anchor +
 					 frame_duration_ticks_val - 1) /
 					frame_duration_ticks_val;
 			}
@@ -1239,7 +1241,7 @@ printk("[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: %d (%d) \n", clearte
 			ctx->role_ctx.ft.sfn = (uint8_t)((ctx->current_sfn_at_anchor_update +
 							frames_since_anchor) %
 						       256);
-			beacon_target_start_time = ctx->ft_sfn_zero_modem_time_anchor +
+			beacon_target_start_time = ctx->ft_sfn0_modem_time_anchor +
 						 (frames_since_anchor * frame_duration_ticks_val);
 			ctx->role_ctx.ft.sfn_for_last_beacon_tx = ctx->role_ctx.ft.sfn;
 		}
@@ -1264,9 +1266,9 @@ printk("[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: %d (%d) \n", clearte
 			ctx->role_ctx.ft.sfn, ctx->role_ctx.ft.operating_carrier, phy_op_handle,
 			beacon_target_start_time);
 
-		if (ctx->ft_sfn_zero_modem_time_anchor == 0) {
-			ctx->ft_sfn_zero_modem_time_anchor = beacon_target_start_time;
-			ctx->current_sfn_at_anchor_update = ctx->role_ctx.ft.sfn;
+		if (ctx->ft_sfn0_modem_time_anchor == 0) {
+			ctx->ft_sfn0_modem_time_anchor = beacon_target_start_time - (ctx->role_ctx.ft.sfn * FRAME_DURATION_TICKS);
+			ctx->current_sfn_at_anchor_update = 0;
 		}
 		ctx->role_ctx.ft.sfn = (ctx->role_ctx.ft.sfn + 1) & 0xFF;
 	}
@@ -1318,9 +1320,16 @@ static void ft_schedule_rach_listen_action(void)
         return;
     }
     if (ctx->pending_op_type != PENDING_OP_NONE && ctx->pending_op_type != PENDING_OP_FT_BEACON) {
-        printk("FT_RACH_LSN: PHY op %s pending. Deferring RACH listen.", dect_pending_op_to_str(ctx->pending_op_type));
-		// LOG_DBG("FT_RACH_LSN: PHY op %s pending. Deferring RACH listen.", dect_pending_op_to_str(ctx->pending_op_type));
-        return;
+        if (ctx->pending_op_type == PENDING_OP_FT_RACH_RX_WINDOW) {
+            /* If a RACH listen window is already open or pending, we allow replacing it
+             * with a more precise one (e.g. from a fresh beacon sync). */
+            printk("FT_RACH_LSN: Replacing existing RACH RX window (Hdl %u).\n", ctx->pending_op_handle);
+            dect_mac_phy_ctrl_cancel_op(ctx->pending_op_handle);
+            dect_mac_core_clear_pending_op();
+        } else {
+            printk("FT_RACH_LSN: PHY op %s pending. Deferring RACH listen.\n", dect_pending_op_to_str(ctx->pending_op_type));
+            return;
+        }
     }
 
     const dect_mac_rach_info_ie_fields_t *rach_adv_fields = &ctx->role_ctx.ft.advertised_rach_params.advertised_beacon_ie_fields;
@@ -1360,6 +1369,21 @@ static void ft_schedule_rach_listen_action(void)
     if (rach_resource_len_subslots == 0) {
         printk("FT_RACH_LSN: Advertised RACH resource length is 0 subslots. Cannot listen.");
 		// LOG_ERR("FT_RACH_LSN: Advertised RACH resource length is 0 subslots. Cannot listen.");
+		// /* Fallback for tests or simple configurations where no precise RACH resources are advertised.
+        //  * Start a continuous window spanning the full beacon period. */
+        // uint32_t fallback_ms = ctx->config.ft_cluster_beacon_period_ms;
+        // if (fallback_ms < 10) fallback_ms = 100;
+        // uint32_t fallback_ticks = modem_us_to_ticks((uint64_t)fallback_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+        // uint32_t fallback_handle;
+        // dect_mac_rand_get((uint8_t *)&fallback_handle, sizeof(fallback_handle));
+
+        // printk("FT_RACH_LSN: No precise RACH IE. Starting fallback continuous RX window (%u ms, Hdl %u).\n", 
+        //        fallback_ms, fallback_handle);
+
+        // (void)dect_mac_phy_ctrl_start_rx(
+        //     ctx->role_ctx.ft.operating_carrier, fallback_ticks,
+        //     NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, fallback_handle,
+        //     ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW, 0);
         return;
     }
 
@@ -1380,9 +1404,11 @@ static void ft_schedule_rach_listen_action(void)
         
         uint8_t sfn_loop_guard = 0; // To prevent potential infinite loop with bad params
         while (sfn_loop_guard < 256) { // Max SFN cycle
-            int16_t sfn_diff_to_current = (int16_t)target_sfn_for_rach - (int16_t)ctx->role_ctx.ft.sfn;
-            if (sfn_diff_to_current > 128) sfn_diff_to_current -=256; 
-            else if (sfn_diff_to_current < -128) sfn_diff_to_current += 256;
+    /* SFN diff within an epoch (0-255) */
+    int16_t sfn_diff_to_current = (int16_t)target_sfn_for_rach - (int16_t)ctx->role_ctx.ft.sfn;
+    if (sfn_diff_to_current < 0) {
+        sfn_diff_to_current += 256;
+    }
 
             if (sfn_diff_to_current >= 0) { 
                 int16_t frames_from_initial_adv = (int16_t)target_sfn_for_rach - (int16_t)sfn_of_initial_rach_advertisement;
@@ -1424,7 +1450,7 @@ static void ft_schedule_rach_listen_action(void)
 
     // Point 3 & 5: Subslot Alignment & Modem Time Calculation
     uint64_t rach_listen_start_time = calculate_target_modem_time(ctx,
-                                                                  ctx->ft_sfn_zero_modem_time_anchor,
+                                                                  ctx->ft_sfn0_modem_time_anchor,
                                                                   ctx->current_sfn_at_anchor_update, 
                                                                   target_sfn_for_rach,
                                                                   rach_adv_fields->start_subslot_index,
@@ -1464,7 +1490,7 @@ static void ft_schedule_rach_listen_action(void)
             }
         }
         rach_listen_start_time = calculate_target_modem_time(ctx,
-                                                              ctx->ft_sfn_zero_modem_time_anchor,
+                                                              ctx->ft_sfn0_modem_time_anchor,
                                                               ctx->current_sfn_at_anchor_update,
                                                               target_sfn_for_rach,
                                                               rach_adv_fields->start_subslot_index,
@@ -1506,7 +1532,7 @@ printk("[FT_PM] before the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_t
         NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS,
         phy_op_handle,
         ctx->own_short_rd_id,
-        PENDING_OP_FT_RACH_RX_WINDOW, 0);
+        PENDING_OP_FT_RACH_RX_WINDOW, rach_listen_start_time);
 
 printk("[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d \n", ctx->pending_op_type);
 
@@ -1706,8 +1732,17 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
             }
 
             printk("[FT_SM_STATE] Before clear (BEACON): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
+
+            // if (event->err == NRF_MODEM_DECT_PHY_SUCCESS) {
+            //     /* Establish the SFN 0 anchor based on the successful beacon TX.
+            //      * This ensures all subsequent beacons and RACH windows are perfectly aligned. */
+            //     ctx->ft_sfn0_modem_time_anchor = event->modem_time_of_event - 
+            //         ((uint64_t)ctx->role_ctx.ft.sfn_for_last_beacon_tx * FRAME_DURATION_TICKS);
+            //     ctx->current_sfn_at_anchor_update = 0;
+            // }
+
             dect_mac_core_clear_pending_op();
-            printk("[FT_SM_STATE] After clear (BEACON): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));			
+            printk("[FT_SM_STATE] After clear (BEACON): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
 
             if (ctx->state == MAC_STATE_FT_BEACONING) {
                 /* Re-arm the RACH RX window for the next beacon period so
@@ -1729,7 +1764,7 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
             }
             break;
         case PENDING_OP_FT_RACH_RX_WINDOW:
-             LOG_DBG("FT SM: RACH RX window op completed (err %d). Re-arming for next period.", event->err);
+            LOG_DBG("FT SM: RACH RX window op completed (err %d). Re-arming for next period.", event->err);
             printk("[FT_SM_STATE] Before clear (RACH_RX): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
             dect_mac_core_clear_pending_op();
             printk("[FT_SM_STATE] After clear (RACH_RX): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
@@ -2714,9 +2749,9 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 		res_alloc_fields_to_send.res1_is_9bit_subslot = (pt_peer_ctx->peer_mu > 2);
 		res_alloc_fields_to_send.res2_is_9bit_subslot = (pt_peer_ctx->peer_mu > 2);
 		res_alloc_fields_to_send.start_subslot_val_res1 = (peer_slot_idx * 4 + 10) % MAX_SUBSLOTS_IN_FRAME_NOMINAL;
-		res_alloc_fields_to_send.length_val_res1 = 2 - 1;
+		res_alloc_fields_to_send.length_val_res1 = 4 - 1; /* Increase from 2 to 4 to fit test packets */
 		res_alloc_fields_to_send.start_subslot_val_res2 = (peer_slot_idx * 4 + 12) % MAX_SUBSLOTS_IN_FRAME_NOMINAL;
-		res_alloc_fields_to_send.length_val_res2 = 2 - 1;
+		res_alloc_fields_to_send.length_val_res2 = 4 - 1; /* Increase from 2 to 4 to fit test packets */
 		res_alloc_fields_to_send.repetition_value = CONFIG_DECT_MAC_FT_DEFAULT_SCHEDULE_REPEAT_FRAMES;
 		res_alloc_fields_to_send.validity_value = CONFIG_DECT_MAC_FT_DEFAULT_SCHEDULE_VALIDITY_FRAMES;
 		res_alloc_fields_to_send.sfn_val = (ctx->role_ctx.ft.sfn + CONFIG_DECT_MAC_FT_SCHEDULE_START_SFN_OFFSET) & 0xFF;
@@ -2753,7 +2788,7 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 		/* Calculate next occurrence */
 		uint16_t primary_ss = (ft_peer_sched->dl_duration_subslots > 0) ? ft_peer_sched->dl_start_subslot : ft_peer_sched->ul_start_subslot;
 		ft_peer_sched->next_occurrence_modem_time = calculate_target_modem_time(
-			ctx, ctx->ft_sfn_zero_modem_time_anchor, 0, res_alloc_fields_to_send.sfn_val,
+			ctx, ctx->ft_sfn0_modem_time_anchor, 0, res_alloc_fields_to_send.sfn_val,
 			primary_ss, ctx->own_phy_params.mu, ctx->own_phy_params.beta);
 		
 		update_next_occurrence(ctx, ft_peer_sched, ctx->last_known_modem_time, ctx->own_phy_params.mu);

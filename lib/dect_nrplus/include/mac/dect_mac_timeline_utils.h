@@ -60,6 +60,8 @@ uint64_t modem_us_to_ticks(uint64_t us, uint32_t tick_rate_khz);
  * @return Estimated current modem time in ticks.
  */
 uint64_t dect_mac_estimate_modem_now(dect_mac_context_t *ctx);
+void dect_mac_timeline_sync_sfn(dect_mac_context_t *ctx);
+uint8_t dect_mac_get_current_sfn(dect_mac_context_t *ctx);
 
 
 

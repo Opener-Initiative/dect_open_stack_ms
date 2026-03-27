@@ -26,7 +26,7 @@ static void stack_state_cb(dect_mac_public_state_t new_state)
 		LOG_INF("DECT NR+ Link is UP. Network interface is ready.");
 		LOG_INF("Use the 'net' shell command to configure IP addresses and ping.");
 	} else {
-		LOG_WRN("DECT NR+ Link is DOWN.");
+		LOG_WRN("DECT NR+ Link is NOT ASSOCIATED (State: %d).", new_state);
 	}
 }
 

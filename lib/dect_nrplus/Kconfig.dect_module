@@ -1,10 +1,8 @@
+#
+# Copyright (c) 2026 Manulytica Ltd
+#
 # /* lib/dect_nrplus/Kconfig.dect_module */
 # // Overview: Restructures the entire file to source layer Kconfigs first, resolving dependency order issues. It also moves the logging menu outside the main if-block to make it available for test builds.
-#
-# Copyright (c) 2023 Nordic Semiconductor ASA
-#
-# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
-#
 
 menuconfig DECT_NRPLUS_STACK
 	bool "DECT NR+ Protocol Stack Library"

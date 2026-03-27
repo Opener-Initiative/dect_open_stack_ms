@@ -206,6 +206,14 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 	 * This matches the convention used by the TX path (phy_op_target_start_time). */
 	uint16_t arfcn = dect_mac_channel_num_to_arfcn(carrier);
 
+	/*
+	 * During PT scanning (PENDING_OP_PT_SCAN), the PT does not yet know the
+	 * FT's Network ID. Disable the Short Network ID filter so the modem
+	 * accepts beacons from any network, allowing discovery.
+	 * For all other RX operations, keep the filter enabled.
+	 */
+	bool use_network_id_filter = (op_type != PENDING_OP_PT_SCAN);
+
 	struct nrf_modem_dect_phy_rx_params rx_params = {
 		.start_time = start_time_modem_ticks,
 		.handle = phy_op_handle,
@@ -218,7 +226,7 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 		.carrier = arfcn,
 		.duration = duration_modem_units,
 		.filter = { .short_network_id = (uint8_t)(ctx->network_id_32bit & 0xFF),
-			    .is_short_network_id_used = 1,
+			    .is_short_network_id_used = use_network_id_filter ? 1 : 0,
 			    .receiver_identity = (expected_receiver_id) }
 	};
 
@@ -411,7 +419,7 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 
 	if (ret == 0) {
 
-		printk("[TX_EVIDENCE] Scheduled TX for op %s (Hdl %u)\n",
+		printk("[PHY_CTRL_TX] Scheduled TX for op %s (Hdl %u)\n",
 		       dect_pending_op_to_str(op_type), phy_op_handle);
 		printk("  - PCC Header (PHY Type %u):\n", tx_params.phy_type);
 		size_t pcc_len = (tx_params.phy_type == 0) ? sizeof(struct nrf_modem_dect_phy_hdr_type_1)
@@ -426,6 +434,11 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 		}
 		printk("\n");
 
+		printk("  - TX Params: StartTime:%llu, Handle:%u, NetID:0x%08X, PhyType:%u, Carrier:%u, DataSize:%zu\n",
+		       tx_params.start_time, tx_params.handle, tx_params.network_id, tx_params.phy_type,
+		       tx_params.carrier, tx_params.data_size);
+		printk("  - LBT: Threshold:%d, Period:%u\n", tx_params.lbt_rssi_threshold_max, tx_params.lbt_period);
+
 		
 
 		dect_mac_phy_if_register_op_handle(phy_op_handle, ctx);
@@ -436,6 +449,8 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 		uint8_t pcc_pkt_len_type = is_beacon
 						 ? g_phy_pcc_tx_constructor_buf.hdr_type_1.packet_length_type
 						 : g_phy_pcc_tx_constructor_buf.hdr_type_2.packet_length_type;
+
+		printk("  - PCC PktLenField: %u, PktLenType: %u\n", pcc_pkt_len_field, pcc_pkt_len_type);
 		uint32_t num_units = pcc_pkt_len_field + 1;
 		uint32_t duration_ticks;
 
@@ -678,10 +693,10 @@ void dect_mac_phy_ctrl_calculate_pcc_params(size_t mac_pdc_payload_len_bytes,
 			slots_needed = 16;
 			LOG_WRN("PCC_CALC: Payload exceeds 16-slot max capacity. Clamping.");
 		}
-		*out_packet_length_field = slots_needed - 1;
+		*out_packet_length_field = slots_needed;
 		*out_packet_length_type_field = 1; /* Slot mode */
 	} else {
-		*out_packet_length_field = num_subslots_needed - 1;
+		*out_packet_length_field = num_subslots_needed;
 		*out_packet_length_type_field = 0; /* Subslot mode */
 	}
 
