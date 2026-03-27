@@ -1,0 +1,6 @@
+name: dect_open_stack_ms
+build:
+  cmake: .
+  kconfig: Kconfig
+  settings:
+    dts_root: .
