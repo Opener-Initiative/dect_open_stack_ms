@@ -105,13 +105,13 @@ void dect_mac_change_state(dect_mac_state_t new_state) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
 	if (!ctx) return;
 
-    printk("[DISPATCH] dect_mac_change_state ctx->state:%d != new_state:%d \n", ctx->state, new_state);
+    LOG_DBG("[DISPATCH] dect_mac_change_state ctx->state:%d != new_state:%d \n", ctx->state, new_state);
 
 	if (ctx->state != new_state) {
 		dect_mac_public_state_t old_public_state = dect_mac_state_t_to_public(ctx->state);
 		dect_mac_public_state_t new_public_state = dect_mac_state_t_to_public(new_state);
 
-		printk("[DISPATCH] Changing MAC State: %s -> %s (Role: %s)\n", dect_mac_state_to_str(ctx->state),
+		LOG_DBG("[DISPATCH] Changing MAC State: %s -> %s (Role: %s)\n", dect_mac_state_to_str(ctx->state),
 			dect_mac_state_to_str(new_state), (ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
 
 		/* Perform cleanup based on the state we are LEAVING */
@@ -125,17 +125,17 @@ void dect_mac_change_state(dect_mac_state_t new_state) {
 
 		ctx->state = new_state;
 
-        printk("old_public_state:%d != %d:new_public_state \n", old_public_state , new_public_state);
-        printk("g_state_change_cb?%s \n", g_state_change_cb ? "Yes":"No!!!");
+        LOG_DBG("old_public_state:%d != %d:new_public_state : g_state_change_cb?%s \n", old_public_state , new_public_state, g_state_change_cb ? "Yes":"No!!!");
+        
 		/* If the abstract public state has changed, notify the upper layer */
 		if (g_state_change_cb && (old_public_state != new_public_state)) {
-			printk("Public MAC State Change: %d -> %d \n", old_public_state,
+			LOG_DBG("Public MAC State Change: %d -> %d \n", old_public_state,
 				new_public_state);
 			// LOG_INF("Public MAC State Change: %d -> %d", old_public_state,
 			// 	new_public_state);                
-			printk("[DISPATCHER_EVIDENCE] State change callback is registered. About to invoke.\n");
+			LOG_DBG("[DISPATCHER_EVIDENCE] State change callback is registered. About to invoke.\n");
             g_state_change_cb(new_public_state);
-            printk("[DISPATCHER_EVIDENCE] State change callback was (temporarily) bypassed.\n");
+            LOG_DBG("[DISPATCHER_EVIDENCE] State change callback was (temporarily) bypassed.\n");
 		}
 	}
 }
@@ -163,23 +163,16 @@ static bool common_pre_handle_phy_pcc_event(const struct nrf_modem_dect_phy_pcc_
                                             const dect_mac_context_t *ctx) {
     if (!pcc_event_data || !ctx) return false;
 
-    printk("PCC_DISPATCH: Rcvd. H:%u, Status:%d, PHYType:%d, RSSI2:%f, SNR:%f, Carr:%u, TID:%u \n",
+    LOG_DBG("PCC_DISPATCH: Rcvd. H:%u, Status:%d, PHYType:%d, RSSI2:%f, SNR:%f, Carr:%u, TID:%u \n",
             pcc_event_data->handle, pcc_event_data->header_status, pcc_event_data->phy_type,
             (double)pcc_event_data->rssi_2 / 2,
             (double)pcc_event_data->snr / 4,
             ctx->current_rx_op_carrier,
             pcc_event_data->transaction_id);    
-    // LOG_DBG("PCC_DISPATCH: Rcvd. H:%u, Status:%d, PHYType:%d, RSSI2:%.1f, SNR:%.2f, Carr:%u, TID:%u",
-    //         pcc_event_data->handle, pcc_event_data->header_status, pcc_event_data->phy_type,
-    //         // Cast to double to match the type expected by the %f format specifier
-    //         (double)pcc_event_data->rssi_2 / 2.0,
-    //         (double)pcc_event_data->snr / 4.0,
-    //         ctx->current_rx_op_carrier,
-    //         pcc_event_data->transaction_id);
+
 
     if (pcc_event_data->header_status != NRF_MODEM_DECT_PHY_HDR_STATUS_VALID) {
-        printk("PCC_DISPATCH: Invalid PCC status (%d). Not dispatching to SM.\n", pcc_event_data->header_status);
-        // LOG_WRN("PCC_DISPATCH: Invalid PCC status (%d). Not dispatching to SM.", pcc_event_data->header_status);
+        LOG_WRN("PCC_DISPATCH: Invalid PCC status (%d). Not dispatching to SM.\n", pcc_event_data->header_status);
         return false; // Do not dispatch invalid PCCs further usually, SM might handle specific error if needed
     }
 
@@ -189,13 +182,12 @@ static bool common_pre_handle_phy_pcc_event(const struct nrf_modem_dect_phy_pcc_
     } else if (pcc_event_data->phy_type == 1) { // nRF PHY Type 1 (ETSI PCC Type 2)
         received_short_net_id_from_pcc = pcc_event_data->hdr.hdr_type_2.short_network_id;
     } else {
-        printk("PCC_DISPATCH: Unknown nRF PHY header type in PCC: %d. Not dispatching.\n", pcc_event_data->phy_type);
-        // LOG_ERR("PCC_DISPATCH: Unknown nRF PHY header type in PCC: %d. Not dispatching.", pcc_event_data->phy_type);
+        LOG_ERR("PCC_DISPATCH: Unknown nRF PHY header type in PCC: %d. Not dispatching.\n", pcc_event_data->phy_type);
         return false;
     }
 
 
-printk("PCC_DISPATCH: common_pre_handle_phy_pcc_event - ctx->role:%d && ctx->state:%d\n", ctx->role, ctx->state);
+    LOG_DBG("PCC_DISPATCH: common_pre_handle_phy_pcc_event - ctx->role:%d && ctx->state:%d\n", ctx->role, ctx->state);
 
 
     // ETSI TS 103 636-4, 4.2.3.1: Last 8 LSB of Network ID are in PHY control field (PCC Short Network ID)
@@ -210,10 +202,8 @@ printk("PCC_DISPATCH: common_pre_handle_phy_pcc_event - ctx->role:%d && ctx->sta
             || ctx->state == MAC_STATE_PT_WAIT_ASSOC_RESP
             || ctx->state == MAC_STATE_PT_AUTHENTICATING
         ))) {
-            printk("PCC_DISPATCH: From different network_id_lsb (0x%02X vs our 0x%02X). Ignoring.\n",
+            LOG_DBG("PCC_DISPATCH: From different network_id_lsb (0x%02X vs our 0x%02X). Ignoring.\n",
                     received_short_net_id_from_pcc, own_net_id_lsb);
-            // LOG_DBG("PCC_DISPATCH: From different network_id_lsb (0x%02X vs our 0x%02X). Ignoring.",
-            //         received_short_net_id_from_pcc, own_net_id_lsb);                    
             return false;
         } else {
             LOG_DBG("PCC_DISPATCH: PT in scan/wait_pdc received from NetID LSB 0x%02X (own: 0x%02X). Allowing for now.",
@@ -252,19 +242,19 @@ completely eliminating the dependency on the flawed global context pointer.*/
 // --- Main Event Dispatcher ---
 void dect_mac_event_dispatch(const struct dect_mac_event_msg *msg)
 {
-    printk("[DISPATCH_DBG] Entering dect_mac_event_dispatch for event %s.\n", dect_mac_event_to_str(msg->type));
+    LOG_DBG("Entering dect_mac_event_dispatch for event %s.\n", dect_mac_event_to_str(msg->type));
 
 	if (!msg) {
-		LOG_ERR("DISPATCH: Received NULL message pointer.");
+		LOG_ERR("Received NULL message pointer.");
 		return;
 	}
 
 	dect_mac_context_t *ctx = msg->ctx;
-	// printk("[DISPATCH_CTX_DBG] Event for context: %p, Globally active context: %p\n",
+	// LOG_DBG("[DISPATCH_CTX_DBG] Event for context: %p, Globally active context: %p\n",
 	//        (void *)ctx, (void *)dect_mac_get_active_context());
 
 	if (!ctx) { /* Should not happen after core_init */
-		LOG_ERR("DISPATCH: MAC Context not available! Cannot dispatch event %s.", dect_mac_event_to_str(msg->type));
+		LOG_ERR("MAC Context not available! Cannot dispatch event %s.", dect_mac_event_to_str(msg->type));
 		return;
 	}
 
@@ -274,22 +264,21 @@ void dect_mac_event_dispatch(const struct dect_mac_event_msg *msg)
     mock_phy_set_active_by_mac_context(ctx);
 #endif
 
-    // printk("[DISPATCH_DBG] Event %s received. Current state is %s (%d).\n",
+    // LOG_DBG("Event %s received. Current state is %s (%d).\n",
     //         dect_mac_event_to_str(msg->type), dect_mac_state_to_str(ctx->state), ctx->state);
-	// printk("[DISPATCHER] Processing event %s. Active context is for role: %s (at %0X)\n",
+	// LOG_DBG("[DISPATCHER] Processing event %s. Active context is for role: %s (at %0X)\n",
 	//        dect_mac_event_to_str(msg->type), (ctx->role == MAC_ROLE_PT ? "PT" : "FT"), ctx->own_short_rd_id);
            
 
 	if (ctx->state == MAC_STATE_ERROR) {
-		LOG_WRN("DISPATCH: In MAC_STATE_ERROR. Event %s discarded.", dect_mac_event_to_str(msg->type));
+		LOG_WRN("In MAC_STATE_ERROR. Event %s discarded.", dect_mac_event_to_str(msg->type));
 		return;
 	}
 
-    printk("[DISPATCHER] Dispatching event %s to role %s (0x%0X)\n",
+    LOG_DBG("Dispatching event %s to role %s (0x%0X)\n",
 	       dect_mac_event_to_str(msg->type), (ctx->role == MAC_ROLE_PT ? "PT" : "FT"), msg->ctx->own_short_rd_id);   
-    // LOG_INF("[DISPATCHER] Dispatching event %s to role %s\n", dect_mac_event_to_str(msg->type), (ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
 
-    printk("MAC Evt Dispatch: Evt %s (LastKnownTime %llu, EventTime %llu) in State %s (Role %s, PendOp: %s, Hdl: %u) \n",
+    LOG_DBG("MAC Evt %s (LastKnownTime %llu, EventTime %llu) in State %s (Role %s, PendOp: %s, Hdl: %u) \n",
             dect_mac_event_to_str(msg->type),
             ctx->last_known_modem_time,
             msg->modem_time_of_event,
@@ -305,8 +294,8 @@ void dect_mac_event_dispatch(const struct dect_mac_event_msg *msg)
     }
 
     bool dispatch_to_sm = true;
-// printk("[DISPATCHER] msg->type:%s(%d) ",dect_mac_event_to_str(msg->type), msg->type);
-// printk(" dispatch_to_sm: %s\n",(dispatch_to_sm ? "True" : "False"));
+// LOG_DBG("[DISPATCHER] msg->type:%s(%d) ",dect_mac_event_to_str(msg->type), msg->type);
+// LOG_DBG(" dispatch_to_sm: %s\n",(dispatch_to_sm ? "True" : "False"));
 
     switch (msg->type) {
         case MAC_EVENT_PHY_OP_COMPLETE: {
@@ -316,47 +305,45 @@ void dect_mac_event_dispatch(const struct dect_mac_event_msg *msg)
                 /* Check if this is a data path operation (HARQ) */
                 if (completed_type >= PENDING_OP_PT_DATA_TX_HARQ0 &&
                     completed_type <= PENDING_OP_FT_DATA_TX_HARQ_MAX) {
-                    LOG_DBG("DISPATCH: OP_COMPLETE for data path op %s. Forwarding to data path handler.",
+                    LOG_DBG("OP_COMPLETE for data path op %s. Forwarding to data path handler.",
                         dect_pending_op_to_str(completed_type));
                     dect_mac_data_path_handle_op_complete(completed_type, &msg->data.op_complete);
                     dispatch_to_sm = false; /* Data path handles this, not the SM */
                 } else {
-                    LOG_INF("DISPATCH: OP_COMPLETE for control plane op %s. Forwarding to SM.",
+                    LOG_INF("OP_COMPLETE for control plane op %s. Forwarding to SM.",
                         dect_pending_op_to_str(completed_type));
                 }
             }
             break;
         }    
         case MAC_EVENT_PHY_PCC:
-            printk("DISPATCH: MAC_EVENT_PHY_PCC\n");
-            // LOG_INF("DISPATCH: MAC_EVENT_PHY_PCC");
+            LOG_DBG("MAC_EVENT_PHY_PCC\n");
             dispatch_to_sm = common_pre_handle_phy_pcc_event(&msg->data.pcc, ctx);
             break;
         case MAC_EVENT_PHY_PDC:
-            printk("DISPATCH: MAC_EVENT_PHY_PDC\n");
-            // LOG_INF("DISPATCH: MAC_EVENT_PHY_PDC");
+            LOG_DBG("MAC_EVENT_PHY_PDC\n");
             dispatch_to_sm = common_pre_handle_phy_pdc_event(&msg->data.pdc);
             break;
         case MAC_EVENT_PHY_PCC_ERROR:
-            LOG_WRN("DISPATCH: PCC Error Rcvd (H:%u, RSSI2:%.1f, SNR:%.1f, TID:%u). Forwarding to SM.",
+            LOG_WRN("PCC Error Rcvd (H:%u, RSSI2:%.1f, SNR:%.1f, TID:%u). Forwarding to SM.",
                     msg->data.pcc_crc_err.handle,
                     (double)msg->data.pcc_crc_err.rssi_2 / 2.0, (double)msg->data.pcc_crc_err.snr / 4.0,
                     msg->data.pcc_crc_err.transaction_id);
             break;
         case MAC_EVENT_PHY_PDC_ERROR:
-            LOG_WRN("DISPATCH: PDC Error Rcvd (H:%u, RSSI2:%.1f, SNR:%.1f, TID:%u). Forwarding to SM.",
+            LOG_WRN("PDC Error Rcvd (H:%u, RSSI2:%.1f, SNR:%.1f, TID:%u). Forwarding to SM.",
                     msg->data.pdc_crc_err.handle,
                     (double)msg->data.pdc_crc_err.rssi_2 / 2.0, (double)msg->data.pdc_crc_err.snr / 4.0,
                     msg->data.pdc_crc_err.transaction_id);
             break;
         case MAC_EVENT_PHY_RSSI_RESULT:
-            LOG_INF("DISPATCH: RSSI Report Rcvd (H:%u, Carr:%u, Count:%u). Forwarding to SM.",
+            LOG_INF("RSSI Report Rcvd (H:%u, Carr:%u, Count:%u). Forwarding to SM.",
                     msg->data.rssi.handle, msg->data.rssi.carrier, msg->data.rssi.meas_len);
             break;
 
         // Timer events and Command events are dispatched directly to SM without pre-handling here
         case MAC_EVENT_TIMER_EXPIRED_HARQ:
-            LOG_WRN("DISPATCH: HARQ Timer expired for proc %d. Forwarding to data path.", msg->data.timer_data.id);
+            LOG_WRN("HARQ Timer expired for proc %d. Forwarding to data path.", msg->data.timer_data.id);
             dect_mac_data_path_handle_harq_nack_action(msg->data.timer_data.id);
             dispatch_to_sm = false;
             break;
@@ -366,36 +353,33 @@ void dect_mac_event_dispatch(const struct dect_mac_event_msg *msg)
         case MAC_EVENT_TIMER_EXPIRED_RACH_BACKOFF:
         case MAC_EVENT_TIMER_EXPIRED_RACH_RESP_WINDOW:
         case MAC_EVENT_TIMER_EXPIRED_AUTH_TIMEOUT:
-            LOG_DBG("DISPATCH: Timer/Cmd event %s. Forwarding to SM.", dect_mac_event_to_str(msg->type));
+            LOG_DBG("Timer/Cmd event %s. Forwarding to SM.", dect_mac_event_to_str(msg->type));
             break;
 
         case MAC_EVENT_TIMER_EXPIRED_MOBILITY_SCAN:
         case MAC_EVENT_TIMER_EXPIRED_PAGING_CYCLE:
         case MAC_EVENT_CMD_ENTER_PAGING_MODE:
         case MAC_EVENT_CMD_RELEASE_LINK:
-            printk("DISPATCH: Timer/Cmd event %s. Forwarding to SM.\n", dect_mac_event_to_str(msg->type));
-            LOG_DBG("DISPATCH: Timer/Cmd event %s. Forwarding to SM.", dect_mac_event_to_str(msg->type));
+            LOG_DBG("Timer/Cmd event %s. Forwarding to SM.", dect_mac_event_to_str(msg->type));
             break;    
         default:
             // TODO: fix the error log output
-            // LOG_WRN("DISPATCH: Unknown event type %d. Not dispatching.", msg->type);
-            printk("DISPATCH: Unknown event type. Not dispatching.\n");
-            // LOG_WRN("DISPATCH: Unknown event type. Not dispatching.");
+            // LOG_WRN("Unknown event type %d. Not dispatching.", msg->type);
+            LOG_WRN("Unknown event type. Not dispatching.");
             dispatch_to_sm = false;
             break;
     }
 
-//  printk("[DISPATCHER] dispatch_to_sm: %s\n",(dispatch_to_sm ? "True" : "False"));  
     if (dispatch_to_sm) {
         if (ctx->role == MAC_ROLE_PT) {
-            printk("[DISPATCHER] Calling PT SM handler with context %p ctx->role %s\n", (void *)ctx, (ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
+            LOG_DBG("[DISPATCHER] Calling PT SM handler with context %p ctx->role %s\n", (void *)ctx, (ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
             dect_mac_sm_pt_handle_event(msg);
         } else { // MAC_ROLE_FT
-            printk("[DISPATCHER] Calling FT SM handler with context %p ctx->role %s\n", (void *)ctx, (ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
+            LOG_DBG("[DISPATCHER] Calling FT SM handler with context %p ctx->role %s\n", (void *)ctx, (ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
             dect_mac_sm_ft_handle_event(msg);
         }
     }
-    // printk("[DISPATCH_DBG] Exiting dect_mac_event_dispatch.\n");
+    // LOG_DBG("Exiting dect_mac_event_dispatch.\n");
 }
 
 

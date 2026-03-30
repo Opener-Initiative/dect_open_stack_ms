@@ -50,25 +50,25 @@ LOG_MODULE_REGISTER(dect_mac_sm_pt, CONFIG_DECT_MAC_SM_PT_LOG_LEVEL);
 static void print_pcc_cache_state(const char *log_prefix)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
-	printk("[%s] PCC Cache State:\n", log_prefix);
+	LOG_DBG("[%s] PCC Cache State:", log_prefix);
 	for (int i = 0; i < MAX_PENDING_PCC_TRANSACTIONS; i++) {
 		pcc_transaction_t *t = &ctx->pcc_transaction_cache[i];
 		if (t->is_valid) {
-			printk("  Slot[%d]: VALID | TID: %5u | Time: %llu\n", i, t->transaction_id,
+			LOG_DBG("  Slot[%d]: VALID | TID: %5u | Time: %llu", i, t->transaction_id,
 			       t->reception_time_us);
 
 			/* Add hexdump of the raw PCC header */
 			const uint8_t *hdr_bytes = (const uint8_t *)&t->pcc_data.hdr;
 			/* nRF PHY Type 0 is ETSI Type 1 (5 bytes), Type 1 is ETSI Type 2 (10 bytes) */
 			size_t hdr_len = (t->pcc_data.phy_type == 0) ? 5 : 10;
-			printk("    -> HDR: ");
+			LOG_DBG("    -> HDR: ");
 			for (size_t j = 0; j < hdr_len; j++) {
-				printk("%02x ", hdr_bytes[j]);
+				LOG_DBG("%02x ", hdr_bytes[j]);
 			}
-			printk("\n");
+			// LOG_DBG("");
 
 		} else {
-			// printk("  Slot[%d]: INVALID\n", i);
+			// LOG_ERR("  Slot[%d]: INVALID", i);
 		}
 	}
 }
@@ -132,13 +132,13 @@ extern uint64_t calculate_target_modem_time(dect_mac_context_t *ctx, uint64_t sf
 // --- PT Timer Expiry Action Functions (called by dispatcher) ---
 void pt_rach_backoff_timer_expired_action(void) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
-    LOG_INF("PT SM: RACH Backoff timer expired.");
+    LOG_INF("RACH Backoff timer expired.");
     if (ctx->role_ctx.pt.target_ft.is_valid && ctx->role_ctx.pt.target_ft.is_fully_identified) {
-        LOG_INF("PT SM: Retrying Association Request to FT ShortID 0x%04X.", ctx->role_ctx.pt.target_ft.short_rd_id);
+        LOG_INF("Retrying Association Request to FT ShortID 0x%04X.", ctx->role_ctx.pt.target_ft.short_rd_id);
         // State should already be PT_RACH_BACKOFF, send_association_request changes to PT_ASSOCIATING
         pt_send_association_request_action();
     } else {
-        LOG_ERR("PT SM: RACH backoff expired, but no valid/fully_identified target FT. Restarting scan.");
+        LOG_ERR("RACH backoff expired, but no valid/fully_identified target FT. Restarting scan.");
         dect_mac_sm_pt_start_operation();
     }
 }
@@ -149,24 +149,24 @@ bool pt_get_next_tx_opportunity(uint64_t *out_start_time, uint16_t *out_carrier,
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
-    printk("[DEBUG_PROBE] pt_get_next_tx_opportunity called. Current state: %s(%d)\n",
+    LOG_DBG("Called: State: %s(%d)",
            dect_mac_state_to_str(ctx->state), ctx->state);
-    // printk("  - Checking UL schedule: is_active = %s\n",
+    // LOG_DBG("  - Checking UL schedule: is_active = %s",
     //        ctx->role_ctx.pt.ul_schedule.is_active ? "Active":"Idle");
 
 	if (ctx->state != MAC_STATE_ASSOCIATED && ctx->state != MAC_STATE_PT_RELEASING) {
-		printk("[ERROR] pt_get_next_tx_opportunity called. Current state: %s(%d)\n",
+		LOG_ERR("Called. State: %s(%d)",
            dect_mac_state_to_str(ctx->state), ctx->state);
 		return false;
 	}
 
 	dect_mac_schedule_t *sched = &ctx->role_ctx.pt.ul_schedule;
 
-	printk("  - Checking UL schedule: is_active = %d, validity_value = %u ul_duration_subslots=%u\n",
+	LOG_DBG("  - Checking UL schedule: is_active = %d, validity_value = %u ul_duration_subslots=%u",
 	       sched->is_active, sched->validity_value, sched->ul_duration_subslots);
 
 	if (!sched->is_active || sched->ul_duration_subslots == 0) {
-		printk("  - (!sched->is_active || sched->ul_duration_subslots == 0)  \n");
+		LOG_DBG("  - (!sched->is_active || sched->ul_duration_subslots == 0)  ");
 		return false;
 	}
 
@@ -177,7 +177,7 @@ bool pt_get_next_tx_opportunity(uint64_t *out_start_time, uint16_t *out_carrier,
 	update_next_occurrence(ctx, sched, current_time_ticks, peer_mu);	
 
 	if (!sched->is_active) {
-		printk("  - !sched->is_active \n");
+		LOG_DBG("  - !sched->is_active ");
 		return false;
 	}
 
@@ -204,10 +204,10 @@ bool pt_get_next_tx_opportunity(uint64_t *out_start_time, uint16_t *out_carrier,
 		*out_start_time = sched->next_occurrence_modem_time;
 		*out_carrier = sched->channel;
 		*out_schedule = *sched;
-		printk("  - out_start_time:%llu ticks \n", sched->next_occurrence_modem_time);
+		LOG_DBG("  - out_start_time:%llu ticks ", sched->next_occurrence_modem_time);
 		return true;
 	}
-	printk("[ERROR] pt_get_next_tx_opportunity return FALSE (earliest %llu ticks, next_occ %llu ticks)\n", 
+	LOG_ERR("next_tx_opportunity: Return FALSE (earliest %llu ticks, next_occ %llu ticks)", 
 	       earliest_start_ticks, sched->next_occurrence_modem_time);
 	return false;
 }
@@ -225,7 +225,7 @@ static void pt_requeue_held_packets(dect_mac_context_t *ctx)
 	}
 
 	if (count > 0) {
-		LOG_INF("MOBILITY: Re-queued %d held packets for transmission to new/reverted FT.", count);
+		LOG_INF("Re-queued %d held packets for transmission to new/reverted FT.", count);
 	}
 }
 
@@ -268,8 +268,7 @@ static void pt_revert_to_old_ft_after_handover_failure(void)
 
 	/* Revert state and restart timers for the old (and now current) FT */
 	dect_mac_change_state(MAC_STATE_ASSOCIATED);
-	printk("MOBILITY: State -> ASSOCIATED. Data TX resumed to old FT.\n");
-	// LOG_INF("MOBILITY: State -> ASSOCIATED. Data TX resumed to old FT.");
+	LOG_INF("MOBILITY: State -> ASSOCIATED. Data TX resumed to old FT.");
 
 	k_timer_start(&ctx->role_ctx.pt.keep_alive_timer,
 		      K_MSEC(ctx->config.keep_alive_period_ms),
@@ -331,12 +330,12 @@ void pt_rach_response_window_timer_expired_action(void)
 	bool was_handover = (ctx->state == MAC_STATE_PT_HANDOVER_ASSOCIATING);
 
 	if (ctx->state != MAC_STATE_PT_WAIT_ASSOC_RESP && !was_handover) {
-		LOG_WRN("PT_RACH_RESP_TIMEOUT: Timer expired in unexpected state %s. Ignoring.",
+		LOG_WRN("Timer expired in unexpected state %s. Ignoring.",
 			dect_mac_state_to_str(ctx->state));
 		return;
 	}
 
-	LOG_WRN("PT_RACH_RESP_TIMEOUT: No Association Response from target FT 0x%04X (L:0x%08X).",
+	LOG_WRN("No Association Response from target FT 0x%04X (L:0x%08X).",
 		ctx->role_ctx.pt.target_ft.short_rd_id, ctx->role_ctx.pt.target_ft.long_rd_id);
 
 	/* Cancel the listening operation that was started */
@@ -356,7 +355,7 @@ void pt_rach_response_window_timer_expired_action(void)
 	ctx->role_ctx.pt.current_assoc_retries++;
 	if (ctx->role_ctx.pt.target_ft.is_valid &&
 	    ctx->role_ctx.pt.current_assoc_retries < ctx->config.max_assoc_retries) {
-		LOG_INF("PT_RACH_RESP_TIMEOUT: Retrying association to FT 0x%04X (attempt %u / %u).",
+		LOG_INF("Retrying association to FT 0x%04X (attempt %u / %u).",
 			ctx->role_ctx.pt.target_ft.short_rd_id,
 			ctx->role_ctx.pt.current_assoc_retries + 1, ctx->config.max_assoc_retries);
 
@@ -373,16 +372,16 @@ void pt_rach_response_window_timer_expired_action(void)
 
 		if (ctx->rach_context.rach_cw_current_idx < ft_cwmax_code) {
 			ctx->rach_context.rach_cw_current_idx++;
-			LOG_DBG("PT_RACH_RESP_TIMEOUT: Increased CW index to %u for next attempt.",
+			LOG_DBG("Increased CW index to %u for next attempt.",
 				ctx->rach_context.rach_cw_current_idx);
 		} else {
-			LOG_DBG("PT_RACH_RESP_TIMEOUT: CW index already at max (%u) from FT.",
+			LOG_DBG("CW index already at max (%u) from FT.",
 				ft_cwmax_code);
 		}
 		pt_send_association_request_action();
 
 	} else {
-		LOG_ERR("PT_RACH_RESP_TIMEOUT: Max association retries (%u) for FT 0x%04X or no valid target. Restarting scan.",
+		LOG_ERR("Max association retries (%u) for FT 0x%04X or no valid target. Restarting scan.",
 			ctx->config.max_assoc_retries, ctx->role_ctx.pt.target_ft.short_rd_id);
 		memset(&ctx->role_ctx.pt.target_ft, 0, sizeof(dect_mac_peer_info_t));
 		ctx->role_ctx.pt.target_ft.is_valid = false;
@@ -396,7 +395,7 @@ void dect_mac_sm_pt_keep_alive_timer_expired_action(void) {
         if (ctx->pending_op_type == PENDING_OP_NONE || ctx->pending_op_type == PENDING_OP_PT_DATA_RX) {
             pt_send_keep_alive_action();
         } else {
-            LOG_WRN("PT SM: Keep-alive time, but op %s pending. Will retry on next expiry.",
+            LOG_WRN("Keep-alive time, but op %s pending. Will retry on next expiry.",
                     dect_pending_op_to_str(ctx->pending_op_type));
             // Periodic timer will fire again.
         }
@@ -411,15 +410,15 @@ void dect_mac_sm_pt_mobility_scan_timer_expired_action(void)
     dect_mac_context_t *ctx = dect_mac_get_active_context();
 
     if (ctx->state != MAC_STATE_ASSOCIATED) { // Only scan for mobility if associated
-        LOG_DBG("PT SM: Mobility scan timer fired but not associated. Restarting general scan.");
+        LOG_DBG("Mobility scan timer fired but not associated. Restarting general scan.");
         dect_mac_sm_pt_start_operation();
         return;
     }
 
     // if (ctx->pending_op_type != PENDING_OP_NONE) {
-    //     printk("PT SM: Mobility scan time, but op %s pending. Deferring scan.",
+    //     LOG_DBG("Mobility scan time, but op %s pending. Deferring scan.",
     //             dect_pending_op_to_str(ctx->pending_op_type));
-    //     // LOG_WRN("PT SM: Mobility scan time, but op %s pending. Deferring scan.",
+    //     // LOG_WRN("Mobility scan time, but op %s pending. Deferring scan.",
     //     //         dect_pending_op_to_str(ctx->pending_op_type));				
     //     // The timer will fire again later.
     //     return;
@@ -431,7 +430,7 @@ void dect_mac_sm_pt_mobility_scan_timer_expired_action(void)
     uint32_t scan_carrier = (current_carrier != 0) ? (current_carrier ) : DEFAULT_DECT_CARRIER;
     // TODO: Add logic to wrap around the valid channel range.
 
-    LOG_INF("PT SM: Starting mobility background RSSI scan on carrier %u.", scan_carrier);
+    LOG_INF("Starting mobility background RSSI scan on carrier %u.", scan_carrier);
 
     // uint32_t phy_op_handle = sys_rand32_get();
 	uint32_t phy_op_handle;
@@ -447,7 +446,7 @@ void dect_mac_sm_pt_mobility_scan_timer_expired_action(void)
         PENDING_OP_PT_MOBILITY_SCAN);
 
     if (ret != 0) {
-        LOG_ERR("PT SM: Failed to start mobility RSSI scan: %d.", ret);
+        LOG_ERR("Failed to start mobility RSSI scan: %d.", ret);
         // The periodic timer will try again on its next cycle.
     }
 }
@@ -456,7 +455,7 @@ void dect_mac_sm_pt_mobility_scan_timer_expired_action(void)
 // --- PT Public Functions ---
 void dect_mac_sm_pt_start_operation(void)
 {
-	printk("[PT_START_OP_DBG] Entering dect_mac_sm_pt_start_operation...\n");
+	LOG_DBG("Entering dect_mac_sm_pt_start_operation...");
 
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
@@ -465,8 +464,7 @@ void dect_mac_sm_pt_start_operation(void)
 
 	dect_mac_change_state(MAC_STATE_PT_SCANNING);
 	uint16_t scan_carrier = CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL;
-	printk("PT_SM_START_DBG: Initializing scan with carrier value: %u (0x%X)\n", scan_carrier, scan_carrier);
-	LOG_INF("PT SM: Starting scan for FT beacons on carrier %u.", scan_carrier);
+	LOG_DBG("Initializing scan with carrier value: %u (0x%X)", scan_carrier, scan_carrier);
 
 	uint32_t phy_op_handle;
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
@@ -478,7 +476,7 @@ void dect_mac_sm_pt_start_operation(void)
 	if (ret != 0) {
 		dect_mac_enter_error_state("Failed to start initial PT scan");
 	}
-	// printk("[PT_START_OP_DBG] Exiting dect_mac_sm_pt_start_operation.\n");
+	// LOG_DBG("Exiting dect_mac_sm_pt_start_operation.");
 }
 
 
@@ -522,13 +520,13 @@ static void pt_handle_phy_pdc_pt(const struct nrf_modem_dect_phy_pdc_event *pdc_
 				ctx->ft_sfn0_modem_time_anchor = event_modem_time - k_us_to_ticks_ceil64(cb_fields.sfn * FRAME_DURATION_MS_NOMINAL * 1000);
 				ctx->current_sfn_at_anchor_update = cb_fields.sfn;
 				ctx->role_ctx.pt.current_ft_sfn = cb_fields.sfn;
-				LOG_INF("PT_SYNC: Synchronized to FT. SFN is now %u, anchor time is %llu.",
+				LOG_INF("Synchronized to FT. SFN is now %u, anchor time is %llu.",
 					ctx->role_ctx.pt.current_ft_sfn, ctx->ft_sfn0_modem_time_anchor);
 			}
 		}
 	}	
 
-	printk("[PT_PDC_HANDLER] Received PDC with TID %u. Searching cache...\n",
+	LOG_DBG("Received PDC with TID %u. Searching cache...",
 	       pdc_event->transaction_id);
 
 	print_pcc_cache_state("PT_PDC_SEARCH");
@@ -538,16 +536,13 @@ static void pt_handle_phy_pdc_pt(const struct nrf_modem_dect_phy_pdc_event *pdc_
 		if (ctx->pcc_transaction_cache[i].is_valid &&
 		    ctx->pcc_transaction_cache[i].transaction_id == pdc_event->transaction_id) {
 			pcc_slot = i;
-			printk("[PT_PDC_HANDLER] Found matching PCC with TID %u in slot %d.\n",
+			LOG_DBG("Found matching PCC with TID %u in slot %d.",
 			       ctx->pcc_transaction_cache[i].transaction_id, i);
 			break;
 		}
 	}
 
 	if (pcc_slot == -1) {
-		printk("***FAILURE***: No matching PCC found for TID %u. Discarding PDC.\n",
-		       pdc_event->transaction_id);
-
 		LOG_WRN("PT_SM_PDC_WRAP: PDC (TID %u) but no matching valid PCC stored. Discarding.",
 			pdc_event->transaction_id);
 		return;
@@ -571,7 +566,7 @@ static void pt_handle_phy_pdc_pt(const struct nrf_modem_dect_phy_pdc_event *pdc_
 void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
-// printk("[PT_SM] dect_mac_sm_pt_handle_event: ctx->state:%s(%d):: msg->type:%s(%d) \n", dect_mac_state_to_str(ctx->state), ctx->state, dect_mac_event_to_str(msg->type), msg->type);
+// LOG_DBG(" dect_mac_sm_pt_handle_event: ctx->state:%s(%d):: msg->type:%s(%d) ", dect_mac_state_to_str(ctx->state), ctx->state, dect_mac_event_to_str(msg->type), msg->type);
 
 	switch (ctx->state) {
 	case MAC_STATE_IDLE:
@@ -585,7 +580,7 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 		} else if (msg->type == MAC_EVENT_PHY_PDC) {
 			pt_handle_phy_pdc_pt(&msg->data.pdc, msg->modem_time_of_event);
 		} else if (msg->type == MAC_EVENT_PHY_OP_COMPLETE) {
-			printk("[PT_SM] state->MAC_STATE_PT_BEACON_PDC_WAIT && msg->type == MAC_EVENT_PHY_OP_COMPLETE \n");
+			LOG_DBG(" state->MAC_STATE_PT_BEACON_PDC_WAIT && msg->type == MAC_EVENT_PHY_OP_COMPLETE ");
 			pending_op_type_t op =
 				dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete);
 			if (op == PENDING_OP_PT_SCAN) {
@@ -596,7 +591,7 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 
 	case MAC_STATE_PT_CANCELLING_SCAN:
 		if (msg->type == MAC_EVENT_PHY_OP_COMPLETE) {
-		printk("[PT_SM] state->MAC_STATE_PT_CANCELLING_SCAN && msg->type == MAC_EVENT_PHY_OP_COMPLETE \n");
+		LOG_DBG(" state->MAC_STATE_PT_CANCELLING_SCAN && msg->type == MAC_EVENT_PHY_OP_COMPLETE ");
 			pending_op_type_t op = dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete);
 			if (op != PENDING_OP_NONE) {
 				pt_handle_phy_op_complete_internal(&msg->data.op_complete, op);
@@ -611,25 +606,25 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 	case MAC_STATE_PT_WAIT_AUTH_SUCCESS:
 	case MAC_STATE_PT_HANDOVER_ASSOCIATING:
 	case MAC_STATE_PT_WAIT_ASSOC_RESP:	
-	// printk("[PT_SM] MAC_STATE_PT_WAIT_ASSOC_RESP: ctx->state:%s(%d):: msg->type:%s(%d) \n", dect_mac_state_to_str(ctx->state), ctx->state, dect_mac_event_to_str(msg->type), msg->type);
+	// LOG_DBG(" MAC_STATE_PT_WAIT_ASSOC_RESP: ctx->state:%s(%d):: msg->type:%s(%d) ", dect_mac_state_to_str(ctx->state), ctx->state, dect_mac_event_to_str(msg->type), msg->type);
 		switch (msg->type) {
 		case MAC_EVENT_PHY_OP_COMPLETE:
-			printk("[PT_SM] dect_mac_sm_pt_handle_event: ctx->state:%s(%d):: msg->type:%s(%d) \n", dect_mac_state_to_str(ctx->state), ctx->state, dect_mac_event_to_str(msg->type), msg->type);
+			LOG_DBG(" dect_mac_sm_pt_handle_event: ctx->state:%s(%d):: msg->type:%s(%d) ", dect_mac_state_to_str(ctx->state), ctx->state, dect_mac_event_to_str(msg->type), msg->type);
 			{
 				pending_op_type_t op = dect_mac_phy_ctrl_handle_op_complete(&msg->data.op_complete);
 				if (op != PENDING_OP_NONE) {
 					pt_handle_phy_op_complete_internal(&msg->data.op_complete, op);
 				}
 			}
-			// printk("[PT_SM] state->MAC_STATE_PT_ASSOCIATING && msg->type == MAC_EVENT_PHY_OP_COMPLETE ****************************************\n");
+			// LOG_DBG(" state->MAC_STATE_PT_ASSOCIATING && msg->type == MAC_EVENT_PHY_OP_COMPLETE ****************************************");
 
 			break;
 		case MAC_EVENT_PHY_PCC:
-		printk("MAC_STATE_PT_WAIT_ASSOC_RESP-> MAC_EVENT_PHY_PCC\n");
+		LOG_DBG("MAC_STATE_PT_WAIT_ASSOC_RESP-> MAC_EVENT_PHY_PCC");
 			pt_handle_phy_pcc_internal(&msg->data.pcc, msg->modem_time_of_event);
 			break;
 		case MAC_EVENT_PHY_PDC:
-		printk("MAC_STATE_PT_WAIT_ASSOC_RESP-> MAC_EVENT_PHY_PDC\n");
+		LOG_DBG("MAC_STATE_PT_WAIT_ASSOC_RESP-> MAC_EVENT_PHY_PDC");
 			pt_handle_phy_pdc_pt(&msg->data.pdc, msg->modem_time_of_event);
 			break;
 		case MAC_EVENT_TIMER_EXPIRED_RACH_BACKOFF:
@@ -639,7 +634,7 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 			pt_rach_response_window_timer_expired_action();
 			break;
 		case MAC_EVENT_TIMER_EXPIRED_AUTH_TIMEOUT:
-			LOG_ERR("PT_SM: Auth handshake timed out in state %s. Aborting.", dect_mac_state_to_str(ctx->state));
+			LOG_ERR("Auth handshake timed out in state %s. Aborting.", dect_mac_state_to_str(ctx->state));
 			dect_mac_sm_pt_start_operation(); /* Restart scan/association */
 			break;
 		default:
@@ -648,7 +643,7 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 		break;
 
 	case MAC_STATE_ASSOCIATED:
-		printk("[PT_SM] state->MAC_STATE_ASSOCIATED : msg->type:%d  \n", msg->type);
+		LOG_DBG(" state->MAC_STATE_ASSOCIATED : msg->type:%d  ", msg->type);
 		switch (msg->type) {
 		case MAC_EVENT_PHY_OP_COMPLETE:
 			{
@@ -674,7 +669,7 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 			dect_mac_data_path_handle_harq_nack_action(msg->data.timer_data.id);
 			break;
 		case MAC_EVENT_CMD_RELEASE_LINK:
-			LOG_INF("PT_SM: Received command to release link.");
+			LOG_INF("Received command to release link.");
 			pt_send_association_release_action(&ctx->role_ctx.pt.associated_ft);
 			dect_mac_service();
 			/* Now, change the state to wait for the TX to complete.
@@ -707,7 +702,7 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 		}
 		break;
 	case MAC_STATE_PT_PAGING:
-		printk("[PT_SM] dect_mac_sm_pt_handle_event: msg->type:%s \n", dect_mac_event_to_str(msg->type));	
+		LOG_DBG(" dect_mac_sm_pt_handle_event: msg->type:%s ", dect_mac_event_to_str(msg->type));	
 		// dect_mac_event_to_str(msg->type), dect_mac_state_to_str(ctx->state));
 
 		switch (msg->type) {
@@ -734,7 +729,7 @@ void dect_mac_sm_pt_handle_event(const struct dect_mac_event_msg *msg)
 		break;
 
 	default:
-		LOG_WRN("PT SM: Event %s received in unhandled state %s. Discarding.",
+		LOG_WRN("Event %s received in unhandled state %s. Discarding.",
 			dect_mac_event_to_str(msg->type), dect_mac_state_to_str(ctx->state));
 		break;
 	}
@@ -751,14 +746,14 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
                                                pending_op_type_t completed_op_type) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
 
-	printk("[PT_SM] pt_handle_phy_op_complete_internal: completed_op_type:%s(%d) Started... \n", dect_pending_op_to_str(completed_op_type),completed_op_type);
+	LOG_DBG("completed_op_type:%s(%d) Started... ", dect_pending_op_to_str(completed_op_type),completed_op_type);
 
 
     switch (completed_op_type) {
 		
         case PENDING_OP_PT_MOBILITY_SCAN:
-            printk("PT SM: Mobility scan op completed (err %d).", event->err);
-			// LOG_DBG("PT SM: Mobility scan op completed (err %d).", event->err);
+            LOG_DBG("Mobility scan op completed (err %d).", event->err);
+			// LOG_DBG("Mobility scan op completed (err %d).", event->err);
             break;
 		case PENDING_OP_GENERIC_UNICAST_TX:
 			if (ctx->state == MAC_STATE_PT_RELEASING) {
@@ -767,50 +762,50 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 				dect_mac_core_clear_pending_op();
 				dect_mac_sm_pt_start_operation();
 			} else {
-				LOG_DBG("PT_SM: Generic Unicast TX complete in state %s. Clearing pending op.", dect_mac_state_to_str(ctx->state));
+				LOG_DBG("Generic Unicast TX complete in state %s. Clearing pending op.", dect_mac_state_to_str(ctx->state));
 				dect_mac_core_clear_pending_op();
 			}
 			break;
         case PENDING_OP_PT_PAGING_LISTEN:
-			printk("[PT_SM] completed_op_type->PENDING_OP_PT_PAGING_LISTEN \n");
+			LOG_DBG(" completed_op_type->PENDING_OP_PT_PAGING_LISTEN ");
             if (ctx->state == MAC_STATE_PT_PAGING) {
                 LOG_DBG("PT_PAGING: Paging listen RX window complete (err %d).", event->err);
             }
             break;
         case PENDING_OP_PT_SCAN:
-			printk("[PT_SM] completed_op_type->PENDING_OP_PT_SCAN (err %d)\n", event->err);
+			LOG_DBG(" completed_op_type->PENDING_OP_PT_SCAN (err %d)", event->err);
 			if (ctx->state == MAC_STATE_PT_CANCELLING_SCAN) {
 				/* We were cancelling the scan specifically to associate with an FT.
 				 * This covers both err == OP_CANCELED and err == SUCCESS (if it happened
 				 * to finish just as we sent the cancel).
 				 */
-				printk("PT SM: Scan stopped for association. Sending Association Request.\n");
+				LOG_DBG("Scan stopped for association. Sending Association Request.");
 				dect_mac_core_clear_pending_op();
 				pt_send_association_request_action();
 			} else if (event->err == NRF_MODEM_DECT_PHY_ERR_OP_CANCELED) {
-				LOG_INF("PT SM: Scan successfully canceled (Hdl %u) in state %s. Restarting.",
+				LOG_INF("Scan successfully canceled (Hdl %u) in state %s. Restarting.",
 					event->handle, dect_mac_state_to_str(ctx->state));
 				dect_mac_core_clear_pending_op();
 				dect_mac_sm_pt_start_operation();
 			} else if (event->err != NRF_MODEM_DECT_PHY_SUCCESS) {
-                printk("PT_SM: Scan PHY op failed (err %d, %s). Restarting scan after delay.\n",
+                LOG_DBG("Scan PHY op failed (err %d, %s). Restarting scan after delay.",
 					event->err, nrf_modem_dect_phy_err_to_str(event->err));
 				uint8_t random_byte;
 				sys_rand_get(&random_byte, sizeof(random_byte));
 				k_sleep(K_MSEC(1000 + (random_byte % 100)));
                 dect_mac_sm_pt_start_operation();
             } else {
-                printk("PT_SM: Scan PHY op completed normally (Hdl %u), but no target was selected during parsing. Restarting scan.\n",
+                LOG_DBG("Scan PHY op completed normally (Hdl %u), but no target was selected during parsing. Restarting scan.",
 					event->handle);
                 dect_mac_sm_pt_start_operation();
             }
             break;
 
        case PENDING_OP_PT_RACH_ASSOC_REQ:
-	   		printk("[PT_SM] completed_op_type->PENDING_OP_PT_RACH_ASSOC_REQ \n");
+	   		LOG_DBG(" completed_op_type->PENDING_OP_PT_RACH_ASSOC_REQ ");
             if (event->err == NRF_MODEM_DECT_PHY_SUCCESS) {
-                printk("[PT_SM]: Association Request TX successful (Hdl %u). Waiting for Response.\n", event->handle);
-				// LOG_INF("PT_SM: Association Request TX successful (Hdl %u). Waiting for Response.", event->handle);
+                LOG_DBG(": Association Request TX successful (Hdl %u). Waiting for Response.", event->handle);
+				// LOG_INF("Association Request TX successful (Hdl %u). Waiting for Response.", event->handle);
                 dect_mac_change_state(MAC_STATE_PT_WAIT_ASSOC_RESP);
 
                 uint32_t resp_win_ms = ctx->role_ctx.pt.current_ft_rach_params.response_window_duration_us / 1000;
@@ -830,7 +825,7 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 				/* CRITICAL FIX: Clear the pending state from the completed TX operation
 				* BEFORE attempting to schedule the new RX operation.
 				*/
-				printk("[PT_SM] case PENDING_OP_PT_RACH_ASSOC_REQ: Calling dect_mac_phy_ctrl_start_rx() \n");
+				LOG_DBG(" case PENDING_OP_PT_RACH_ASSOC_REQ: Calling dect_mac_phy_ctrl_start_rx() ");
 				dect_mac_core_clear_pending_op();
 				
                 int ret = dect_mac_phy_ctrl_start_rx(
@@ -841,18 +836,16 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
                     ctx->own_short_rd_id,
                     PENDING_OP_PT_WAIT_ASSOC_RESP, 0);
                 if (ret != 0) {
-                    printk("PT_SM: Failed to schedule RX for AssocResp: %d. Resp timer will timeout.\n", ret);
-					// LOG_ERR("PT_SM: Failed to schedule RX for AssocResp: %d. Resp timer will timeout.", ret);
+                    LOG_ERR("Failed to schedule RX for AssocResp: %d. Resp timer will timeout.", ret);
+					// LOG_ERR("Failed to schedule RX for AssocResp: %d. Resp timer will timeout.", ret);
                 } else {
-                    printk("PT_SM: RX scheduled (Hdl %u) for Association Response from FT 0x%04X.\n",
-                            phy_rx_op_handle, ctx->role_ctx.pt.target_ft.short_rd_id);
-                    // LOG_INF("PT_SM: RX scheduled (Hdl %u) for Association Response from FT 0x%04X.",
-                    //         phy_rx_op_handle, ctx->role_ctx.pt.target_ft.short_rd_id);							
+                    LOG_INF("RX scheduled (Hdl %u) for Association Response from FT 0x%04X.",
+                            phy_rx_op_handle, ctx->role_ctx.pt.target_ft.short_rd_id);							
                 }
                 /* The original TX op is complete and the next RX op is scheduled.
                  * It is now safe to clear the pending state from the TX op.
                  */
-				printk("[PT_SM] case PENDING_OP_PT_RACH_ASSOC_REQ: The original TX op is complete and the next RX op is scheduled, clear the pending state from the TX op. POINT 2 \n");
+				LOG_DBG(" case PENDING_OP_PT_RACH_ASSOC_REQ: The original TX op is complete and the next RX op is scheduled, clear the pending state from the TX op. POINT 2 ");
                 // dect_mac_core_clear_pending_op();				
 
 			} else if (event->err == NRF_MODEM_DECT_PHY_ERR_LBT_CHANNEL_BUSY) {
@@ -862,7 +855,7 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 				 * We explicitly pause the backoff (or rather, just retry after a short, fixed interval)
 				 * effectively resuming the attempt when the channel might be free.
 				 */
-				printk("PT_SM: RACH TX failed (LBT BUSY). Pausing/Retrying without increasing CW.\n");
+				LOG_DBG("RACH TX failed (LBT BUSY). Pausing/Retrying without increasing CW.");
 				dect_mac_change_state(MAC_STATE_PT_RACH_BACKOFF);
 
 				/* Retry relatively quickly, e.g., next frame or shortly after. 
@@ -873,15 +866,15 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 
 			} else {
 				/* Any other error (or collision implied by lack of Ack later) triggers backoff adjustment */
-				printk("PT_SM: RACH TX failed (err %d, %s). Increasing CW and backing off.",
+				LOG_DBG("RACH TX failed (err %d, %s). Increasing CW and backing off.",
 				       event->err, nrf_modem_dect_phy_err_to_str(event->err));
-				// LOG_WRN("PT_SM: RACH TX failed (err %d, %s). Increasing CW and backing off.",
+				// LOG_WRN("RACH TX failed (err %d, %s). Increasing CW and backing off.",
 				//        event->err, nrf_modem_dect_phy_err_to_str(event->err));
 				dect_mac_change_state(MAC_STATE_PT_RACH_BACKOFF);
 
 				if (ctx->role_ctx.pt.current_assoc_retries >=
 				    ctx->config.max_assoc_retries) {
-					printk("PT_SM_RACH_FAIL: Max association retries reached for FT 0x%04X after TX failure. Restarting scan.",
+					LOG_DBG("PT_SM_RACH_FAIL: Max association retries reached for FT 0x%04X after TX failure. Restarting scan.",
 					       ctx->role_ctx.pt.target_ft.short_rd_id);
 					// LOG_ERR("PT_SM_RACH_FAIL: Max association retries reached for FT 0x%04X after TX failure. Restarting scan.",
 					//         ctx->role_ctx.pt.target_ft.short_rd_id);
@@ -943,12 +936,12 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
             break;
 
         case PENDING_OP_PT_WAIT_ASSOC_RESP:
-            printk("[PT_SM] Handling PHY_OP_COMPLETE for PENDING_OP_PT_WAIT_ASSOC_RESP, Handle=%u\n",
+            LOG_DBG(" Handling PHY_OP_COMPLETE for PENDING_OP_PT_WAIT_ASSOC_RESP, Handle=%u",
                    event->handle);
             if (event->err == NRF_MODEM_DECT_PHY_SUCCESS) {
-				printk("PT SM: RX window for %s closed without receiving a valid response. Triggering timeout logic.\n",
+				LOG_DBG("RX window for %s closed without receiving a valid response. Triggering timeout logic.",
 				dect_pending_op_to_str(completed_op_type));
-			// LOG_WRN("PT SM: RX window for %s closed without receiving a valid response. Triggering timeout logic.",
+			// LOG_WRN("RX window for %s closed without receiving a valid response. Triggering timeout logic.",
 			// 	dect_pending_op_to_str(completed_op_type));
 			/* This completion means the listen window timed out without a valid PDU.
 			 * We must treat it as if the response timer itself fired.
@@ -956,13 +949,13 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 			pt_rach_response_window_timer_expired_action();
 			break;
             } else {
-                printk("[PT_SM] RX operation failed (err %d, %s) in PT_WAIT_ASSOC_RESP. Initiating backoff.\n",
+                LOG_DBG(" RX operation failed (err %d, %s) in PT_WAIT_ASSOC_RESP. Initiating backoff.",
                        event->err, nrf_modem_dect_phy_err_to_str(event->err));
                 dect_mac_core_clear_pending_op(); // Clear pending_op on failure
                 dect_mac_change_state(MAC_STATE_PT_RACH_BACKOFF);
 
                 if (ctx->role_ctx.pt.current_assoc_retries >= ctx->config.max_assoc_retries) {
-                    printk("[PT_SM] Max association retries reached for FT 0x%04X after RX failure. Restarting scan.\n",
+                    LOG_DBG(" Max association retries reached for FT 0x%04X after RX failure. Restarting scan.",
                            ctx->role_ctx.pt.target_ft.short_rd_id);
                     dect_mac_sm_pt_start_operation();
                     return;
@@ -978,7 +971,7 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 
                 if (ctx->rach_context.rach_cw_current_idx < ft_cwmax_code) {
                     ctx->rach_context.rach_cw_current_idx++;
-                    printk("[PT_SM] Increased CW index to %u for next attempt.\n",
+                    LOG_DBG(" Increased CW index to %u for next attempt.",
                            ctx->rach_context.rach_cw_current_idx);
                 }
 
@@ -997,9 +990,9 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 		
         case PENDING_OP_PT_WAIT_AUTH_CHALLENGE:
         case PENDING_OP_PT_WAIT_AUTH_SUCCESS:
-			printk("PT SM: RX op for %s completed (Hdl %u, err %d). If no PDC, timer will expire.",
+			LOG_DBG("RX op for %s completed (Hdl %u, err %d). If no PDC, timer will expire.",
 			dect_pending_op_to_str(completed_op_type), event->handle, event->err);
-            // LOG_DBG("PT SM: RX op for %s completed (Hdl %u, err %d). If no PDC, timer will expire.",
+            // LOG_DBG("RX op for %s completed (Hdl %u, err %d). If no PDC, timer will expire.",
             //         dect_pending_op_to_str(completed_op_type), event->handle, event->err);
 			/* The listen window is over. The logical timeout is handled by the k_timer.
 			 * We just need to clear the pending PHY operation so the SM can schedule
@@ -1011,7 +1004,7 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 
         case PENDING_OP_PT_AUTH_MSG_TX:
             if (event->err == NRF_MODEM_DECT_PHY_SUCCESS) {
-                LOG_INF("PT_SM: Auth message TX successful (Hdl %u). Waiting for response.",
+                LOG_INF("Auth message TX successful (Hdl %u). Waiting for response.",
                         event->handle);
                 // uint32_t phy_rx_op_handle = sys_rand32_get();
 				uint32_t phy_rx_op_handle;
@@ -1035,19 +1028,19 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
                         phy_rx_op_handle, ctx->own_short_rd_id, next_op, 0);
                 }
             } else {
-                LOG_ERR("PT_SM: Auth message TX failed (err %d). Restarting scan.",
+                LOG_ERR("Auth message TX failed (err %d). Restarting scan.",
                         event->err);
                 dect_mac_sm_pt_start_operation();
             }
             break;
         case PENDING_OP_PT_KEEP_ALIVE:
-			LOG_DBG("PT SM: Keep-alive TX op completed (err %d).", event->err);
+			LOG_DBG("Keep-alive TX op completed (err %d).", event->err);
 			/* The pending op is cleared by the caller (handle_op_complete), nothing more to do. */
             if (event->err != NRF_MODEM_DECT_PHY_SUCCESS) {
-                LOG_ERR("PT_SM: Keep Alive TX failed (Hdl %u, err %d, %s).",
+                LOG_ERR("Keep Alive TX failed (Hdl %u, err %d, %s).",
                         event->handle, event->err, nrf_modem_dect_phy_err_to_str(event->err));
             } else {
-                LOG_DBG("PT_SM: Keep Alive TX successful (Hdl %u).", event->handle);
+                LOG_DBG("Keep Alive TX successful (Hdl %u).", event->handle);
             }
             break;
         case PENDING_OP_PT_DATA_TX_HARQ0:
@@ -1056,29 +1049,28 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
                 int harq_idx = completed_op_type - PENDING_OP_PT_DATA_TX_HARQ0;
                 if (harq_idx >= 0 && harq_idx < MAX_HARQ_PROCESSES) {
                     if (event->err == NRF_MODEM_DECT_PHY_ERR_LBT_CHANNEL_BUSY) {
-                        LOG_WRN("PT SM: Data TX HARQ %d LBT busy. Data Path will re-TX.", harq_idx);
+                        LOG_WRN("Data TX HARQ %d LBT busy. Data Path will re-TX.", harq_idx);
                         dect_mac_data_path_handle_harq_nack_action(harq_idx);
                     } else if (event->err != NRF_MODEM_DECT_PHY_SUCCESS) {
-                        LOG_ERR("PT SM: Data TX HARQ %d failed (err %d, %s). Data Path will re-TX/discard.",
+                        LOG_ERR("Data TX HARQ %d failed (err %d, %s). Data Path will re-TX/discard.",
                                 harq_idx, event->err, nrf_modem_dect_phy_err_to_str(event->err));
                         dect_mac_data_path_handle_harq_nack_action(harq_idx);
                     } else {
-                        LOG_DBG("PT SM: Data TX HARQ %d PHY op complete. Awaiting feedback.", harq_idx);
+                        LOG_DBG("Data TX HARQ %d PHY op complete. Awaiting feedback.", harq_idx);
 						if (ctx->state == MAC_STATE_PT_RELEASING) {
-							printk("PT_SM:(pt_handle_phy_op_complete_internal) Association Release TX complete. Restarting scan.\n");
-							LOG_INF("PT_SM: Association Release TX complete. Restarting scan.");
+							LOG_DBG("PT_SM:(pt_handle_phy_op_complete_internal) Association Release TX complete. Restarting scan.");
 							dect_mac_core_clear_pending_op();
 							dect_mac_sm_pt_start_operation();
 						}
                     }
                 } else {
-                     LOG_ERR("PT SM: OP_COMPLETE for invalid PT_DATA_TX_HARQ op type: %d", completed_op_type);
+                     LOG_ERR("OP_COMPLETE for invalid PT_DATA_TX_HARQ op type: %d", completed_op_type);
                 }
             }
             break;
 			
         default:
-             LOG_WRN("PT SM: Case Ended OP_COMPLETE for unhandled PT op type: %s (Hdl %u), err %d (%s)",
+             LOG_WRN("Case Ended OP_COMPLETE for unhandled PT op type: %s (Hdl %u), err %d (%s)",
                     dect_pending_op_to_str(completed_op_type), event->handle,
                     event->err, nrf_modem_dect_phy_err_to_str(event->err));
             break;
@@ -1090,7 +1082,7 @@ static void pt_handle_phy_pcc_internal(const struct nrf_modem_dect_phy_pcc_event
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
-	printk("[PT_SM] pt_handle_phy_pcc_internal Started...\n");
+	LOG_DBG("Started...");
 
 	if (pcc_event->header_status != NRF_MODEM_DECT_PHY_HDR_STATUS_VALID) {
 		return; /* Ignore invalid PCCs */
@@ -1101,9 +1093,9 @@ static void pt_handle_phy_pcc_internal(const struct nrf_modem_dect_phy_pcc_event
 	uint64_t oldest_time = UINT64_MAX;
 	int oldest_slot = 0;
 
-	printk("[PT_PCC_CACHE]: Adding to cache");
+	LOG_DBG("Adding to cache");
 	for (int i = 0; i < MAX_PENDING_PCC_TRANSACTIONS; i++) {
-		printk("PT_PCC_CACHE: (TID %u) in slot %d.\n",
+		LOG_DBG("PT_PCC_CACHE: (TID %u) in slot %d.",
 		       ctx->pcc_transaction_cache[i].transaction_id, i);
 		if (!ctx->pcc_transaction_cache[i].is_valid) {
 			free_slot = i;
@@ -1117,7 +1109,7 @@ static void pt_handle_phy_pcc_internal(const struct nrf_modem_dect_phy_pcc_event
 
 	if (free_slot == -1) {
 		free_slot = oldest_slot;
-		printk("PT_PCC_CACHE: Cache full, evicting oldest entry (TID %u) from slot %d.\n",
+		LOG_DBG("PT_PCC_CACHE: Cache full, evicting oldest entry (TID %u) from slot %d.",
 		       ctx->pcc_transaction_cache[free_slot].transaction_id, free_slot);
 		k_timer_stop(&ctx->pcc_transaction_cache[free_slot].timeout_timer);
 	}
@@ -1134,7 +1126,7 @@ static void pt_handle_phy_pcc_internal(const struct nrf_modem_dect_phy_pcc_event
 
 	print_pcc_cache_state("PT_PCC_ADD");
 
-	printk("PT_PCC_CACHE: Stored PCC with TID %u in slot %d. \n", transaction->transaction_id,
+	LOG_DBG("PT_PCC_CACHE: Stored PCC with TID %u in slot %d. ", transaction->transaction_id,
 	       free_slot);
 
 	/* HARQ feedback processing can still happen immediately */
@@ -1154,14 +1146,13 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
-	printk("\n--- DEBUG_PROBE: pt_handle_phy_pdc_internal ---\n");
-	printk("\n--- PT PDC HANDLER(ctx->state) (State: %s) ---\n", dect_mac_state_to_str(ctx->state));
-	printk("  - Received PDC for TID %u\n", pdc_event->transaction_id);
-	printk("  - Current PT State:(dect_mac_get_active_context()->state) %s\n", dect_mac_state_to_str(dect_mac_get_active_context()->state));
+	LOG_DBG("PT PDC HANDLER(ctx->state: %s)", dect_mac_state_to_str(ctx->state));
+	LOG_DBG("  - Received PDC for TID %u", pdc_event->transaction_id);
+	LOG_DBG("  - Current PT State:(dect_mac_get_active_context()->state) %s", dect_mac_state_to_str(dect_mac_get_active_context()->state));
 
 
 	if (pdc_event->len < sizeof(dect_mac_header_type_octet_t)) {
-		LOG_ERR("PT_SM_PDC: PDU too short for header type octet.");
+		LOG_ERR("PDU too short for header type octet.");
 		return;
 	}
 
@@ -1171,20 +1162,22 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 
 	const uint8_t *data = pdc_event->data;
 	size_t len = 32; /* Adjust this based on your needs */
-	printk("[PT_SM] RX_QUEUE:PDC Payload Hexdump (first %zu bytes): ", len);
-	for (size_t i = 0; i < len && i < pdc_payload_len; i++) {
-		printk("%02x ", data[i]);
-	}
-	printk("\n");
+
+	LOG_HEXDUMP_INF(data, len, "[RX] PDC Payload Hexdump:");
+	// LOG_DBG("[RX] PDC Payload Hexdump (first %zu bytes): ", len);
+	// for (size_t i = 0; i < len && i < pdc_payload_len; i++) {
+	// 	LOG_DBG("%02x ", data[i]);
+	// }
+	// LOG_DBG("");
 
 	if (pdc_payload_len > sizeof(mac_pdc_payload_copy)) {
-		LOG_ERR("PT_SM_PDC: PDC payload from PHY (%u bytes) too large for copy buffer (%zu). Discarding.",
+		LOG_ERR("PDC payload from PHY (%u bytes) too large for copy buffer (%zu). Discarding.",
 			pdc_payload_len, sizeof(mac_pdc_payload_copy));
 		return;
 	}
 
 	memcpy(mac_pdc_payload_copy, pdc_event->data, pdc_payload_len);
-	// printk("[PT_SM] First byte of received PDC payload: 0x%02X(%d)\n", mac_pdc_payload_copy[0], mac_pdc_payload_copy[0]);
+	// LOG_DBG(" First byte of received PDC payload: 0x%02X(%d)", mac_pdc_payload_copy[0], mac_pdc_payload_copy[0]);
 
 	dect_mac_header_type_octet_t mac_hdr_type_octet;
 	memcpy(&mac_hdr_type_octet, &mac_pdc_payload_copy[0], sizeof(dect_mac_header_type_octet_t));
@@ -1195,7 +1188,7 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 	size_t sdu_area_plus_mic_len_in_payload = 0;
 	uint16_t ft_sender_short_id_from_pcc = 0;
 
-	printk("ctx->state:%s[%d] phy_type:%s header_type:%d \n",dect_mac_state_to_str(ctx->state), ctx->state, assoc_pcc_event->phy_type == 0? "Beacon":"Unicast", mac_hdr_type_octet.mac_header_type );
+	LOG_DBG("ctx->state:%s[%d] phy_type:%s header_type:%d ",dect_mac_state_to_str(ctx->state), ctx->state, assoc_pcc_event->phy_type == 0? "Beacon":"Unicast", mac_hdr_type_octet.mac_header_type );
 
 	ft_sender_short_id_from_pcc = dect_mac_phy_ctrl_get_transmitter_id((const union nrf_modem_dect_phy_hdr *)&assoc_pcc_event->hdr, assoc_pcc_event->phy_type);
 
@@ -1247,16 +1240,14 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 		const dect_mac_beacon_header_t *bch = (const dect_mac_beacon_header_t *)common_hdr_start_in_payload;
 		uint32_t ft_long_id = sys_be32_to_cpu(bch->transmitter_long_rd_id_be);
 
-	// printk("\n\n\n\n\n\n***********************************HERE*************MAC_COMMON_HEADER_TYPE_BEACON*******************************\n\n\n\n");	
-	// printk("ctx->state:%d \n",ctx->state );
-	printk("[DEBUG_PROBE] PT received a beacon from FT 0x%08X Connected to 0x%08X\n", ft_long_id, ctx->role_ctx.pt.associated_ft.long_rd_id);
-	printk("[DEBUG_PROBE] PT's PDC handler received a BEACON PDC from FT 0x%08X. Current PT state: %s\n",
+	LOG_DBG("PT received a beacon from FT 0x%08X Connected to 0x%08X", ft_long_id, ctx->role_ctx.pt.associated_ft.long_rd_id);
+	LOG_DBG("PT's PDC handler received a BEACON PDC from FT 0x%08X. Current PT state: %s",
                ft_long_id, dect_mac_state_to_str(ctx->state));
 		
 		if (IS_ENABLED(CONFIG_DECT_MAC_PT_MOBILITY_ENABLE) && ctx->state == MAC_STATE_ASSOCIATED && ft_long_id != ctx->role_ctx.pt.associated_ft.long_rd_id) {
 			/* This is a beacon from another FT. Evaluate for mobility. */
-			printk("/* This is a beacon from another FT. Evaluate for mobility. */ \n");
-			printk("[DEBUG_PROBE] PT in ASSOCIATED state received a beacon from FT 0x%08X.\n", ft_long_id);
+			LOG_DBG("[PT_SM_PDC] This is a beacon from another FT (0x%08X). Evaluate for mobility.", ft_long_id);
+
 			dect_mac_cluster_beacon_ie_fields_t cb_fields_parsed = {0};
 			dect_mac_rach_info_ie_fields_t rach_fields_parsed = {0};
 			bool cb_found = false;
@@ -1291,7 +1282,7 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 			}
 
 			if (cb_found) {
-				printk("[DEBUG_PROBE] PT sending pt_evaluate_mobility_candidate() from FT 0x%08X (RACH found: %d).\n", ft_long_id, rach_found);
+				LOG_DBG("PT sending pt_evaluate_mobility_candidate() from FT 0x%08X (RACH found: %d).", ft_long_id, rach_found);
 				pt_evaluate_mobility_candidate(ctx, &cb_fields_parsed, 
 								rach_found ? &rach_fields_parsed : NULL,
 								ft_long_id, ft_sender_short_id_from_pcc,
@@ -1320,7 +1311,7 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 		uint8_t net_id_ls8 = assoc_pcc_event->hdr.hdr_type_1.short_network_id;
 		uint32_t ft_network_id = net_id_ms24 | net_id_ls8;
 
-		printk("[[PT_SM]] Reconstructed FT Network ID: 0x%08X\n", ft_network_id);
+		LOG_DBG("[] Reconstructed FT Network ID: 0x%08X", ft_network_id);
 
 		/* First pass: Find RD Capability IE to determine the FT's numerology (mu) */
 		const uint8_t *p = sdu_area_ptr;
@@ -1330,16 +1321,16 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 			int mux_len = parse_mac_mux_header(p, l, &ie_type, &ie_len, &ie_payload);
 			
 
-			printk("[PT_PDC_PARSE] First pass: Remaining buffer length: %zu, buffer pos offset: %zu\n", l, p - sdu_area_ptr);
+			LOG_DBG("First pass: Remaining buffer length: %zu, buffer pos offset: %zu", l, p - sdu_area_ptr);
 			// if (mux_len <= 0 || (l < (size_t)mux_len + ie_len)) break;
 			if (mux_len <= 0 || (l < (size_t)mux_len + ie_len)) {
-				printk("[PT_PDC_PARSE] Parse failed: mux_len=%d, l=%zu, ie_len=%u\n", 
+				LOG_DBG("Parse failed: mux_len=%d, l=%zu, ie_len=%u", 
 					mux_len, l, ie_len);
-				printk("[PT_PDC_PARSE] Dumping remaining buffer:\n");
+				LOG_DBG("Dumping remaining buffer:");
 				for (size_t i = 0; i < MIN(l, 32); i++) {
-					printk("%02x ", p[i]);
+					LOG_DBG("%02x ", p[i]);
 				}
-				printk("\n");
+				// LOG_DBG("");
 				break;
 			}
 
@@ -1362,16 +1353,16 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 			uint8_t ie_type; uint16_t ie_len; const uint8_t *ie_payload;
 			int mux_len = parse_mac_mux_header(p, l, &ie_type, &ie_len, &ie_payload);
 
-			printk("[PT_PDC_PARSE] Second pass: Remaining buffer length: %zu, buffer pos offset: %zu\n", l, p - sdu_area_ptr);
+			LOG_DBG("Second pass: Remaining buffer length: %zu, buffer pos offset: %zu", l, p - sdu_area_ptr);
 			// if (mux_len <= 0 || (l < (size_t)mux_len + ie_len)) break;
 			if (mux_len <= 0 || (l < (size_t)mux_len + ie_len)) {
-				printk("[PT_PDC_PARSE] Parse failed: mux_len=%d, l=%zu, ie_len=%u\n", 
+				LOG_DBG("Parse failed: mux_len=%d, l=%zu, ie_len=%u", 
 					mux_len, l, ie_len);
-				printk("[PT_PDC_PARSE] Dumping remaining buffer:\n");
+				LOG_DBG("Dumping remaining buffer:");
 				for (size_t i = 0; i < MIN(l, 32); i++) {
-					printk("%02x ", p[i]);
+					LOG_DBG("%02x ", p[i]);
 				}
-				printk("\n");
+				// LOG_DBG("");
 				break;
 			}
 
@@ -1426,13 +1417,13 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 			if (ctx->state == MAC_STATE_PT_SCANNING || ctx->state == MAC_STATE_PT_BEACON_PDC_WAIT) {
 				/* Initial discovery: adopt Network ID and SFN from the first suitable beacon found */
 				ctx->network_id_32bit = ft_network_id;
-				printk("[PT_BEACON_PROC] PT Network ID adopted (Scan): 0x%08X\n", ctx->network_id_32bit);
+				LOG_DBG("PT Network ID adopted (Scan): 0x%08X", ctx->network_id_32bit);
 
 				uint64_t frame_duration_ticks = FRAME_DURATION_TICKS;
 				ctx->ft_sfn0_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
 				ctx->current_sfn_at_anchor_update = 0;
 				ctx->role_ctx.pt.current_ft_sfn = cb_fields_parsed.sfn;
-				LOG_INF("PT_SYNC: Initial sync to FT 0x%08X. SFN is now %u, anchor time is %llu.",
+				LOG_INF("Initial sync to FT 0x%08X. SFN is now %u, anchor time is %llu.",
 					ft_long_id, ctx->role_ctx.pt.current_ft_sfn, ctx->ft_sfn0_modem_time_anchor);
 
 				pt_process_identified_beacon_and_attempt_assoc(
@@ -1444,16 +1435,18 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 				/* During association: Only sync if the beacon is from our TARGET FT */
 				if (ft_long_id == ctx->role_ctx.pt.target_ft.long_rd_id) {
 					ctx->network_id_32bit = ft_network_id;
+					LOG_DBG("PT Network ID adopted (Association): 0x%08X", ctx->network_id_32bit);
 					uint64_t frame_duration_ticks = FRAME_DURATION_TICKS;
 					ctx->ft_sfn0_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
 					ctx->current_sfn_at_anchor_update = cb_fields_parsed.sfn;
 					ctx->role_ctx.pt.current_ft_sfn = cb_fields_parsed.sfn;
-					LOG_DBG("PT_SYNC: Target FT sync update. SFN %u.", ctx->role_ctx.pt.current_ft_sfn);
+					LOG_DBG("Target FT sync update. SFN %u.", ctx->role_ctx.pt.current_ft_sfn);
 				}
 			} else if (ctx->state == MAC_STATE_ASSOCIATED) {
 				/* Connected: sync with our associated FT */
 				if (ft_long_id == ctx->role_ctx.pt.associated_ft.long_rd_id) {
 					ctx->network_id_32bit = ft_network_id;
+					LOG_DBG("PT Network ID adopted (Connected): 0x%08X", ctx->network_id_32bit);
 					uint64_t frame_duration_ticks = FRAME_DURATION_TICKS;
 					ctx->ft_sfn0_modem_time_anchor = pcc_reception_modem_time - (cb_fields_parsed.sfn * frame_duration_ticks);
 					ctx->current_sfn_at_anchor_update = cb_fields_parsed.sfn;
@@ -1469,8 +1462,7 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 	}
 
 	/* --- Unicast PDU Processing Logic --- */
-	printk("/* --- Unicast PDU Processing Logic --- */ -> ctx->state[%d]  \n", ctx->state);
-	printk("[PT_UNICAST_MATCH] State: %s. PCC Sender: 0x%04X, Target FT: 0x%04X (valid: %d)\n",
+	LOG_DBG("[PT_SM_PDC_UNICAST] State: %s. PCC Sender: 0x%04X, Target FT: 0x%04X (valid: %d)",
 	       dect_mac_state_to_str(ctx->state), ft_sender_short_id_from_pcc, 
 	       ctx->role_ctx.pt.target_ft.short_rd_id, ctx->role_ctx.pt.target_ft.is_valid);
 
@@ -1509,22 +1501,21 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 			/* Beacon processed for CDD, no further action needed for this PDU */
 			return;
 		}
-		printk("====================================== 3 NEW LOGIC PT==================================================\n\n\n\n\n\n\n");
 		/* This block handles all messages from our CURRENTLY associated FT. */
 		active_ft_peer_ctx = &ctx->role_ctx.pt.associated_ft;
 	} else if (ctx->state == MAC_STATE_PT_SCANNING && ctx->role_ctx.pt.target_ft.is_valid &&
 		   ft_sender_short_id_from_pcc == ctx->role_ctx.pt.target_ft.short_rd_id) {
 		/* This can happen if an AssocResp arrives after a retry/rescan has been initiated */
-		printk("PT_SM_PDC: Received unicast from target FT while in SCANNING state. Processing.");
+		LOG_DBG("PT_SM_PDC: Received unicast from target FT while in SCANNING state. Processing.");
 		active_ft_peer_ctx = &ctx->role_ctx.pt.target_ft;
 	} else {
-		printk("[PT_PDC_DBG] Unicast discard details:\n");
-		printk("  - Sender's Short ID: 0x%04X\n", ft_sender_short_id_from_pcc);
-		printk("  - PT State: %s\n", dect_mac_state_to_str(ctx->state));
-		printk("  - Associated FT is_valid: %d\n", ctx->role_ctx.pt.associated_ft.is_valid);
-		printk("  - Associated FT Short ID: 0x%04X\n", ctx->role_ctx.pt.associated_ft.short_rd_id);
-		printk("  - Target FT is_valid: %d\n", ctx->role_ctx.pt.target_ft.is_valid);
-		printk("  - Target FT Short ID: 0x%04X\n", ctx->role_ctx.pt.target_ft.short_rd_id);
+		LOG_DBG("[PT_PDC_DBG] Unicast discard details:");
+		LOG_DBG("  - Sender's Short ID: 0x%04X", ft_sender_short_id_from_pcc);
+		LOG_DBG("  - PT State: %s", dect_mac_state_to_str(ctx->state));
+		LOG_DBG("  - Associated FT is_valid: %d", ctx->role_ctx.pt.associated_ft.is_valid);
+		LOG_DBG("  - Associated FT Short ID: 0x%04X", ctx->role_ctx.pt.associated_ft.short_rd_id);
+		LOG_DBG("  - Target FT is_valid: %d", ctx->role_ctx.pt.target_ft.is_valid);
+		LOG_DBG("  - Target FT Short ID: 0x%04X", ctx->role_ctx.pt.target_ft.short_rd_id);
 		LOG_WRN("PT_SM_PDC: Unicast from FT 0x%04X in unexpected state %s or from unexpected FT. Discarding.",
 			ft_sender_short_id_from_pcc, dect_mac_state_to_str(ctx->state));
 		return;
@@ -1657,12 +1648,12 @@ process_feedback:;
 		uint32_t receiver_long_id_cpu = sys_be32_to_cpu(receiver_long_id_be);
 
 		if (receiver_long_id_cpu != ctx->own_long_rd_id) {
-			printk("[PT_ADDR_FILTER] Discarding Unicast PDU. Recv:0x%08X, Own:0x%08X (Short:0x%04X)\n",
+			LOG_DBG("[PT_ADDR_FILTER] Discarding Unicast PDU. Recv:0x%08X, Own:0x%08X (Short:0x%04X)",
 			       receiver_long_id_cpu, ctx->own_long_rd_id, ctx->own_short_rd_id);
 			return;
 		}
 
-		printk("[PT_ADDR_FILTER] ACCEPTED Unicast PDU for us! Recv:0x%08X, Own:0x%08X (Short:0x%04X)\n",
+		LOG_DBG("[PT_ADDR_FILTER] ACCEPTED Unicast PDU for us! Recv:0x%08X, Own:0x%08X (Short:0x%04X)",
 		       receiver_long_id_cpu, ctx->own_long_rd_id, ctx->own_short_rd_id);
 
 		sender_long_id_final = sys_be32_to_cpu(uch->transmitter_long_rd_id_be);
@@ -1673,7 +1664,7 @@ process_feedback:;
 		if (mux_hdr_len > 0) {
 			switch (ie_type) {
 			case IE_TYPE_ASSOC_RESP:
-				printk("  - Found Association Response IE in PDU. State: %s\n",
+				LOG_DBG("  - Found Association Response IE in PDU. State: %s",
 				       dect_mac_state_to_str(ctx->state));
 				if (ctx->state == MAC_STATE_PT_WAIT_ASSOC_RESP) {
 					pt_process_association_response_pdu(
@@ -1687,7 +1678,7 @@ process_feedback:;
 				if (ctx->state == MAC_STATE_PT_RELEASING) {
 					dect_mac_assoc_release_ie_t release_fields;
 					if (parse_assoc_release_ie_payload(ie_payload, ie_len, &release_fields) == 0) {
-						LOG_INF("PT SM: Received Association Release confirmation from FT (cause: %u). Disconnecting.", release_fields.cause);
+						LOG_INF("Received Association Release confirmation from FT (cause: %u). Disconnecting.", release_fields.cause);
 						dect_mac_sm_pt_start_operation(); /* Restart full scan */
 					}
 				}
@@ -1760,43 +1751,37 @@ static void pt_process_identified_beacon_and_attempt_assoc(dect_mac_context_t *c
                                                            uint16_t beacon_rx_carrier,
                                                            uint64_t beacon_pcc_rx_time)
 {
-	printk("[PT_SM] In pt_process_identified_beacon_and_attempt_assoc.\n");
+	LOG_DBG(" In pt_process_identified_beacon_and_attempt_assoc.");
 	ctx->role_ctx.pt.beacon_rx_count++;
     if (!ctx || !cb_fields || !rach_fields) {
-		printk("[PT_SM] PT_BEACON_PROC: NULL arguments.");
-        LOG_ERR("PT_BEACON_PROC: NULL arguments.");
+		LOG_ERR(" NULL arguments.");
         return;
     }
 
-	printk("[PT_BEACON_PROC] PT Network ID before processing beacon: 0x%08X\n", ctx->network_id_32bit);
+	LOG_DBG("PT Network ID before processing beacon: 0x%08X", ctx->network_id_32bit);
 
 
     bool select_this_ft = false;
 
     if (!ctx->role_ctx.pt.target_ft.is_valid) {
         select_this_ft = true;
-        printk("PT_BEACON_PROC: No current target. Selecting FT 0x%04X (RSSI:%d).\n", ft_short_id, rssi_q7_1 );
-		LOG_INF("PT_BEACON_PROC: No current target. Selecting FT 0x%04X (RSSI:%d).", ft_short_id, rssi_q7_1 );
+        LOG_DBG("No current target. Selecting FT 0x%04X (RSSI:%d).", ft_short_id, rssi_q7_1 );
     } else if (ctx->state == MAC_STATE_PT_SCANNING) {
 		/* Only re-select/switch if we are still explicitly scanning and find a much better one */
 		if (rssi_q7_1 > (ctx->role_ctx.pt.target_ft.rssi_2 + (RSSI_HYSTERESIS_DB * 2))) {
 			select_this_ft = true;
-			printk("PT_BEACON_PROC: New FT 0x%04X has better RSSI (%.1f > %d). Switching.\n",
-					ft_short_id, rssi_q7_1 / 2.0, ctx->role_ctx.pt.target_ft.rssi_2);
-			LOG_INF("PT_BEACON_PROC: New FT 0x%04X has better RSSI (%.1f > %d). Switching.",
+			LOG_INF("New FT 0x%04X has better RSSI (%.1f > %d). Switching.",
 					ft_short_id, rssi_q7_1 / 2.0, ctx->role_ctx.pt.target_ft.rssi_2);				
 		}
     }
 
 
     if (select_this_ft) {
-        printk("PT_BEACON_PROC: Selected FT LongID:0x%08X, ShortID:0x%04X, BeaconRxCarrier:%u, RSSI2:%d dBm \n",
-                ft_long_id, ft_short_id, beacon_rx_carrier, rssi_q7_1);
-        LOG_INF("PT_BEACON_PROC: Selected FT LongID:0x%08X, ShortID:0x%04X, BeaconRxCarrier:%u, RSSI2:%d dBm",
+        LOG_INF("Selected FT LongID:0x%08X, ShortID:0x%04X, BeaconRxCarrier:%u, RSSI2:%d dBm",
                 ft_long_id, ft_short_id, beacon_rx_carrier, rssi_q7_1);
 
 		/* --- DEBUG LOGGING: Verify parsed beacon period code --- */
-		LOG_DBG("PT_BEACON_PROC: Parsed Cluster Beacon IE -> cluster_beacon_period_code: %u",
+		LOG_DBG("Parsed Cluster Beacon IE -> cluster_beacon_period_code: %u",
 			cb_fields->cluster_beacon_period_code);
 
 		/* Store beacon period from the parsed beacon IE */
@@ -1807,7 +1792,7 @@ static void pt_process_identified_beacon_and_attempt_assoc(dect_mac_context_t *c
 		}
 
 		/* --- DEBUG LOGGING: Verify stored millisecond value --- */
-		LOG_DBG("PT_BEACON_PROC: Stored beacon_period_ms in target_ft context: %u ms",
+		LOG_DBG("Stored beacon_period_ms in target_ft context: %u ms",
 			ctx->role_ctx.pt.target_ft.beacon_period_ms);
 			
         dect_mac_change_state(MAC_STATE_PT_ASSOCIATING);
@@ -1824,8 +1809,7 @@ static void pt_process_identified_beacon_and_attempt_assoc(dect_mac_context_t *c
         } else {
             ctx->role_ctx.pt.target_ft.operating_carrier = beacon_rx_carrier;
         }
-        printk("PT_BEACON_PROC: Target FT operating_carrier set to: %u \n", ctx->role_ctx.pt.target_ft.operating_carrier);
-		LOG_INF("PT_BEACON_PROC: Target FT operating_carrier set to: %u", ctx->role_ctx.pt.target_ft.operating_carrier);
+		LOG_INF("Target FT operating_carrier set to: %u", ctx->role_ctx.pt.target_ft.operating_carrier);
 
         uint32_t frame_duration_ticks = FRAME_DURATION_TICKS;
 
@@ -1838,7 +1822,7 @@ static void pt_process_identified_beacon_and_attempt_assoc(dect_mac_context_t *c
             ctx->ft_sfn0_modem_time_anchor = (ctx->ft_sfn0_modem_time_anchor + new_sfn0_estimate) / 2;
         }
         ctx->current_sfn_at_anchor_update = cb_fields->sfn;
-        LOG_DBG("PT_BEACON_PROC: FT SFN0 Anchor: %llu (Beacon SFN %u @ %llu)",
+        LOG_DBG("FT SFN0 Anchor: %llu (Beacon SFN %u @ %llu)",
                 ctx->ft_sfn0_modem_time_anchor, cb_fields->sfn, beacon_pcc_rx_time);
 
         memcpy(&ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields,
@@ -1881,25 +1865,19 @@ static void pt_process_identified_beacon_and_attempt_assoc(dect_mac_context_t *c
         ctx->rach_context.rach_cw_current_idx = ctx->config.rach_cw_min_idx;
 
 		if (ctx->pending_op_type == PENDING_OP_PT_SCAN && ctx->pending_op_handle != 0) {
-			printk("PT_BEACON_PROC: Cancelling ongoing scan (handle %u) to associate with FT 0x%04X.\n",
+			LOG_DBG("Cancelling ongoing scan (handle %u) to associate with FT 0x%04X.",
 				ctx->pending_op_handle, ft_short_id);
-			// LOG_INF("PT_BEACON_PROC: Cancelling ongoing scan (handle %u) to associate with FT 0x%04X.",
-			// 	ctx->pending_op_handle, ft_short_id);
-			// printk("[PT_SM] dect_mac_change_state Called \n");
 			dect_mac_change_state(MAC_STATE_PT_CANCELLING_SCAN);
-			// printk("[PT_SM_EVIDENCE] Returned from dect_mac_change_state. Now calling cancel op.\n");
-			// printk("[PT_SM] dect_mac_phy_ctrl_cancel_op Called \n");
+			// LOG_DBG("[PT_SM_EVIDENCE] Returned from dect_mac_change_state. Now calling cancel op.");
+			// LOG_DBG(" dect_mac_phy_ctrl_cancel_op Called ");
 			dect_mac_phy_ctrl_cancel_op(ctx->pending_op_handle);
 			/* The actual association request will be sent from the OP_COMPLETE handler for the cancelled scan */
 		} else {
-			LOG_INF("PT_BEACON_PROC: No active scan to cancel. Directly attempting association with FT 0x%04X.", ft_short_id);
+			LOG_INF("No active scan to cancel. Directly attempting association with FT 0x%04X.", ft_short_id);
 			pt_send_association_request_action();
 		}
     } else {
-        printk("PT_BEACON_PROC: Beacon from FT 0x%04X (L:0x%08X, RSSI:%.1f) not better than current target 0x%04X (RSSI:%.1f). Continuing scan.",
-                ft_short_id, ft_long_id, rssi_q7_1 / 2.0,
-                ctx->role_ctx.pt.target_ft.short_rd_id, ctx->role_ctx.pt.target_ft.rssi_2 / 2.0);
-        LOG_DBG("PT_BEACON_PROC: Beacon from FT 0x%04X (L:0x%08X, RSSI:%.1f) not better than current target 0x%04X (RSSI:%.1f). Continuing scan.",
+        LOG_DBG("Beacon from FT 0x%04X (L:0x%08X, RSSI:%.1f) not better than current target 0x%04X (RSSI:%.1f). Continuing scan.",
                 ft_short_id, ft_long_id, rssi_q7_1 / 2.0,
                 ctx->role_ctx.pt.target_ft.short_rd_id, ctx->role_ctx.pt.target_ft.rssi_2 / 2.0);				
     }
@@ -1962,13 +1940,9 @@ static void pt_send_auth_initiate_action(void)
 		return;
 	}
 
-
-	printk("[PT_TX_EVIDENCE] Assembled Association Request PDU (len %u) for FT 0x%04X:\n",
+	LOG_INF("[PT_TX_EVIDENCE] Assembled Association Request PDU (len %u) for FT 0x%04X:",
 	       pdu_len, ctx->role_ctx.pt.target_ft.short_rd_id);
-	for (int i = 0; i < pdu_len; i++) {
-		printk("%02x ", pdu_sdu->data[i]);
-	}
-	printk("\n");
+	LOG_HEXDUMP_INF(pdu_sdu->data, pdu_len, "[PT_TX_EVIDENCE] Assembled Association Request PDU");
 	
 
 	uint32_t phy_op_handle;
@@ -2004,9 +1978,8 @@ static void pt_send_association_request_action(void)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
-	printk("[PT_SM_ASSOC_REQ] Action started with context %p (Role: %s)\n",
-	       (void *)ctx, (ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
-	printk("[PT_SM] In pt_send_association_request_action. State: %s\n", dect_mac_state_to_str(ctx->state));
+	LOG_DBG("Action started with context %p (Role: %s) State: %s",
+	       (void *)ctx, (ctx->role == MAC_ROLE_PT ? "PT" : "FT"), dect_mac_state_to_str(ctx->state));
 
 	if (!ctx->role_ctx.pt.target_ft.is_valid || !ctx->role_ctx.pt.target_ft.is_fully_identified) {
 		LOG_ERR("PT_SM_ASSOC_REQ: No valid or not fully identified target FT. Restarting scan.");
@@ -2170,11 +2143,8 @@ static void pt_send_association_request_action(void)
                                          &pdu_len);
 
 
-		printk("[PT_CREATE_EVIDENCE] Assembled Association Request PDU (len %u) before sending to PHY control:\n", pdu_len);
-		for (int i = 0; i < pdu_len; i++) {
-			printk("%02x ", pdu_sdu->data[i]);
-		}
-		printk("\n");
+		LOG_INF("Assembled Association Request PDU (len %u) before sending to PHY control:", pdu_len);
+		LOG_HEXDUMP_INF(pdu_sdu->data, pdu_len, "Assembled Association Request PDU");
 
 	if (ret != 0) {
 		LOG_ERR("PT_SM_ASSOC_REQ: Failed to assemble Association Request PDU: %d. Restarting scan.", ret);
@@ -2228,7 +2198,7 @@ static void pt_send_association_request_action(void)
 			ctx->own_phy_params.beta);
 	}
 
-	printk("PT_SM_ASSOC_REQ: Scheduling RACH TX for SFN %u, SS %u. TargetStart:%llu\n",
+	LOG_DBG("PT_SM_ASSOC_REQ: Scheduling RACH TX for SFN %u, SS %u. TargetStart:%llu",
 		target_sfn, start_ss, rach_tx_time);
 
 	ret = dect_mac_phy_ctrl_start_tx_assembled(
@@ -2267,10 +2237,10 @@ static void pt_process_association_response_pdu(const uint8_t *mac_sdu_area_data
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
 	k_timer_stop(&ctx->rach_context.rach_response_window_timer);
-printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. State: %s\n", dect_mac_state_to_str(ctx->state));
+	LOG_DBG("Starting: State: %s", dect_mac_state_to_str(ctx->state));
 
 	if (ft_tx_long_rd_id != ctx->role_ctx.pt.target_ft.long_rd_id) {
-		printk("PT_SM_ASSOC_RESP: From unexpected FT L:0x%08X (expected L:0x%08X). Ignoring.",
+		LOG_WRN("From unexpected FT L:0x%08X (expected L:0x%08X). Ignoring.",
 			ft_tx_long_rd_id, ctx->role_ctx.pt.target_ft.long_rd_id);
 		// LOG_WRN("PT_SM_ASSOC_RESP: From unexpected FT L:0x%08X (expected L:0x%08X). Ignoring.",
 		// 	ft_tx_long_rd_id, ctx->role_ctx.pt.target_ft.long_rd_id);
@@ -2287,10 +2257,8 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 	const uint8_t *current_ie_ptr = mac_sdu_area_data;
 	size_t remaining_len = mac_sdu_area_len;
 
-	printk("PT_SM_ASSOC_RESP: Processing AssocResp from FT L:0x%08X (S:0x%04X) \n",
+	LOG_DBG("Processing AssocResp from FT L:0x%08X (S:0x%04X) ",
 		ft_tx_long_rd_id, ctx->role_ctx.pt.target_ft.short_rd_id);
-	// LOG_INF("PT_SM_ASSOC_RESP: Processing AssocResp from FT L:0x%08X (S:0x%04X)",
-	// 	ft_tx_long_rd_id, ctx->role_ctx.pt.target_ft.short_rd_id);
 
 	while (remaining_len > 0) {
 		uint8_t ie_type;
@@ -2324,13 +2292,13 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 					res_alloc_found = true;
 				}
 			} else {
-				LOG_WRN("PT_ASSOC_RESP: Found Resource Allocation IE but no preceding RD Capability IE. Cannot parse correctly.");
+				LOG_WRN("Found Resource Allocation IE but no preceding RD Capability IE. Cannot parse correctly.");
 			}
 		}
 
 		size_t consumed = mux_hdr_len + ie_payload_len;
 		if (consumed == 0) {
-			LOG_WRN("PT_ASSOC_RESP: Consumed 0 bytes, breaking loop.");
+			LOG_WRN("Consumed 0 bytes, breaking loop.");
 			break;
 		}
 		if (remaining_len >= consumed) {
@@ -2342,7 +2310,7 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 	}
 
 	if (!resp_ie_found) {
-		LOG_ERR("PT_SM_ASSOC_RESP: Association Response IE missing. Restarting scan.");
+		LOG_ERR("Association Response IE missing. Restarting scan.");
 		dect_mac_sm_pt_start_operation();
 		return;
 	}
@@ -2353,7 +2321,7 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 	 * attempt to schedule a new operation (like a new scan).
 	 */
 	if (ctx->pending_op_type == PENDING_OP_PT_WAIT_ASSOC_RESP) {
-		printk("[PT_ASSOC_RESP_DBG] PDU processed. Clearing pending op and cancelling obsolete RX op (Hdl: %u).\n",
+		LOG_DBG("PDU processed. Clearing pending op and cancelling obsolete RX op (Hdl: %u).",
 		       ctx->pending_op_handle);
 		uint32_t handle_to_cancel = ctx->pending_op_handle;
 		dect_mac_core_clear_pending_op(); /* Clear state synchronously */
@@ -2362,22 +2330,21 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 
 
 	if (resp_fields.ack_nack) {
-		printk("  - Association ACCEPTED by FT. NACK: %d (ctx->state:%d)\n", resp_fields.ack_nack, ctx->state);
+		LOG_DBG("  - Association ACCEPTED by FT. NACK: %d (ctx->state:%d)", resp_fields.ack_nack, ctx->state);
 		if (!ft_cap_found || !res_alloc_found) {
-			LOG_ERR("PT_SM_ASSOC_RESP: ACK received but mandatory IEs missing (Cap:%d, Res:%d). Restarting scan.",
+			LOG_ERR("ACK received but mandatory IEs missing (Cap:%d, Res:%d). Restarting scan.",
 				ft_cap_found, res_alloc_found);
 			dect_mac_sm_pt_start_operation();
 			return;
 		} else {
 			/* --- Association ACCEPTED Logic --- */
-			printk("[PT_ASSOC_RESP_DBG] Association was ACCEPTED. Proceeding to secure link.\n");
+			LOG_DBG("Association was ACCEPTED. Proceeding to secure link.");
 		}
 
 		if (ctx->state == MAC_STATE_PT_HANDOVER_ASSOCIATING) {
-			printk("MOBILITY: Handover association to FT 0x%04X ACCEPTED.",
+			LOG_DBG("MOBILITY: Handover association to FT 0x%04X ACCEPTED.",
 				ctx->role_ctx.pt.target_ft.short_rd_id);
-			// LOG_INF("MOBILITY: Handover association to FT 0x%04X ACCEPTED.",
-			// 	ctx->role_ctx.pt.target_ft.short_rd_id);				
+		
 			dect_mac_peer_info_t old_ft_info = ctx->role_ctx.pt.associated_ft;
 
 			memcpy(&ctx->role_ctx.pt.associated_ft, &ctx->role_ctx.pt.target_ft,
@@ -2388,12 +2355,9 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 			}
 			pt_requeue_held_packets(ctx);
 		} else {
-			printk("PT_SM: Association ACCEPTED by FT L:0x%08X (S:0x%04X).",
+			LOG_DBG("Association ACCEPTED by FT L:0x%08X (S:0x%04X).",
 				ctx->role_ctx.pt.target_ft.long_rd_id,
 				ctx->role_ctx.pt.target_ft.short_rd_id);
-			// LOG_INF("PT_SM: Association ACCEPTED by FT L:0x%08X (S:0x%04X).",
-			// 	ctx->role_ctx.pt.target_ft.long_rd_id,
-			// 	ctx->role_ctx.pt.target_ft.short_rd_id);				
 			memcpy(&ctx->role_ctx.pt.associated_ft, &ctx->role_ctx.pt.target_ft,
 			       sizeof(dect_mac_peer_info_t));
 		}
@@ -2414,7 +2378,7 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 
 		/* Store the negotiated parameters from the FT's response */
 		if (resp_fields.harq_mod_present) {
-			LOG_INF("PT_SM: FT negotiated HARQ params -> PT_TX(FT_RX) Procs: %u, Delay: %u; PT_RX(FT_TX) Procs: %u, Delay: %u",
+			LOG_INF("FT negotiated HARQ params -> PT_TX(FT_RX) Procs: %u, Delay: %u; PT_RX(FT_TX) Procs: %u, Delay: %u",
 				resp_fields.harq_processes_rx_val_ft, /* FT's RX is our TX */
 				resp_fields.max_harq_re_rx_delay_code_ft,
 				resp_fields.harq_processes_tx_val_ft, /* FT's TX is our RX */
@@ -2429,7 +2393,7 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 		if (resp_fields.group_assignment_active) {
 			ctx->role_ctx.pt.associated_ft.group_id = resp_fields.group_id_val;
 			ctx->role_ctx.pt.associated_ft.resource_tag = resp_fields.resource_tag_val;
-			LOG_INF("PT_SM: Assigned to Group ID %u with Resource Tag %u by FT.",
+			LOG_INF("Assigned to Group ID %u with Resource Tag %u by FT.",
 				resp_fields.group_id_val, resp_fields.resource_tag_val);
 		}
 
@@ -2437,10 +2401,10 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 		ctx->role_ctx.pt.target_ft.is_valid = false;
 
 		if (res_alloc_found) {
-			LOG_INF("PT_SM: Storing schedule from FT 0x%04X.",
+			LOG_INF("Storing schedule from FT 0x%04X.",
 				ctx->role_ctx.pt.associated_ft.short_rd_id);
 
-			printk("[DEBUG_PROBE] SFN at Assoc Resp time: FT's SFN (from beacon)=%u, PT's current SFN=%u\n",
+			LOG_DBG("SFN at Assoc Resp time: FT's SFN (from beacon)=%u, PT's current SFN=%u",
 			       ctx->current_sfn_at_anchor_update, ctx->role_ctx.pt.current_ft_sfn);
 			
 			// /* Synchronize the PT's SFN with the FT's SFN from the beacon */
@@ -2511,7 +2475,7 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 				dl_sched->next_occurrence_modem_time = candidate_time;
 			}
 			update_next_occurrence(ctx, dl_sched, ctx->last_known_modem_time, ft_mu_code);
-			LOG_INF("PT_SM: DL Schedule Init: NextOcc @ %llu, StartSS %u, Dur %u subslots",
+			LOG_INF("DL Schedule Init: NextOcc @ %llu, StartSS %u, Dur %u subslots",
 				dl_sched->next_occurrence_modem_time, dl_sched->dl_start_subslot,
 				dl_sched->dl_duration_subslots);
 
@@ -2570,7 +2534,7 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 					ul_sched->next_occurrence_modem_time = candidate_time;
 				}
 				update_next_occurrence(ctx, ul_sched, ctx->last_known_modem_time, ft_mu_code);
-				LOG_INF("PT_SM: UL Schedule Init: NextOcc @ %llu, StartSS %u, Dur %u subslots",
+				LOG_INF("UL Schedule Init: NextOcc @ %llu, StartSS %u, Dur %u subslots",
 					ul_sched->next_occurrence_modem_time,
 					ul_sched->ul_start_subslot, ul_sched->ul_duration_subslots);
 			} else {
@@ -2588,16 +2552,12 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 		/* Security is disabled. A successful response means we are now associated. */
 		ctx->keys_provisioned = false;
 		ctx->role_ctx.pt.associated_ft.is_secure = false;
-		printk("[SM PT]: pt_process_association_response_pdu ->dect_mac_change_state Started... MAC_STATE_ASSOCIATED \n");
-		// dect_mac_change_state(MAC_STATE_ASSOCIATED);
-		// printk("PT_SM: Association successful. Link is UNSECURE.");
-		// printk("  - State transitioned to ASSOCIATED.\n");
-
+		LOG_DBG("Started... MAC_STATE_ASSOCIATED ");
 
 		dect_mac_change_state(MAC_STATE_PT_AUTHENTICATING);
 		pt_authentication_complete_action(ctx, false); /* Proceed with unsecure link setup */
-		printk("PT_SM: Association Link is UNSECURE.");
-		printk("  - State transitioned to MAC_STATE_PT_AUTHENTICATING.\n");
+		LOG_DBG("Association Link is UNSECURE.");
+		LOG_DBG("  - State transitioned to MAC_STATE_PT_AUTHENTICATING.");
 
 		/* Start periodic timers for an active link */
 		k_timer_start(&ctx->role_ctx.pt.keep_alive_timer,
@@ -2611,39 +2571,39 @@ printk("[PT_SM] PT ASSOC RESP PROCESSOR pt_process_association_response_pdu. Sta
 		/* Start the beacon listen timer based on the FT's advertised period */
 		uint32_t beacon_period_ms = ctx->role_ctx.pt.associated_ft.beacon_period_ms;
 		if (beacon_period_ms > 0) {
-			LOG_INF("PT_SM: Starting beacon listen timer with period %u ms.", beacon_period_ms);
+			LOG_INF("Starting beacon listen timer with period %u ms.", beacon_period_ms);
 			k_timer_start(&ctx->role_ctx.pt.beacon_listen_timer, K_MSEC(beacon_period_ms), K_MSEC(beacon_period_ms));
 		} else {
-			LOG_WRN("PT_SM: FT beacon period is 0. Cannot start beacon listen timer.");
+			LOG_WRN("FT beacon period is 0. Cannot start beacon listen timer.");
 		}
 
 		ctx->role_ctx.pt.current_assoc_retries = 0;
 #endif /* IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
 	} else {
 		/* --- Association REJECTED Logic --- */
-		printk("[PT_ASSOC_RESP_DBG] Association was REJECTED by FT.\n");
-		printk("  - Reject Cause: %u, Reject Timer Code: %u\n",
+		LOG_DBG("[PT_ASSOC_RESP_DBG] Association was REJECTED by FT.");
+		LOG_DBG("  - Reject Cause: %u, Reject Timer Code: %u",
 		       resp_fields.reject_cause, resp_fields.reject_timer_code);
 
 		/* Start the reject timer to prevent immediate re-association with this FT */
 		uint32_t backoff_ms = resp_fields.reject_timer_code * 100; /* Timer code is in 100ms units */
 		if (backoff_ms > 0) {
-			LOG_INF("PT_SM: Starting reject backoff timer for %u ms for FT 0x%08X",
+			LOG_INF("Starting reject backoff timer for %u ms for FT 0x%08X",
 				backoff_ms, ctx->role_ctx.pt.target_ft.long_rd_id);
 			k_timer_start(&ctx->role_ctx.pt.reject_timer, K_MSEC(backoff_ms), K_NO_WAIT);
 		}
 
 		if (ctx->state == MAC_STATE_PT_HANDOVER_ASSOCIATING) {
-			printk("  - Handling as a FAILED HANDOVER.\n");
+			LOG_DBG("  - Handling as a FAILED HANDOVER.");
 			pt_revert_to_old_ft_after_handover_failure();
 		} else {
-			printk("  - Handling as a FAILED INITIAL ASSOCIATION. Restarting scan.\n");
+			LOG_DBG("  - Handling as a FAILED INITIAL ASSOCIATION. Restarting scan.");
 			memset(&ctx->role_ctx.pt.target_ft, 0, sizeof(dect_mac_peer_info_t));
 			ctx->role_ctx.pt.target_ft.is_valid = false;
 			dect_mac_sm_pt_start_operation();
 		}
 	}
-	printk("--- END PT ASSOC RESP PROCESSOR ---\n");	
+	LOG_DBG("--- END PT ASSOC RESP PROCESSOR ---");	
 }
 
 #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)	
@@ -3048,7 +3008,7 @@ static void pt_send_keep_alive_action(void)
 //         return;
 //     }
 
-//     LOG_INF("PT SM: Starting Authentication (PSK-based key derivation) with FT 0x%04X (L:0x%08X).",
+//     LOG_INF("Starting Authentication (PSK-based key derivation) with FT 0x%04X (L:0x%08X).",
 //             ctx->role_ctx.pt.associated_ft.short_rd_id,
 //             ctx->role_ctx.pt.associated_ft.long_rd_id);
 
@@ -3093,15 +3053,15 @@ static void pt_send_keep_alive_action(void)
  * @param success 
  */
 static void pt_authentication_complete_action(dect_mac_context_t* ctx, bool success) {
-	printk("[AUTH_COMPLETE_DBG] pt_authentication_complete_action called with success: %d\n", success);
+	LOG_DBG("Called with success: %d", success);
 
     if (!ctx) {
-        LOG_ERR("PT_AUTH_COMPLETE: NULL context provided.");
+        LOG_ERR("NULL context provided.");
         return;
     }
 
     if (ctx->state != MAC_STATE_PT_AUTHENTICATING) {
-        LOG_WRN("PT_AUTH_COMPLETE: Called in unexpected state %s. Current FT ShortID: 0x%04X",
+        LOG_WRN("Called in unexpected state %s. Current FT ShortID: 0x%04X",
                 dect_mac_state_to_str(ctx->state), ctx->role_ctx.pt.associated_ft.short_rd_id);
         // If not in authenticating, perhaps an old/stale completion.
         // If already associated, do nothing more.
@@ -3124,12 +3084,12 @@ static void pt_authentication_complete_action(dect_mac_context_t* ctx, bool succ
         ctx->role_ctx.pt.associated_ft.hpc = 1; // Initial assumption of FT's TX HPC
         // PT should send its HPC in the first secured PDU to the FT.
         ctx->send_mac_sec_info_ie_on_next_tx = true;
-		LOG_INF("PT_AUTH_COMPLETE: Authentication successful. Link is SECURE.");
+		LOG_INF("Authentication successful. Link is SECURE.");
 
         dect_mac_change_state(MAC_STATE_ASSOCIATED);
-        LOG_INF("PT_AUTH_COMPLETE: Authentication successful with FT 0x%04X (L:0x%08X). Link is SECURE.",
+        LOG_INF("Authentication successful with FT 0x%04X (L:0x%08X). Link is SECURE.",
                 ctx->role_ctx.pt.associated_ft.short_rd_id, ctx->role_ctx.pt.associated_ft.long_rd_id);
-        LOG_INF("PT_AUTH_COMPLETE: OwnTX_HPC=%u, Tracking FT_TX_HPC=%u. Will send SecIE.",
+        LOG_INF("OwnTX_HPC=%u, Tracking FT_TX_HPC=%u. Will send SecIE.",
                 ctx->hpc, ctx->role_ctx.pt.associated_ft.hpc);
 
         // Start periodic timers for an active link
@@ -3138,7 +3098,7 @@ static void pt_authentication_complete_action(dect_mac_context_t* ctx, bool succ
                       K_MSEC(ctx->config.keep_alive_period_ms)); // Period
 
         if (IS_ENABLED(CONFIG_DECT_MAC_PT_MOBILITY_ENABLE)) { // Enable via Kconfig
-			printk("[AUTH_COMPLETE_DBG] Starting mobility scan timer with period %u ms.\n", ctx->config.mobility_scan_interval_ms);
+			LOG_DBG("Starting mobility scan timer with period %u ms.", ctx->config.mobility_scan_interval_ms);
 
             k_timer_start(&ctx->role_ctx.pt.mobility_scan_timer,
                           K_MSEC(ctx->config.mobility_scan_interval_ms),
@@ -3150,7 +3110,7 @@ static void pt_authentication_complete_action(dect_mac_context_t* ctx, bool succ
         // After successful association, notify the CDD service about the new link.
         // The CDD service will then decide if a configuration request is needed.
         // We assume the initial App Sequence Number from the beacon was 0 or unknown.
-        LOG_INF("PT_AUTH_COMPLETE: Notifying CDD service of new association.");
+        LOG_INF("Notifying CDD service of new association.");
         dect_cdd_pt_process_beacon_info(ctx->role_ctx.pt.associated_ft.long_rd_id, 0);
 
     } else { // Authentication failed or was skipped (e.g. no PSK)
@@ -3161,10 +3121,10 @@ static void pt_authentication_complete_action(dect_mac_context_t* ctx, bool succ
             // LOG_WRN("PT_AUTH_COMPLETE: Authentication failed or skipped for FT 0x%04X. Link is UNSECURE.",
             //         ctx->role_ctx.pt.associated_ft.short_rd_id);
 			if (IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)) {
-				LOG_WRN("PT_AUTH_COMPLETE: Authentication FAILED for FT 0x%04X. Link is UNSECURE.",
+				LOG_WRN("Authentication FAILED for FT 0x%04X. Link is UNSECURE.",
 					ctx->role_ctx.pt.associated_ft.short_rd_id);
 			} else {
-				LOG_INF("PT_AUTH_COMPLETE: Authentication for FT 0x%04X Security is disabled. Link is UNSECURE.",
+				LOG_INF("Authentication for FT 0x%04X Security is disabled. Link is UNSECURE.",
 					ctx->role_ctx.pt.associated_ft.short_rd_id);
 			}
 			LOG_INF("    - BEFORE ctx->config.keep_alive_period_ms: %u", ctx->config.keep_alive_period_ms);
@@ -3172,14 +3132,13 @@ static void pt_authentication_complete_action(dect_mac_context_t* ctx, bool succ
                           K_MSEC(ctx->config.keep_alive_period_ms),
                           K_MSEC(ctx->config.keep_alive_period_ms));
             if (IS_ENABLED(CONFIG_DECT_MAC_PT_MOBILITY_ENABLE)) {
-				printk("[AUTH_COMPLETE_DBG] Starting mobility scan timer with period %u ms.\n", ctx->config.mobility_scan_interval_ms);
-				LOG_INF("    - BEFORE ctx->config.mobility_scan_interval_ms: %u", ctx->config.mobility_scan_interval_ms);
+				LOG_DBG("Starting mobility scan timer with period %u ms.", ctx->config.mobility_scan_interval_ms);
                 k_timer_start(&ctx->role_ctx.pt.mobility_scan_timer,
                               K_MSEC(ctx->config.mobility_scan_interval_ms),
                               K_MSEC(ctx->config.mobility_scan_interval_ms));
             }
 			/* Start a continuous RX to listen for DL data and mobility candidates */
-			LOG_INF("PT_SM: Association complete. Starting continuous RX.");
+			LOG_INF("Association complete. Starting continuous RX.");
 			uint32_t phy_rx_op_handle;
 
 			dect_mac_rand_get((uint8_t *)&phy_rx_op_handle, sizeof(phy_rx_op_handle));
@@ -3194,12 +3153,9 @@ static void pt_authentication_complete_action(dect_mac_context_t* ctx, bool succ
 			* waiting for its scheduled UL/DL slots or for timers to fire.
 			* The data path service will handle scheduling TX/RX ops in those slots.
 			*/
-			LOG_INF("PT_SM: Association complete. Entering connected-idle state.");
-			printk("============================================PT============================================\n\n\n\n\n\n\n");
-
-
+			LOG_INF("Association complete. Entering connected-idle state.");
         } else { // No valid associated FT (e.g. if assoc was rejected prior to auth attempt)
-            LOG_ERR("PT_AUTH_COMPLETE: Authentication failed and no valid associated FT. Restarting scan.");
+            LOG_ERR("Authentication failed and no valid associated FT. Restarting scan.");
             dect_mac_sm_pt_start_operation(); // Go back to scanning
         }
     }
@@ -3211,18 +3167,18 @@ void dect_mac_sm_pt_initiate_authentication_protocol(void)
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
 	if (!ctx->role_ctx.pt.associated_ft.is_valid) {
-		LOG_ERR("PT_AUTH_INIT: No valid associated FT to authenticate with. Aborting.");
+		LOG_ERR("No valid associated FT to authenticate with. Aborting.");
 		dect_mac_change_state(MAC_STATE_IDLE);
 		dect_mac_sm_pt_start_operation();
 		return;
 	}
 
 	if (ctx->state != MAC_STATE_PT_AUTHENTICATING) {
-		LOG_WRN("PT_AUTH_INIT: Called in state %s, expected AUTHENTICATING. Transitioning.", dect_mac_state_to_str(ctx->state));
+		LOG_WRN("Called in state %s, expected AUTHENTICATING. Transitioning.", dect_mac_state_to_str(ctx->state));
 		dect_mac_change_state(MAC_STATE_PT_AUTHENTICATING);
 	}
 
-	LOG_INF("PT_AUTH_INIT: Initiating authentication handshake with FT 0x%04X.",
+	LOG_INF("Initiating authentication handshake with FT 0x%04X.",
 		ctx->role_ctx.pt.associated_ft.short_rd_id);
 
 	pt_send_auth_initiate_action();
@@ -3235,11 +3191,11 @@ void dect_mac_sm_pt_handle_auth_pdu(const uint8_t *pdu_data, size_t pdu_len)
     dect_mac_context_t *ctx = dect_mac_get_active_context();
 
     if (ctx->state != MAC_STATE_PT_AUTHENTICATING) {
-        LOG_WRN("PT_AUTH_HANDLE_PDU: Received Auth PDU in unexpected state %s. Ignoring.", dect_mac_state_to_str(ctx->state));
+        LOG_WRN("Received Auth PDU in unexpected state %s. Ignoring.", dect_mac_state_to_str(ctx->state));
         return;
     }
 
-    LOG_INF("PT_AUTH_HANDLE_PDU: Received (stubbed) Auth PDU from FT 0x%04X (len %zu). No action for current PSK model.",
+    LOG_INF("Received (stubbed) Auth PDU from FT 0x%04X (len %zu). No action for current PSK model.",
             ctx->role_ctx.pt.associated_ft.is_valid ? ctx->role_ctx.pt.associated_ft.short_rd_id : 0xFFFF,
             pdu_len);
 
@@ -3274,10 +3230,10 @@ static void pt_update_mobility_candidate(uint16_t carrier, int16_t rssi, uint32_
 
 	if (existing_slot != -1) {
 		target_slot = existing_slot;
-		LOG_DBG("MOBILITY: Updating existing candidate in slot %d.", target_slot);
+		LOG_DBG("Updating existing candidate in slot %d.", target_slot);
 	} else if (free_slot != -1) {
 		target_slot = free_slot;
-		LOG_INF("MOBILITY: Adding new candidate in slot %d.", target_slot);
+		LOG_INF("Adding new candidate in slot %d.", target_slot);
 	} else {
 		/* No free slots. Find the weakest candidate to replace. */
 		int16_t weakest_rssi = 0; /* RSSI is negative, so 0 is very strong */
@@ -3291,10 +3247,10 @@ static void pt_update_mobility_candidate(uint16_t carrier, int16_t rssi, uint32_
 		}
 		if (rssi > weakest_rssi) {
 			target_slot = weakest_slot;
-			LOG_INF("MOBILITY: Evicting weakest candidate (slot %d, RSSI %.1f) for new one (RSSI %.1f).",
+			LOG_INF("Evicting weakest candidate (slot %d, RSSI %.1f) for new one (RSSI %.1f).",
 				target_slot, weakest_rssi / 2.0, rssi / 2.0);
 		} else {
-			LOG_DBG("MOBILITY: New candidate (RSSI %.1f) not stronger than weakest in full list (RSSI %.1f). Ignoring.",
+			LOG_DBG("New candidate (RSSI %.1f) not stronger than weakest in full list (RSSI %.1f). Ignoring.",
 				rssi / 2.0, weakest_rssi / 2.0);
 			return;
 		}
@@ -3329,7 +3285,7 @@ static void pt_process_page_indication(void)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
-	LOG_INF("PT_PAGING: Page received from FT! Responding and transitioning to Associated state.");
+	LOG_INF("Page received from FT! Responding and transitioning to Associated state.");
 
 	/* Stop the paging cycle timer */
 	k_timer_stop(&ctx->role_ctx.pt.paging_cycle_timer);
@@ -3392,8 +3348,8 @@ static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
 					   uint32_t ft_long_id, uint16_t ft_short_id,
 					   int16_t rssi_q7_1, uint16_t beacon_rx_carrier)
 {
-	printk("[DEBUG_PROBE] pt_evaluate_mobility_candidate called.\n");
-	printk("[MOBILITY_DBG] Evaluating candidate FT 0x%04X. PT state: %s\n",
+	LOG_DBG("pt_evaluate_mobility_candidate called.");
+	LOG_DBG("Evaluating candidate FT 0x%04X. PT state: %s",
 	       ft_short_id, dect_mac_state_to_str(ctx->state));
 
 	if (ft_long_id == ctx->role_ctx.pt.associated_ft.long_rd_id) {
@@ -3401,7 +3357,7 @@ static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
 		ctx->role_ctx.pt.associated_ft.rssi_2 = rssi_q7_1;
 		/* Update the trigger count based on the latest beacon from our FT */
 		ctx->role_ctx.pt.initial_count_to_trigger = cb_fields->count_to_trigger_code;
-		printk("[MOBILITY_DBG] Current FT Beacon recieved. \n");
+		LOG_DBG("Current FT Beacon recieved. ");
 		return;
 	}
 
@@ -3427,27 +3383,27 @@ static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
 			int16_t hysteresis_dbm = rssi_hysteresis / 2;  // Q7.1 to dBm
 
 			/* Add your debug logging here */
-			printk("[MOBILITY_DBG] Evaluating handover decision:\n");
-			printk("  - Slot %d. RACH channel_abs_num: %u\n", i, cand->rach_params_from_beacon.channel_abs_num);
-			printk("  - Candidate FT2 RSSI: %d dBm\n", candidate_rssi_dbm);
-			printk("  - Current FT1 RSSI:   %d dBm\n", current_rssi_dbm);
-			printk("  - Hysteresis:         %d dB\n", hysteresis_dbm);
-			printk("  - Condition Check: (%d > (%d + %d)) -> %s\n",
+			LOG_DBG("Evaluating handover decision:");
+			LOG_DBG("  - Slot %d. RACH channel_abs_num: %u", i, cand->rach_params_from_beacon.channel_abs_num);
+			LOG_DBG("  - Candidate FT2 RSSI: %d dBm", candidate_rssi_dbm);
+			LOG_DBG("  - Current FT1 RSSI:   %d dBm", current_rssi_dbm);
+			LOG_DBG("  - Hysteresis:         %d dB", hysteresis_dbm);
+			LOG_DBG("  - Condition Check: (%d > (%d + %d)) -> %s",
 				candidate_rssi_dbm,
 				current_rssi_dbm,
 				hysteresis_dbm,
 				(cand->rssi_2 > (ctx->role_ctx.pt.associated_ft.rssi_2 + rssi_hysteresis)) ? "TRUE" : "FALSE");
 
 			if (cand->rssi_2 > (ctx->role_ctx.pt.associated_ft.rssi_2 + rssi_hysteresis)) {
-				printk("[MOBILITY_DBG] Handover decision triggered:\n");
+				LOG_DBG("Handover decision triggered:");
 				if (cand->trigger_count_remaining > 0) {
 					cand->trigger_count_remaining--;
-					LOG_INF("MOBILITY: Candidate FT 0x%04X is stronger. Trigger count now %u.",
+					LOG_INF("Candidate FT 0x%04X is stronger. Trigger count now %u.",
 						cand->short_rd_id, cand->trigger_count_remaining);
 				}
 
 				if (cand->trigger_count_remaining == 0) {
-					LOG_INF("MOBILITY: Handover triggered for candidate FT 0x%04X!",
+					LOG_INF("Handover triggered for candidate FT 0x%04X!",
 						cand->short_rd_id);
 					pt_initiate_handover_action(ctx, cand);
 				}
@@ -3455,7 +3411,7 @@ static void pt_evaluate_mobility_candidate(dect_mac_context_t *ctx,
 				/* Not significantly better, reset its trigger count */
 				if (cand->trigger_count_remaining !=
 				    ctx->role_ctx.pt.initial_count_to_trigger) {
-					LOG_DBG("MOBILITY: Candidate FT 0x%04X not strong enough. Resetting trigger count.",
+					LOG_DBG("Candidate FT 0x%04X not strong enough. Resetting trigger count.",
 						cand->short_rd_id);
 					cand->trigger_count_remaining =
 						ctx->role_ctx.pt.initial_count_to_trigger;
@@ -3471,7 +3427,7 @@ static void pt_initiate_handover_action(dect_mac_context_t *ctx,
 					dect_mobility_candidate_t *candidate)
 {
 	if (ctx->state != MAC_STATE_ASSOCIATED) {
-		LOG_WRN("MOBILITY: Handover initiated in unexpected state %s",
+		LOG_WRN("Handover initiated in unexpected state %s",
 			dect_mac_state_to_str(ctx->state));
 		return;
 	}
@@ -3514,7 +3470,7 @@ static void pt_initiate_handover_action(dect_mac_context_t *ctx,
 		ctx->role_ctx.pt.current_ft_rach_params.cw_max_val = 8 * (1U << ctx->config.rach_cw_max_idx);
 	}
 
-	printk("[MOBILITY_CANDIDATE_DBG] Stored new candidate. Target carrier: %u, RACH carrier: %u\n",
+	LOG_DBG("Stored new candidate. Target carrier: %u, RACH carrier: %u",
 	       candidate->operating_carrier, ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel);
 
 	/* Invalidate the candidate so we don't try to switch to it again immediately */
@@ -3525,7 +3481,7 @@ static void pt_initiate_handover_action(dect_mac_context_t *ctx,
 	k_timer_stop(&ctx->role_ctx.pt.mobility_scan_timer);
 
 	dect_mac_change_state(MAC_STATE_PT_HANDOVER_ASSOCIATING);
-	LOG_INF("MOBILITY: State -> HANDOVER_ASSOCIATING. Data TX paused.");
+	LOG_INF("State -> HANDOVER_ASSOCIATING. Data TX paused.");
 
 	/* Start the association process with the new target */
 	pt_send_association_request_action();
@@ -3541,7 +3497,7 @@ static void pt_initiate_handover_action(dect_mac_context_t *ctx,
 		return;
 	}
 
-	LOG_INF("PT_SM_RELEASE: Sending Association Release to FT 0x%08X via RACH.",
+	LOG_INF("Sending Association Release to FT 0x%08X via RACH.",
 		old_ft_info->long_rd_id);
 
 	uint8_t sdu_area_buf[16];
@@ -3551,7 +3507,7 @@ static void pt_initiate_handover_action(dect_mac_context_t *ctx,
 	int sdu_area_len =
 		build_assoc_release_ie_muxed(sdu_area_buf, sizeof(sdu_area_buf), &release_fields);
 	if (sdu_area_len < 0) {
-		LOG_ERR("PT_SM_RELEASE: Failed to build Assoc Release IE: %d", sdu_area_len);
+		LOG_ERR("Failed to build Assoc Release IE: %d", sdu_area_len);
 		return;
 	}
 
@@ -3571,7 +3527,7 @@ static void pt_initiate_handover_action(dect_mac_context_t *ctx,
 
 	mac_sdu_t *pdu_sdu = dect_mac_buffer_alloc(K_NO_WAIT);
 	if (!pdu_sdu) {
-		LOG_ERR("PT_SM_RELEASE: Failed to alloc PDU buffer.");
+		LOG_ERR("Failed to alloc PDU buffer.");
 		return;
 	}
 
@@ -3592,8 +3548,8 @@ static void pt_initiate_handover_action(dect_mac_context_t *ctx,
 	uint32_t phy_op_handle;
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
 
-printk("[DEBUG_PROBE] Scheduling Release TX with op_type: %s (%d)\n",
-       dect_pending_op_to_str(PENDING_OP_GENERIC_UNICAST_TX), PENDING_OP_GENERIC_UNICAST_TX);
+	LOG_DBG("Scheduling Release TX with op_type: %s (%d)",
+		dect_pending_op_to_str(PENDING_OP_GENERIC_UNICAST_TX), PENDING_OP_GENERIC_UNICAST_TX);
 
 	ret = dect_mac_phy_ctrl_start_tx_assembled(
 		ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel, pdu_sdu->data, pdu_len,
@@ -3602,10 +3558,10 @@ printk("[DEBUG_PROBE] Scheduling Release TX with op_type: %s (%d)\n",
 		true, 0, ctx->own_phy_params.mu, NULL);
 
 	if (ret != 0) {
-		LOG_ERR("PT_SM_RELEASE: Failed to schedule Release TX on RACH: %d", ret);
+		LOG_ERR("Failed to schedule Release TX on RACH: %d", ret);
 		dect_mac_buffer_free(pdu_sdu);
 	} else {
-		LOG_INF("PT_SM_RELEASE: Association Release TX scheduled on RACH (Hdl %u).",
+		LOG_INF("Association Release TX scheduled on RACH (Hdl %u).",
 			phy_op_handle);
 
 		ctx->pending_op_type = PENDING_OP_GENERIC_UNICAST_TX;
@@ -3634,14 +3590,14 @@ void dect_mac_sm_pt_beacon_listen_timer_expired_action(void)
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
 	if (ctx->state != MAC_STATE_ASSOCIATED) {
-		LOG_WRN("PT_BEACON_LSN: Timer action in unexpected state %s. Stopping timer.",
+		LOG_WRN("Timer action in unexpected state %s. Stopping timer.",
 			dect_mac_state_to_str(ctx->state));
 		k_timer_stop(&ctx->role_ctx.pt.beacon_listen_timer);
 		return;
 	}
 
 	if (ctx->pending_op_type != PENDING_OP_NONE) {
-		LOG_DBG("PT_BEACON_LSN: Beacon listen time, but op %s is pending. Deferring.",
+		LOG_DBG("Beacon listen time, but op %s is pending. Deferring.",
 			dect_pending_op_to_str(ctx->pending_op_type));
 		return;
 	}
@@ -3659,7 +3615,7 @@ void dect_mac_sm_pt_beacon_listen_timer_expired_action(void)
 
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
 
-	LOG_INF("PT_BEACON_LSN: Scheduling RX to listen for next beacon from FT 0x%04X",
+	LOG_INF("Scheduling RX to listen for next beacon from FT 0x%04X",
 		ctx->role_ctx.pt.associated_ft.short_rd_id);
 
 	int ret = dect_mac_phy_ctrl_start_rx(
@@ -3669,6 +3625,6 @@ void dect_mac_sm_pt_beacon_listen_timer_expired_action(void)
 		PENDING_OP_PT_BEACON_LISTEN, 0);
 
 	if (ret != 0) {
-		LOG_ERR("PT_BEACON_LSN: Failed to schedule RX for beacon listen: %d", ret);
+		LOG_ERR("Failed to schedule RX for beacon listen: %d", ret);
 	}
 }

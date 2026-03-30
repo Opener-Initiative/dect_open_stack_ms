@@ -49,8 +49,6 @@ static void pcc_cache_timeout_handler(struct k_timer *timer_id)
 		CONTAINER_OF(timer_id, pcc_transaction_t, timeout_timer);
 
 	if (transaction->is_valid) {
-		printk("[PCC_CACHE_TIMEOUT] Stale PCC with TID %u expired. Invalidating entry.\n",
-		       transaction->transaction_id);        
 		LOG_WRN("PCC_CACHE: Timeout for transaction_id %u. PDC never arrived. Invalidating entry.",
 			transaction->transaction_id);
 		transaction->is_valid = false;
@@ -72,10 +70,6 @@ void dect_mac_test_set_active_context(dect_mac_context_t *ctx)
 	k_spinlock_key_t key = k_spin_lock(&g_active_mac_ctx_lock);
 	g_active_mac_ctx = ctx;
 	k_spin_unlock(&g_active_mac_ctx_lock, key);
-    // printk("[MAC_CORE] Setting active context to %p (Role: %s)\n", (void *)ctx,
-    //     (ctx && ctx->role == MAC_ROLE_PT) ? "PT" : "FT");
-    // printk("[MAC_CORE] dect_mac_test_set_active_context: Context-> State: %d \n", g_active_mac_ctx->state);
-    // LOG_INF("Context-> State: %d ", g_active_mac_ctx->state);
 }
 
 dect_mac_state_change_cb_t g_state_change_cb = NULL;
@@ -96,7 +90,7 @@ void dect_mac_reset_context(dect_mac_context_t *ctx)
 {
 	if (!ctx) return;
 
-	LOG_INF("MAC CORE: Resetting MAC context (Role: %s)", 
+	LOG_INF("Resetting MAC context (Role: %s)", 
 		(ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
 
 	k_spinlock_key_t key = k_spin_lock(&ctx->lock);
@@ -173,7 +167,7 @@ void dect_mac_core_clear_pending_op(void)
 	if (!ctx) return;
     
 	k_spinlock_key_t key = k_spin_lock(&ctx->lock);
-		printk("[CORE] Clearing pending_op: %d\n", ctx->pending_op_type);
+		// LOG_DBG("[CORE] Clearing pending_op: %d", ctx->pending_op_type);
 		if (ctx->pending_op_type != PENDING_OP_NONE) {
 			LOG_DBG("MAC_CORE: Clearing pending op (was Type: %s, Hdl: %u)",
 				dect_pending_op_to_str(ctx->pending_op_type),
@@ -273,7 +267,7 @@ static void pt_auth_timeout_timer_expiry_fn(struct k_timer *timer_id)
 // FT Specific Timer expiry functions
 static void ft_beacon_timer_expiry_fn(struct k_timer *timer_id)
 {
-	printk("[FT_TIMER_CB] FT Beacon Timer Expired. Queueing event.\n");
+	LOG_DBG("[FT_TIMER_CB] FT Beacon Timer Expired. Queueing event.");
 	struct dect_mac_context *ctx = timer_id->user_data;
 	struct dect_mac_event_msg msg = {
 		.ctx = ctx,
@@ -296,12 +290,12 @@ void increment_psn_and_hpc(dect_mac_context_t *ctx)
         ctx->hpc = (ctx->hpc + 1);
         if (ctx->hpc == 0) { // HPC wrapped around (32-bit)
             ctx->hpc = 1; // Re-initialize (ETSI IV must not be all zeros if derived from HPC=0, PSN=0)
-            LOG_WRN("MAC Core: Own HPC wrapped around! Re-initialized to 1.");
+            LOG_WRN("Own HPC wrapped around! Re-initialized to 1.");
         }
         
         dect_mac_nvs_save_hpc(ctx->hpc);
 
-        LOG_INF("MAC Core: Own PSN wrapped, own HPC incremented to %u.", ctx->hpc);
+        LOG_INF("Own PSN wrapped, own HPC incremented to %u.", ctx->hpc);
         ctx->send_mac_sec_info_ie_on_next_tx = true;
     }
 }
@@ -311,52 +305,52 @@ int dect_mac_core_get_peer_slot_idx(uint16_t peer_short_id)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
-	printk("\n--- DEBUG: dect_mac_core_get_peer_slot_idx ---\n");
-	printk("Searching for peer with Short ID: 0x%04X\n", peer_short_id);
+	LOG_DBG("--- DEBUG: dect_mac_core_get_peer_slot_idx ---");
+	LOG_DBG("Searching for peer with Short ID: 0x%04X", peer_short_id);
 
 	if (ctx->role != MAC_ROLE_FT) {
-		printk("  - Role is not FT. Returning -1.\n");
+		LOG_ERR("  - Role is not FT. Returning -1.");
 		return -1;
 	}
 
 	for (int i = 0; i < MAX_PEERS_PER_FT; i++) {
-		printk("  - Checking slot %d: is_valid=%d, short_rd_id=0x%04X\n", i,
+		LOG_DBG("  - Checking slot %d: is_valid=%d, short_rd_id=0x%04X", i,
 		       ctx->role_ctx.ft.connected_pts[i].is_valid,
 		       ctx->role_ctx.ft.connected_pts[i].short_rd_id);
 		if (ctx->role_ctx.ft.connected_pts[i].is_valid &&
 		    ctx->role_ctx.ft.connected_pts[i].short_rd_id == peer_short_id) {
-			printk("  - Match found! Returning slot %d.\n", i);
+			LOG_DBG("  - Match found! Returning slot %d.", i);
 			return i;
 		}
 	}
 
-	printk("  - No match found. Returning -1.\n");
+	LOG_DBG("  - No match found. Returning -1.");
 	return -1;
 }
 
 // --- Core Initialization ---
 int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
 {
-    printk("[CORE_INIT_DBG] Entered dect_mac_core_init.\n");
+    LOG_DBG("[CORE_INIT_DBG] Entered dect_mac_core_init.");
     dect_mac_context_t *ctx = dect_mac_get_active_context(); // Gets pointer to g_mac_ctx
-    printk("[CORE_INIT_DBG] 1. Context retrieved.\n");
+    LOG_DBG("[CORE_INIT_DBG] 1. Context retrieved.");
     memset(ctx, 0, sizeof(dect_mac_context_t));
-    printk("[CORE_INIT_DBG] 2. Context zeroed.\n");
+    LOG_DBG("[CORE_INIT_DBG] 2. Context zeroed.");
 
 	/* Note: Spinlocks (ctx->lock, ctx->harq_lock) are already zeroed by memset above, 
 	 * which is a valid initial state (unlocked, no owner) for Zephyr spinlocks.
 	 */
 
     ctx->role = role;
-    LOG_INF("MAC Core: No Long RD ID provisioned. Generating a random one. %d", provisioned_long_rd_id);
+    LOG_INF("No Long RD ID provisioned. Generating a random one. %d", provisioned_long_rd_id);
     if (provisioned_long_rd_id != 0 && provisioned_long_rd_id != 0xFFFFFFFFU) {
         ctx->own_long_rd_id = provisioned_long_rd_id;
     } else {
-		LOG_INF("MAC Core: No Long RD ID provisioned. Generating a random one.");
+		LOG_INF("No Long RD ID provisioned. Generating a random one.");
 		// ctx->own_long_rd_id = sys_rand32_get();
         // if (ctx->own_long_rd_id == 0 || ctx->own_long_rd_id == 0xFFFFFFFFU) {
         //     ctx->own_long_rd_id = (sys_rand32_get() & 0xFFFFFFFEU) + 1;
-        //     LOG_WRN("MAC Core: Derived/Random Long RD ID was reserved, re-randomized to 0x%08X", ctx->own_long_rd_id);
+        //     LOG_WRN("Derived/Random Long RD ID was reserved, re-randomized to 0x%08X", ctx->own_long_rd_id);
         // }
 		do {
 			dect_mac_rand_get((uint8_t *)&ctx->own_long_rd_id,
@@ -390,7 +384,7 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
     ctx->own_phy_params.is_valid = true; // Mark as valid once set from config
     ctx->own_phy_params.mu = CONFIG_DECT_MAC_OWN_MU_CODE;
     ctx->own_phy_params.beta = CONFIG_DECT_MAC_OWN_BETA_CODE;
-    LOG_INF("MAC Core: Own PHY Params -> mu_code: %u (val 2^%u), beta_code: %u (val %u)",
+    LOG_INF("Own PHY Params -> mu_code: %u (val 2^%u), beta_code: %u (val %u)",
             ctx->own_phy_params.mu, ctx->own_phy_params.mu,
             ctx->own_phy_params.beta, ctx->own_phy_params.beta + 1);
 
@@ -410,7 +404,7 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
 #if IS_ENABLED(CONFIG_DECT_MAC_ROLE_FT)
     ctx->config.ft_cluster_beacon_period_ms = CONFIG_DECT_MAC_FT_CLUSTER_BEACON_MS;
     ctx->config.ft_network_beacon_period_ms = CONFIG_DECT_MAC_FT_NETWORK_BEACON_MS;
-    printk("MAC_CORE_INIT (FT): Loaded ft_cluster_beacon_period_ms from Kconfig: %u",
+    LOG_DBG("MAC_CORE_INIT (FT): Loaded ft_cluster_beacon_period_ms from Kconfig: %u",
             ctx->config.ft_cluster_beacon_period_ms);
 #endif
     ctx->config.max_assoc_retries = MAX_RACH_ATTEMPTS_CONFIG;
@@ -515,7 +509,7 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
 
     // Initialize security context
     dect_mac_nvs_init();
-	LOG_INF("MAC Core: NVS initialized.");
+	LOG_INF("NVS initialized.");
 	// psa_generate_random((uint8_t *)&ctx->psn, sizeof(ctx->psn));
     dect_mac_rand_get((uint8_t *)&ctx->psn, sizeof(ctx->psn));
 	ctx->psn &= 0x0FFF; /* Ensure it's a 12-bit value */
@@ -526,13 +520,12 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
     ctx->current_key_index = 0;
     ctx->send_mac_sec_info_ie_on_next_tx = false;
 
-    printk("[CORE_INIT_DBG] State is now set to: %s (%d)\n", dect_mac_state_to_str(ctx->state), ctx->state);
+    LOG_DBG("[CORE_INIT_DBG] State is now set to: %s (%d)", dect_mac_state_to_str(ctx->state), ctx->state);
 	/* The master_psk is loaded from Kconfig below. No hardcoded fallback should exist. */
 
     // Load PSK from Kconfig
     ctx->master_psk_provisioned = false;
 #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)
-printk("Loading PSK Security key \n");
 LOG_INF("Loading PSK Security key");
 	const char *psk_hex_str = CONFIG_DECT_MAC_MASTER_PSK_HEX;
 	size_t psk_hex_len = strlen(psk_hex_str);
@@ -548,50 +541,48 @@ LOG_INF("Loading PSK Security key");
 
 		if (psk_bin_len == 16) {
 			ctx->master_psk_provisioned = true;
-			LOG_INF("MAC Core: Master PSK loaded from Kconfig.");
+			LOG_INF("Master PSK loaded from Kconfig.");
 			LOG_HEXDUMP_DBG(ctx->master_psk, sizeof(ctx->master_psk), "PSK Val:");
 		} else {
-			LOG_ERR("MAC Core: Failed to convert Kconfig PSK_HEX. Security will be impaired.");
+			LOG_ERR("Failed to convert Kconfig PSK_HEX. Security will be impaired.");
 		}
 	} else if (psk_hex_len > 0) {
-		LOG_ERR("MAC Core: Kconfig PSK_HEX has invalid length %zu (expected 32). Security will be impaired.", psk_hex_len);
+		LOG_ERR("Kconfig PSK_HEX has invalid length %zu (expected 32). Security will be impaired.", psk_hex_len);
 	} else {
-		LOG_WRN("MAC Core: Kconfig PSK_HEX is empty. No PSK provisioned.");
+		LOG_WRN("Kconfig PSK_HEX is empty. No PSK provisioned.");
 	}
 #else
-	LOG_INF("MAC Core: MAC Security is disabled. PSK not loaded.");
+	LOG_INF("MAC Security is disabled. PSK not loaded.");
 #endif /* IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
 
-printk("MAC CORE: **** network_id_32bit, own_long_rd_id (0x%X vs our 0x%X).\n",
-                    ctx->network_id_32bit, ctx->own_long_rd_id);
-
-    printk("MAC Core Context Initialized. PSN=0x%03X, OwnHPC=%u \n", ctx->psn, ctx->hpc);
-    LOG_INF("MAC Core Context Initialized. PSN=0x%03X, OwnHPC=%u", ctx->psn, ctx->hpc);
+	LOG_DBG("**** network_id_32bit, own_long_rd_id (0x%X vs our 0x%X).",
+						ctx->network_id_32bit, ctx->own_long_rd_id);
+	LOG_INF("MAC Core Context Initialized. PSN=0x%03X, OwnHPC=%u", ctx->psn, ctx->hpc);
     return 0;
 }
 
 
 
 
-void print_first_bytes_uint32(uint32_t value)
-{
-    const uint8_t *bytes = (const uint8_t *)&value;
-    printk("First 4 bytes of uint32_t (0x%08x): ", value);
-    for (size_t i = 0; i < 4; i++) {
-        printk("%02x ", bytes[i]);
-    }
-    printk("\n");
-};
+// void print_first_bytes_uint32(uint32_t value)
+// {
+//     const uint8_t *bytes = (const uint8_t *)&value;
+//     LOG_DBG("First 4 bytes of uint32_t (0x%08x): ", value);
+//     for (size_t i = 0; i < 4; i++) {
+//         LOG_DBG("%02x ", bytes[i]);
+//     }
+//     LOG_DBG("\n");
+// };
 
-void print_first_bytes_uint16(uint16_t value)
-{
-    const uint8_t *bytes = (const uint8_t *)&value;
-    printk("First 4 bytes of uint16_t (0x%08x): ", value);
-    for (size_t i = 0; i < 4; i++) {
-        printk("%02x ", bytes[i]);
-    }
-    printk("\n");
-};
+// void print_first_bytes_uint16(uint16_t value)
+// {
+//     const uint8_t *bytes = (const uint8_t *)&value;
+//     LOG_DBG("First 4 bytes of uint16_t (0x%08x): ", value);
+//     for (size_t i = 0; i < 4; i++) {
+//         LOG_DBG("%02x ", bytes[i]);
+//     }
+//     LOG_DBG("\n");
+// };
 
 
 

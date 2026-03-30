@@ -251,22 +251,22 @@ static uint32_t dlc_code_to_lifetime_ms(uint8_t code)
 int dlc_serialize_routing_header(uint8_t *target_buf, size_t target_buf_len,
                                 const dect_dlc_routing_header_t *rh)
 {
-    printk("[SERIALIZE_RH_DBG] Starting dlc_serialize_routing_header: target_buf=%p, target_buf_len=%zu, rh=%p\n",
+    LOG_DBG("Starting dlc_serialize_routing_header: target_buf=%p, target_buf_len=%zu, rh=%p\n",
            target_buf, target_buf_len, rh);
 
     /* Dump input routing header fields */
     if (rh) {
-        printk("  -> bitmap=0x%04X\n", rh->bitmap);
-        printk("  -> source_addr=0x%08X\n", rh->source_addr);
-        printk("  -> dest_addr=0x%08X\n", rh->dest_addr);
-        printk("  -> hop_count=%u, hop_limit=%u\n", rh->hop_count, rh->hop_limit);
-        printk("  -> delay=0x%08X\n", rh->delay);
-        printk("  -> sequence_number=%u\n", rh->sequence_number);
+        LOG_DBG("  -> bitmap=0x%04X\n", rh->bitmap);
+        LOG_DBG("  -> source_addr=0x%08X\n", rh->source_addr);
+        LOG_DBG("  -> dest_addr=0x%08X\n", rh->dest_addr);
+        LOG_DBG("  -> hop_count=%u, hop_limit=%u\n", rh->hop_count, rh->hop_limit);
+        LOG_DBG("  -> delay=0x%08X\n", rh->delay);
+        LOG_DBG("  -> sequence_number=%u\n", rh->sequence_number);
     } else {
     }
 
     if (!target_buf || !rh) {
-        printk("[ERROR] dlc_serialize_routing_header: Invalid input (target_buf=%p, rh=%p)\n",
+        LOG_ERR("[ERROR] dlc_serialize_routing_header: Invalid input (target_buf=%p, rh=%p)\n",
                target_buf, rh);
         return -EINVAL;
     }
@@ -276,82 +276,83 @@ int dlc_serialize_routing_header(uint8_t *target_buf, size_t target_buf_len,
 
     /* Calculate required length for buffer validation */
     required_len += 2; // bitmap
-    printk("  -> bitmap: 2 bytes\n");
+    LOG_DBG("  -> bitmap: 2 bytes\n");
 
     if ((rh->bitmap >> DLC_RH_SRC_ADDR_SHIFT) & 0x01) {
         required_len += 4;
-        printk("  -> source_addr: 4 bytes\n");
+        LOG_DBG("  -> source_addr: 4 bytes\n");
     }
     if (((rh->bitmap >> DLC_RH_DEST_ADDR_SHIFT) & 0x01) == DLC_RH_DEST_ADD_PRESENT) {
         required_len += 4;
-        printk("  -> dest_addr: 4 bytes\n");
+        LOG_DBG("  -> dest_addr: 4 bytes\n");
     }
     if ((rh->bitmap >> DLC_RH_HOP_COUNT_LIMIT_SHIFT) & 0x01) {
         required_len += 2;
-        printk("  -> hop_count + hop_limit: 2 bytes\n");
+        LOG_DBG("  -> hop_count + hop_limit: 2 bytes\n");
     }
     if ((rh->bitmap >> DLC_RH_DELAY_SHIFT) & 0x01) {
         required_len += 4;
-        printk("  -> delay: 4 bytes\n");
+        LOG_DBG("  -> delay: 4 bytes\n");
     }
     if ((rh->bitmap >> DLC_RH_SEQ_NUM_SHIFT) & 0x01) {
         required_len += 1;
-        printk("  -> sequence_number: 1 bytes\n");
+        LOG_DBG("  -> sequence_number: 1 bytes\n");
     }
 
-    printk("[SERIALIZE_RH_DBG] Total required length: %zu bytes, available: %zu bytes\n",
+    LOG_DBG("Total required length: %zu bytes, available: %zu bytes\n",
            required_len, target_buf_len);
 
     if (target_buf_len < required_len) {
-        printk("[ERROR] dlc_serialize_routing_header: Buffer too small (need %zu, have %zu)\n",
+        LOG_ERR("[ERROR] dlc_serialize_routing_header: Buffer too small (need %zu, have %zu)\n",
                required_len, target_buf_len);
         return -ENOMEM;
     }
 
     /* Serialize the data */
 	sys_put_be16(rh->bitmap, p);
-    printk("  -> Wrote bitmap=0x%04X at offset %zu\n", rh->bitmap, (size_t)(p - target_buf));
+    LOG_DBG("  -> Wrote bitmap=0x%04X at offset %zu\n", rh->bitmap, (size_t)(p - target_buf));
     p += sizeof(uint16_t);
 
     if ((rh->bitmap >> DLC_RH_SRC_ADDR_SHIFT) & 0x01) {
 		sys_put_be32(rh->source_addr, p);
-        printk("  -> Wrote source_addr=0x%08X at offset %zu\n", rh->source_addr, (size_t)(p - target_buf));
+        LOG_DBG("  -> Wrote source_addr=0x%08X at offset %zu\n", rh->source_addr, (size_t)(p - target_buf));
         p += sizeof(uint32_t);
     }
     if (((rh->bitmap >> DLC_RH_DEST_ADDR_SHIFT) & 0x01) == DLC_RH_DEST_ADD_PRESENT) {
 		sys_put_be32(rh->dest_addr, p);
-        printk("  -> Wrote dest_addr=0x%08X at offset %zu\n", rh->dest_addr, (size_t)(p - target_buf));
+        LOG_DBG("  -> Wrote dest_addr=0x%08X at offset %zu\n", rh->dest_addr, (size_t)(p - target_buf));
         p += sizeof(uint32_t);
     }
     if ((rh->bitmap >> DLC_RH_HOP_COUNT_LIMIT_SHIFT) & 0x01) {
         *p = rh->hop_count;
-        printk("  -> Wrote hop_count=%u at offset %zu\n", rh->hop_count, (size_t)(p - target_buf));
+        LOG_DBG("  -> Wrote hop_count=%u at offset %zu\n", rh->hop_count, (size_t)(p - target_buf));
         p++;
         *p = rh->hop_limit;
-        printk("  -> Wrote hop_limit=%u at offset %zu\n", rh->hop_limit, (size_t)(p - target_buf));
+        LOG_DBG("  -> Wrote hop_limit=%u at offset %zu\n", rh->hop_limit, (size_t)(p - target_buf));
         p++;
     }
     if ((rh->bitmap >> DLC_RH_DELAY_SHIFT) & 0x01) {
 		sys_put_be32(rh->delay, p);
-        printk("  -> Wrote delay=0x%08X at offset %zu\n", rh->delay, (size_t)(p - target_buf));
+        LOG_DBG("  -> Wrote delay=0x%08X at offset %zu\n", rh->delay, (size_t)(p - target_buf));
         p += sizeof(uint32_t);
     }
     if ((rh->bitmap >> DLC_RH_SEQ_NUM_SHIFT) & 0x01) {
         *p = rh->sequence_number;
-        printk("  -> Wrote sequence_number=%u at offset %zu\n", rh->sequence_number, (size_t)(p - target_buf));
+        LOG_DBG("  -> Wrote sequence_number=%u at offset %zu\n", rh->sequence_number, (size_t)(p - target_buf));
         p++;
     }
 
     /* Hexdump of serialized buffer */
     size_t serialized_len = (size_t)(p - target_buf);
-    printk("[SERIALIZE_RH_DBG] Serialized Buffer Hexdump (len=%zu):\n", serialized_len);
-    for (size_t i = 0; i < serialized_len && i < 32; i++) { /* Limit to 32 bytes */
-        printk("%02x ", target_buf[i]);
-        if ((i + 1) % 16 == 0) printk("\n");
-    }
-    printk("\n");
+    LOG_HEXDUMP_INF(target_buf, serialized_len, "Serialized Buffer Hexdump:");
+    // printk("Serialized Buffer Hexdump (len=%zu):\n", serialized_len);
+    // for (size_t i = 0; i < serialized_len && i < 32; i++) { /* Limit to 32 bytes */
+    //     printk("%02x ", target_buf[i]);
+    //     if ((i + 1) % 16 == 0) printk("\n");
+    // }
+    // printk("\n");
 
-    printk("[SERIALIZE_RH_DBG] Completed serialization. Total bytes written: %zu\n", serialized_len);
+    LOG_DBG("Completed serialization. Total bytes written: %zu\n", serialized_len);
     return (int)serialized_len;
 }
 
@@ -429,7 +430,7 @@ static void dlc_tx_status_cb_handler(uint16_t dlc_sn, bool success)
 __weak int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 		  const uint8_t *cvg_pdu_payload, size_t cvg_pdu_len, uint8_t flow_id)
 {
-	printk("[DLC_SEND_DBG] dlc_send_data received payload at %p (len %zu), flow_id %u:\n",
+	LOG_DBG("[TX] dlc_send_data received payload at %p (len %zu), flow_id %u:\n",
 	       (void *)cvg_pdu_payload, cvg_pdu_len, flow_id);
 
 #if IS_ENABLED(CONFIG_DECT_DLC_API_MOCK)
@@ -438,8 +439,9 @@ __weak int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 	}
 #endif
 
-	for (int i=0; i<cvg_pdu_len && i < 32; i++) { printk("%02x ", cvg_pdu_payload[i]); }
-	printk("\n");
+	LOG_HEXDUMP_INF(cvg_pdu_payload, cvg_pdu_len, "[TX] DLC Send Data Payload:");
+	// for (int i=0; i<cvg_pdu_len && i < 32; i++) { printk("%02x ", cvg_pdu_payload[i]); }
+	// printk("\n");
 
 	if (cvg_pdu_payload == NULL && cvg_pdu_len > 0) {
 		return -EINVAL;
@@ -470,7 +472,7 @@ __weak int dlc_send_data(dlc_service_type_t service, uint32_t dest_long_id,
 
 	rh.bitmap = bitmap;
 
-	printk("[DLC_SEND_RH_DBG] Routing header struct before serialization: hop_count=%u, hop_limit=%u\n",
+	LOG_DBG("[DLC_SEND_RH_DBG] Routing header struct before serialization: hop_count=%u, hop_limit=%u\n",
 	       rh.hop_count, rh.hop_limit);
 
 	int rh_len = dlc_serialize_routing_header(rh_buf, sizeof(rh_buf), &rh);
@@ -549,98 +551,99 @@ int dlc_forward_pdu(const uint8_t *dlc_pdu, size_t dlc_pdu_len)
 
 int dlc_parse_routing_header(const uint8_t *buf, size_t len, dect_dlc_routing_header_t *rh)
 {
-    printk("dlc_parse_routing_header Called: buf=%p, len=%zu\n", buf, len);
+    LOG_DBG("dlc_parse_routing_header Called: buf=%p, len=%zu\n", buf, len);
     
     if (!buf || !rh || len < sizeof(uint16_t)) {
-        printk("[ERROR] dlc_parse_routing_header: Invalid input\n");
+        LOG_ERR("[ERROR] dlc_parse_routing_header: Invalid input\n");
         return -EINVAL;
     }
 
     const uint8_t *p = buf;
     memset(rh, 0, sizeof(*rh));
 
-    printk("[PARSE_RH_RAW_DBG] Raw bytes for bitmap: 0x%02X 0x%02X\n", p[0], p[1]);
+    LOG_DBG("[PARSE_RH_RAW_DBG] Raw bytes for bitmap: 0x%02X 0x%02X\n", p[0], p[1]);
 
 	/* Read the bitmap from the buffer, converting from Big Endian to CPU's native order */
 	rh->bitmap = sys_get_be16(p);
 	p += sizeof(uint16_t);
 
-    printk("[PARSE_RH_DBG] Parsed bitmap=0x%04X\n", rh->bitmap);
+    LOG_DBG("[PARSE_RH_DBG] Parsed bitmap=0x%04X\n", rh->bitmap);
 
-    printk("[BITMASK_DBG] DLC_RH_SRC_ADDR_SHIFT = %d, Result = %d\n",
+    LOG_DBG("[BITMASK_DBG] DLC_RH_SRC_ADDR_SHIFT = %d, Result = %d\n",
            DLC_RH_SRC_ADDR_SHIFT, (rh->bitmap >> DLC_RH_SRC_ADDR_SHIFT) & 0x01);
     
     if ((rh->bitmap >> DLC_RH_SRC_ADDR_SHIFT) & 0x01) {
         if ((p + sizeof(uint32_t)) > (buf + len)) {
-            printk("[ERROR] Buffer overrun for source_addr\n");
+            LOG_ERR("[ERROR] Buffer overrun for source_addr\n");
             return -EMSGSIZE;
         }
         rh->source_addr = sys_get_be32(p);
-        printk("[PARSE_RH_DBG]  -> source_addr=0x%08X\n", rh->source_addr);
+        LOG_DBG("[PARSE_RH_DBG]  -> source_addr=0x%08X\n", rh->source_addr);
         p += sizeof(uint32_t);
     } else {
     }
 
-    printk("[BITMASK_DBG] DLC_RH_DEST_ADDR_SHIFT = %d, Result = %d\n",
+    LOG_DBG("[BITMASK_DBG] DLC_RH_DEST_ADDR_SHIFT = %d, Result = %d\n",
            DLC_RH_DEST_ADDR_SHIFT, (rh->bitmap >> DLC_RH_DEST_ADDR_SHIFT) & 0x07);
     
     if (((rh->bitmap >> DLC_RH_DEST_ADDR_SHIFT) & 0x07) == DLC_RH_DEST_ADD_PRESENT) {
         if ((p + sizeof(uint32_t)) > (buf + len)) {
-            printk("[ERROR] Buffer overrun for dest_addr\n");
+            LOG_ERR("[ERROR] Buffer overrun for dest_addr\n");
             return -EMSGSIZE;
         }
         rh->dest_addr = sys_get_be32(p);
-        printk("[PARSE_RH_DBG]  -> dest_addr=0x%08X\n", rh->dest_addr);
+        LOG_DBG("[PARSE_RH_DBG]  -> dest_addr=0x%08X\n", rh->dest_addr);
         p += sizeof(uint32_t);
     } else {
     }
 
-    printk("[BITMASK_DBG] DLC_RH_HOP_COUNT_LIMIT_SHIFT = %d, Result = %d\n",
+    LOG_DBG("[BITMASK_DBG] DLC_RH_HOP_COUNT_LIMIT_SHIFT = %d, Result = %d\n",
            DLC_RH_HOP_COUNT_LIMIT_SHIFT, (rh->bitmap >> DLC_RH_HOP_COUNT_LIMIT_SHIFT) & 0x01);
     
     if ((rh->bitmap >> DLC_RH_HOP_COUNT_LIMIT_SHIFT) & 0x01) {
         if ((p + 2) > (buf + len)) {
-            printk("[ERROR] Buffer overrun for hop fields\n");
+            LOG_ERR("[ERROR] Buffer overrun for hop fields\n");
             return -EMSGSIZE;
         }
         rh->hop_count = *p++;
         rh->hop_limit = *p++;
-        printk("[PARSE_RH_DBG]  -> hop_count=%u, hop_limit=%u\n", rh->hop_count, rh->hop_limit);
+        LOG_DBG("[PARSE_RH_DBG]  -> hop_count=%u, hop_limit=%u\n", rh->hop_count, rh->hop_limit);
     } else {
     }
 
     if ((rh->bitmap >> DLC_RH_DELAY_SHIFT) & 0x01) {
         if ((p + sizeof(uint32_t)) > (buf + len)) {
-            printk("[ERROR] Buffer overrun for delay\n");
+            LOG_ERR("[ERROR] Buffer overrun for delay\n");
             return -EMSGSIZE;
         }
         rh->delay = sys_get_be32(p);
-        printk("[PARSE_RH_DBG]  -> delay=0x%08X\n", rh->delay);
+        LOG_DBG("[PARSE_RH_DBG]  -> delay=0x%08X\n", rh->delay);
         p += sizeof(uint32_t);
     } else {
     }
 
     if ((rh->bitmap >> DLC_RH_SEQ_NUM_SHIFT) & 0x01) {
         if (p >= (buf + len)) {
-            printk("[ERROR] Buffer overrun for sequence number\n");
+            LOG_ERR("[ERROR] Buffer overrun for sequence number\n");
             return -EMSGSIZE;
         }
         rh->sequence_number = *p++;
-        printk("[PARSE_RH_DBG]  -> sequence_number=%u\n", rh->sequence_number);
+        LOG_DBG("[PARSE_RH_DBG]  -> sequence_number=%u\n", rh->sequence_number);
     } else {
     }
 
     /* Hexdump of serialized buffer */
     size_t parsed_len = (size_t)(p - buf);
 	// int parsed_len = (int)(p - buf);
-    printk("[PARSE_RH_DBG] Parsed Buffer Hexdump (len=%zu):\n", parsed_len);
-    for (size_t i = 0; i < parsed_len && i < 32; i++) { /* Limit to 32 bytes */
-        printk("%02x ", buf[i]);
-        if ((i + 1) % 16 == 0) printk("\n");
-    }
-    printk("\n");
+    LOG_HEXDUMP_INF(buf, parsed_len, "[PARSE_RH_DBG] Parsed Buffer Hexdump:");
+    // printk("[PARSE_RH_DBG] Parsed Buffer Hexdump (len=%zu):\n", parsed_len);
+    // for (size_t i = 0; i < parsed_len && i < 32; i++) { /* Limit to 32 bytes */
+    //     printk("%02x ", buf[i]);
+    //     if ((i + 1) % 16 == 0) printk("\n");
+    // }
+    // printk("\n");
 
-    printk("[PARSE_RH_DBG] Completed parsing. Total bytes parsed: %d\n", parsed_len);
+    LOG_DBG("[PARSE_RH_DBG] Completed parsing. Total bytes parsed: %d\n", parsed_len);
     return parsed_len;
 }
 /*********************************************************************************************************************************** */
@@ -785,13 +788,12 @@ static void dlc_process_sdu_payload(const uint8_t *payload_ptr, size_t payload_l
     while (remaining_payload_len > 0) {
         dect_dlc_routing_header_t rh;
 
-        printk("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz \n");
-
-        printk("[DLC_RX_DBG] About to parse SDU payload for routing header (remaining_len=%zu):\n", remaining_payload_len);
-        for (int i = 0; i < remaining_payload_len && i < 64; i++) { /* Print up to 64 bytes */
-            printk("%02x ", current_payload_ptr[i]);
-        }
-        printk("\n");
+        LOG_HEXDUMP_INF(current_payload_ptr, remaining_payload_len, "[RX] About to parse SDU payload for routing header:");
+        // printk("[RX] About to parse SDU payload for routing header (remaining_len=%zu):\n", remaining_payload_len);
+        // for (int i = 0; i < remaining_payload_len && i < 64; i++) { /* Print up to 64 bytes */
+        //     printk("%02x ", current_payload_ptr[i]);
+        // }
+        // printk("\n");
 
         int rh_len = dlc_parse_routing_header(current_payload_ptr,
                                 remaining_payload_len, &rh);
@@ -812,10 +814,10 @@ static void dlc_process_sdu_payload(const uint8_t *payload_ptr, size_t payload_l
                 DLC_RH_ROUTING_TYPE_SHIFT) &
             0x07;
 
-        printk("[DLC_RX_DBG] dest_addr:0x%08X routing_type:%d\n", rh.dest_addr, routing_type);
+        LOG_DBG("[RX] dest_addr:0x%08X routing_type:%d\n", rh.dest_addr, routing_type);
 
         if (routing_type == DLC_RH_TYPE_LOCAL_FLOODING) {
-            printk("[DUPLICATE_CHECK_DBG] Parsed src_addr: 0x%08X, seq_num: %u\n",
+            LOG_DBG("[DUPLICATE_CHECK_DBG] Parsed src_addr: 0x%08X, seq_num: %u\n",
                     rh.source_addr, rh.sequence_number);
             for (int i = 0; i < DLC_DUPLICATE_CACHE_SIZE; i++) {
                 if (g_dlc_dup_cache[i].source_rd_id == rh.source_addr &&
@@ -835,7 +837,7 @@ static void dlc_process_sdu_payload(const uint8_t *payload_ptr, size_t payload_l
                 DLC_DUPLICATE_CACHE_SIZE;
         }
 
-        printk("[ROUTING_DBG] Checking destination. dest_addr: 0x%08X, own_addr: 0x%08X\n",
+        LOG_DBG("[ROUTING_DBG] Checking destination. dest_addr: 0x%08X, own_addr: 0x%08X\n",
                 rh.dest_addr, dect_mac_get_own_long_id());
 
 #if defined(CONFIG_ZTEST)
@@ -847,9 +849,9 @@ static void dlc_process_sdu_payload(const uint8_t *payload_ptr, size_t payload_l
         if (rh.dest_addr != dect_mac_get_own_long_id() &&
             rh.dest_addr != 0xFFFFFFFF) {
 #endif
-            printk("/* This is a packet for forwarding */ \n");
+            LOG_DBG("/* This is a packet for forwarding */ \n");
             if (rh.hop_count < rh.hop_limit) {
-                printk("DLC_RX_FWD: PDU for 0x%08X not for me. Hops %u/%u. Forwarding.\n",
+                LOG_DBG("DLC_RX_FWD: PDU for 0x%08X not for me. Hops %u/%u. Forwarding.\n",
                     rh.dest_addr, rh.hop_count, rh.hop_limit);
                 
                 /* Increment hop count in the local copy */
@@ -924,7 +926,7 @@ static void dlc_process_sdu_payload(const uint8_t *payload_ptr, size_t payload_l
                 item->origin_queue = &g_dlc_scheduler.queues[lane];
 
                 k_queue_append(&g_dlc_scheduler.queues[lane], item);
-                printk("[DLC_SCHED_DBG] Packet (SN %u, Flow %u) enqueued to Lane %d.\n", sn, flow, lane);
+                LOG_DBG("[DLC_SCHED_DBG] Packet (SN %u, Flow %u) enqueued to Lane %d.\n", sn, flow, lane);
             } else {
                 LOG_ERR("Failed to allocate from app_sdu_slab");
                 k_mem_slab_free(&g_dlc_rx_delivery_item_slab, (void *)item);
@@ -934,26 +936,26 @@ static void dlc_process_sdu_payload(const uint8_t *payload_ptr, size_t payload_l
 advance_to_next_message:
         // Advance the pointer past the message we just processed
         size_t total_msg_size = rh_len + current_msg_payload_len;
-        printk("rh_len:%d current_payload_ptr:%p total_msg_size:%d remaining_payload_len:%d \n", rh_len, current_payload_ptr, total_msg_size, remaining_payload_len);
+        LOG_DBG("rh_len:%d current_payload_ptr:%p total_msg_size:%d remaining_payload_len:%d \n", rh_len, current_payload_ptr, total_msg_size, remaining_payload_len);
         current_payload_ptr += total_msg_size;
         remaining_payload_len -= total_msg_size;
-        printk("rh_len:%d current_payload_ptr:%p total_msg_size:%d remaining_payload_len:%d \n", rh_len, current_payload_ptr, total_msg_size, remaining_payload_len);
+        LOG_DBG("rh_len:%d current_payload_ptr:%p total_msg_size:%d remaining_payload_len:%d \n", rh_len, current_payload_ptr, total_msg_size, remaining_payload_len);
     } // end of while(remaining_payload_len > 0)
 }
 
 static void dlc_rx_thread_entry(void *p1, void *p2, void *p3)
 {
     ARG_UNUSED(p1); ARG_UNUSED(p2); ARG_UNUSED(p3);
-    /* CRITICAL: Use unbuffered printk here */
-    printk("[TRACE] Starting DLC RX thread entry point\n");
-    printk("[TRACE] CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE = %d\n", CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE);
-    printk("[TRACE] sizeof(mac_sdu_t) = %zu\n", sizeof(mac_sdu_t));
+    /* CRITICAL: TODO: Use unbuffered printk here */
+    LOG_DBG("[TRACE] Starting DLC RX thread entry point\n");
+    LOG_DBG("[TRACE] CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE = %d\n", CONFIG_DECT_DLC_MAX_SDU_PAYLOAD_SIZE);
+    LOG_DBG("[TRACE] sizeof(mac_sdu_t) = %zu\n", sizeof(mac_sdu_t));
 
     while (1) {
-        printk("[TRACE] DLC RX thread waiting for packet...\n");
+        LOG_DBG("[TRACE] DLC RX thread waiting for packet...\n");
         mac_sdu_t *mac_sdu = k_queue_get(&g_dlc_internal_mac_rx_queue, K_FOREVER);
         if (!mac_sdu) {
-            printk("[TRACE] k_queue_get returned NULL!\n");
+            LOG_DBG("[TRACE] k_queue_get returned NULL!\n");
             continue;
         }
 
@@ -963,7 +965,7 @@ static void dlc_rx_thread_entry(void *p1, void *p2, void *p3)
         }
 #endif
 
-        printk("[TRACE] DLC RX thread got packet %p, len %u\n", (void *)mac_sdu, mac_sdu->len);
+        LOG_DBG("[TRACE] DLC RX thread got packet %p, len %u\n", (void *)mac_sdu, mac_sdu->len);
         const uint8_t *dlc_pdu = mac_sdu->data;
         size_t dlc_pdu_len = mac_sdu->len;
         const dect_dlc_header_type123_basic_t *base_hdr = (const void *)dlc_pdu;
@@ -974,7 +976,7 @@ static void dlc_rx_thread_entry(void *p1, void *p2, void *p3)
         size_t dlc_sdu_payload_len = 0;
 
         if (si == DLC_SI_COMPLETE_SDU) {
-            printk("  -> sdu_buf ptr: %p\n", (void *)mac_sdu);            
+            LOG_DBG("  -> sdu_buf ptr: %p\n", (void *)mac_sdu);            
             size_t hdr_len = sizeof(dect_dlc_header_type123_basic_t);
             dlc_sdu_payload_ptr = dlc_pdu + hdr_len;
             dlc_sdu_payload_len = dlc_pdu_len - hdr_len;
@@ -983,7 +985,7 @@ static void dlc_rx_thread_entry(void *p1, void *p2, void *p3)
             dlc_reassembly_session_t *session = find_or_alloc_reassembly_session(
                 sn, DLC_SERVICE_TYPE_1_SEGMENTATION);
             if (!session) {
-                printk("[DLC_RX_ERR] Failed to find/alloc reassembly session for SN %u\n", sn);
+                LOG_ERR("[DLC_RX_ERR] Failed to find/alloc reassembly session for SN %u\n", sn);
                 goto free_and_continue;
             }
 
@@ -1079,7 +1081,7 @@ static void dlc_tx_service_thread_entry(void *p1, void *p2, void *p3)
 	ARG_UNUSED(p2);
 	ARG_UNUSED(p3);
 	LOG_INF("DLC TX Service (ARQ) Thread started.");
-	printk("[ARQ_THREAD_DBG] ARQ service thread started. Active context ROLE is:%d\n",dect_mac_get_role());
+	LOG_DBG("[ARQ_THREAD_DBG] ARQ service thread started. Active context ROLE is:%d\n",dect_mac_get_role());
 
 	while (1) {
 		dlc_retransmission_job_t *job = k_queue_get(&g_dlc_retransmit_signal_queue, K_FOREVER);
@@ -1156,7 +1158,7 @@ void dlc_test_set_receive_spy(int (*handler)(dlc_service_type_t *, uint32_t *, u
 
 int dect_dlc_init(void)
 {
-	printk("[DLC_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue BEFORE init: %p\n",
+	LOG_DBG("[DLC_INIT_ORDER_DBG] Address of g_dlc_internal_mac_rx_queue BEFORE init: %p\n",
 	       (void *)&g_dlc_internal_mac_rx_queue);
 
     /* Initialize Scheduler Queues */
@@ -1171,7 +1173,7 @@ int dect_dlc_init(void)
 
 	k_queue_init(&g_dlc_internal_mac_rx_queue);
 
-	printk("[DLC_INIT_QUEUE_DBG] DLC's internal RX queue (g_dlc_internal_mac_rx_queue) is at address: %p\n",
+	LOG_DBG("[DLC_INIT_QUEUE_DBG] DLC's internal RX queue (g_dlc_internal_mac_rx_queue) is at address: %p\n",
 	       (void *)&g_dlc_internal_mac_rx_queue);
 
 	/* Create threads in a suspended state. The application/test will start them. */
@@ -1179,7 +1181,7 @@ int dect_dlc_init(void)
 		&g_dlc_rx_thread_data, g_dlc_rx_thread_stack,
 		K_THREAD_STACK_SIZEOF(g_dlc_rx_thread_stack), dlc_rx_thread_entry, NULL, NULL, NULL,
 		CONFIG_DECT_DLC_RX_THREAD_PRIORITY, 0, K_FOREVER);
-	printk("[DLC_INIT_DBG] k_thread_create for g_dlc_rx_thread_id returned: %p\n", g_dlc_rx_thread_id);
+	LOG_DBG("[DLC_INIT_DBG] k_thread_create for g_dlc_rx_thread_id returned: %p\n", g_dlc_rx_thread_id);
 	k_thread_name_set(g_dlc_rx_thread_id, "dect_dlc_rx");
 
 	g_dlc_tx_service_thread_id = k_thread_create(
@@ -1214,7 +1216,7 @@ int dect_dlc_init(void)
 		return err;
 	}
 
-	printk("[DLC_INIT_QUEUE_DBG] Address of g_dlc_internal_mac_rx_queue AFTER init & start: %p\n",
+	LOG_DBG("[DLC_INIT_QUEUE_DBG] Address of g_dlc_internal_mac_rx_queue AFTER init & start: %p\n",
 	       (void *)&g_dlc_internal_mac_rx_queue);
 
 	LOG_INF("DLC Layer Initialized.");
@@ -1270,7 +1272,7 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
         int64_t wait_time = k_ticks_to_ms_floor64(now - g_dlc_scheduler.last_service_time[DLC_LANE_LOW]);
         if (wait_time > DLC_SCHED_STARVATION_THRESHOLD_LOW_MS) {
             selected_lane = DLC_LANE_LOW;
-            printk("[DLC_SCHED_WARN] Starvation detected on Low Lane (Wait %lld ms). Promoting.\n", wait_time);
+            LOG_DBG("[DLC_SCHED_WARN] Starvation detected on Low Lane (Wait %lld ms). Promoting.\n", wait_time);
         }
     }
     /* Check Med Starvation (overrides Low if also starving? Or strict priority among starving?) */
@@ -1309,7 +1311,7 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 		return -EFAULT;
 	}
 
-	printk("[DLC_RECV_DBG] delivery_item->is_app_sdu:%s *app_level_payload_len_inout:%zu \n",
+	LOG_DBG("[DLC_RECV_DBG] delivery_item->is_app_sdu:%s *app_level_payload_len_inout:%zu \n",
 	       delivery_item->is_app_sdu ? "Yes" : "No", *app_level_payload_len_inout);
 
 	if (delivery_item->is_app_sdu) {
@@ -1324,7 +1326,7 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 		*app_level_payload_len_inout = sdu_buf->len;
 		memcpy(app_level_payload_buf, sdu_buf->data, sdu_buf->len);
 
-		printk("  -> Freeing app_sdu_buf at address: %p to slab g_dlc_app_sdu_slab\n",
+		LOG_DBG("  -> Freeing app_sdu_buf at address: %p to slab g_dlc_app_sdu_slab\n",
 		       (void *)sdu_buf);
 		k_mem_slab_free(&g_dlc_app_sdu_slab, (void *)sdu_buf);
 	} else {
@@ -1344,7 +1346,7 @@ int dlc_receive_data(dlc_service_type_t *service_type_out, uint32_t *source_addr
 		*app_level_payload_len_inout = payload_len;
 		memcpy(app_level_payload_buf, payload, payload_len);
 
-		printk("  -> Freeing mac_sdu_buf at address: %p\n", (void *)sdu_buf);
+		LOG_DBG("  -> Freeing mac_sdu_buf at address: %p\n", (void *)sdu_buf);
 		dect_mac_buffer_free(sdu_buf);
 	}
 

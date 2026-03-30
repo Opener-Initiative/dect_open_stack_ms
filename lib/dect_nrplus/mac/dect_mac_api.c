@@ -51,7 +51,7 @@ int dect_mac_api_init(struct k_queue *rx_queue_from_dlc)
 
     g_dlc_rx_sdu_queue_ptr = rx_queue_from_dlc;
 
-	printk("[INIT_QUEUE_DBG] MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: %p\n",
+	LOG_DBG("MAC API received queue pointer. g_dlc_rx_sdu_queue_ptr is now: %p",
 	       (void *)g_dlc_rx_sdu_queue_ptr);
 
 		   
@@ -68,7 +68,7 @@ mac_sdu_t* dect_mac_api_buffer_alloc(k_timeout_t timeout)
 {
     mac_sdu_t *sdu = NULL;
     int ret = k_mem_slab_alloc(&g_mac_sdu_slab, (void **)&sdu, timeout);
-	printk("[MEM_SLAB_DBG] dect_mac_buffer_alloc called. Result: %p. Used blocks: %u\n",
+	LOG_DBG("New Slab Allocation: %p, Used blocks: %u",
            (void *)sdu, g_mac_sdu_slab.info.num_used);
 
     if (ret != 0) {                
@@ -99,7 +99,7 @@ mac_sdu_t* dect_mac_api_buffer_alloc(k_timeout_t timeout)
 //         return;
 //     }
 
-// 	printk("[MEM_SLAB_DBG] dect_mac_buffer_free called for buffer: %p. Used blocks before free: %u\n",
+// 	LOG_DBG("[MEM_SLAB_DBG] dect_mac_buffer_free called for buffer: %p. Used blocks before free: %u",
 //            (void *)sdu, g_mac_sdu_slab.info.num_used);
 // 	LOG_DBG("Freeing SDU buffer: %p. Used blocks before free: %u",
 //             (void *)sdu, g_mac_sdu_slab.info.num_used);
@@ -124,7 +124,7 @@ void dect_mac_api_buffer_free_internal(mac_sdu_t *sdu, const char *caller_func)
 
 __weak int dect_mac_api_send(mac_sdu_t *sdu, mac_flow_id_t flow)
 {
-	printk("[API_SEND_DBG] REAL dect_mac_api_send() function was called.\n");
+	LOG_DBG("[API_SEND_DBG] REAL dect_mac_api_send() function was called.");
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 	if (ctx->role == MAC_ROLE_FT) {
 		LOG_ERR("Generic dect_mac_api_send() called by FT. Use dect_mac_api_ft_send_to_pt() instead.");
@@ -148,7 +148,7 @@ __weak int dect_mac_api_send(mac_sdu_t *sdu, mac_flow_id_t flow)
 		return 0;
 	}
 
-	printk("[SEND_API_DBG] Checking state in dect_mac_api_send. Current state is %s (%d).\n",
+	LOG_DBG("[SEND_API_DBG] Checking state in dect_mac_api_send. Current state is %s (%d).",
 	       dect_mac_state_to_str(ctx->state), ctx->state);
 
 	if (ctx->state < MAC_STATE_ASSOCIATED) {
@@ -157,11 +157,11 @@ __weak int dect_mac_api_send(mac_sdu_t *sdu, mac_flow_id_t flow)
 		return -ENETDOWN;
 	}
 
-	printk("PT_SEND_API: Queueing SDU (len %u) to generic MAC TX Flow %d (for associated FT)\n", sdu->len, flow);
+	LOG_DBG("PT_SEND_API: Queueing SDU (len %u) to generic MAC TX Flow %d (for associated FT)", sdu->len, flow);
     // Add SDU to the appropriate TX queue based on flow
     k_queue_append(mac_tx_queues[flow], sdu);
 
-    printk("[DIAGNOSTIC_TRACE] Step 1: SDU (len %u) for flow %d queued. Queue is now empty: %s\n",
+    LOG_DBG("[DIAGNOSTIC_TRACE] Step 1: SDU (len %u) for flow %d queued. Queue is now empty: %s",
 	       sdu->len, flow, k_queue_is_empty(mac_tx_queues[flow]) ? "yes" : "no");
            
 	return 0;
@@ -258,7 +258,7 @@ int dect_mac_api_ft_send_to_pt(mac_sdu_t *sdu, mac_flow_id_t flow, uint16_t targ
 }
 dect_mac_role_t dect_mac_get_role(void)
 {
-	printk("[MAC_API] dect_mac_get_role() Active context is: %p\n",
+	LOG_DBG("[MAC_API] dect_mac_get_role() Active context is: %p",
 	       (void *)dect_mac_get_active_context());
 	return dect_mac_get_active_context()->role;
 }
@@ -368,13 +368,10 @@ int dect_mac_release(void)
 	int ret = k_msgq_put(&mac_event_msgq, &msg, K_NO_WAIT);
 
 	if (ret != 0) {
-        printk("RELEASE_CMD_API: Failed to queue CMD_RELEASE_LINK to MAC thread: %d \n",
-			ret);
 		LOG_ERR("RELEASE_CMD_API: Failed to queue CMD_RELEASE_LINK to MAC thread: %d",
 			ret);
 		return -EIO;
 	}
-    printk("[DIAGNOSTIC] CMD_RELEASE_LINK event successfully queued to MAC thread.\n");
 	LOG_INF("RELEASE_CMD_API: CMD_RELEASE_LINK queued to MAC thread.");
 	return 0;
 }

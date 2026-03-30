@@ -213,13 +213,13 @@ int mock_phy_queue_rx_packet(mock_phy_context_t *dest_ctx, const mock_rx_packet_
             dest_ctx->rx_queue[i].active = true;
 			
 			size_t len = 32; /* Adjust this based on your needs */
-			printk("[MOCK_PHY] PHY_QUEUE_RX_PACKET Payload Hexdump (first %zu bytes): \t", len);
+			printk("[MOCK_PHY_QUEUE_RX] PHY_QUEUE_RX_PACKET Payload Hexdump (first %zu bytes): \t", len);
 			for (size_t j = 0; j < len && j < packet->pdc_len; j++) {
 				printk("%02x ", packet->pdc_payload[j]);
 			}
 			printk("\n");
 
-			printk("[MOCK_PHY] PHY_QUEUE_RX_QUEUE Payload Hexdump (first %zu bytes): \t", len);			
+			printk("[MOCK_PHY_QUEUE_RX] PHY_QUEUE_RX_QUEUE Payload Hexdump (first %zu bytes): \t", len);			
 			for (size_t j = 0; j < len && j < packet->pdc_len; j++) {
 				printk("%02x ", dest_ctx->rx_queue[i].pdc_payload[j]);
 			}			
@@ -283,7 +283,7 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
     for (int i = 0; i < MOCK_TIMELINE_MAX_EVENTS; ++i) {
         mock_scheduled_operation_t *op = &ctx->timeline[i];
         if (op->active && !op->running && op->start_time_us <= current_time_us) {
-            printk("[MOCK_TIMELINE] Starting Op Handle %u Type %d at %llu (Sched Start: %llu)\n", 
+            printk("[MOCK_PROCESS_EVENTS] Starting Op Handle %u Type %d at %llu (Sched Start: %llu)\n", 
                    op->handle, op->type, current_time_us, op->start_time_us);
             op->running = true;
         }
@@ -310,7 +310,7 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
             mock_rx_packet_t *pkt = &ctx->rx_queue[next_pkt_idx];
             processed_packet = true;
 
-            printk("[MOCK_PROCESS_RX_DBG] Processing packet from slot %d (Time: %llu). Searching for matching RX op...\n", 
+            printk("[MOCK_PROCESS_RX] Processing packet from slot %d (Time: %llu). Searching for matching RX op...\n", 
                    next_pkt_idx, pkt->reception_time_us);
 
             /* --- Feature: Packet Loss Simulation --- */
@@ -362,7 +362,7 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
                             };
                             mock_phy_send_event(&pcc_err);
                         } else {
-                            printk("[MOCK_PROCESS_RX_DBG] Delivering packet from slot %d. Handle: %u\n", next_pkt_idx, rx_op->handle);
+                            printk("[MOCK_PROCESS_RX] Delivering packet from slot %d. Handle: %u\n", next_pkt_idx, rx_op->handle);
                             
                             struct nrf_modem_dect_phy_event pcc_evt = {
                                 .id = NRF_MODEM_DECT_PHY_EVT_PCC,
@@ -383,7 +383,7 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
             }
             
             if (!rx_op_found && !collision) {
-                printk("[MOCK_PROCESS_RX_DBG] No matching RX Op found for packet on carrier %u\n", pkt->carrier);
+                printk("[MOCK_PROCESS_RX] No matching RX Op found for packet on carrier %u\n", pkt->carrier);
             }
 
             pkt->active = false;
@@ -397,7 +397,7 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
     for (int i = 0; i < MOCK_TIMELINE_MAX_EVENTS; ++i) {
         mock_scheduled_operation_t *op = &ctx->timeline[i];
         if (op->active && op->running && op->end_time_us <= current_time_us) {
-            printk("[MOCK_TIMELINE] Completing Op Handle %u Type %d at %llu (End: %llu)\n", 
+            printk("[MOCK_PROCESS_EVENTS] Completing Op Handle %u Type %d at %llu (End: %llu)\n", 
                    op->handle, op->type, current_time_us, op->end_time_us);
             mock_phy_set_active_context(ctx);
             
@@ -464,7 +464,7 @@ int nrf_modem_dect_phy_init(void)
 int nrf_modem_dect_phy_tx(const struct nrf_modem_dect_phy_tx_params *params)
 {
     if (g_force_phy_schedule_failure) {
-        printk("MOCK_PHY: Forcing PHY schedule failure with code %d", g_phy_schedule_failure_code);
+        printk("[MOCK_PHY_TX] Forcing PHY schedule failure with code %d", g_phy_schedule_failure_code);
         return g_phy_schedule_failure_code;
     }
 
@@ -473,7 +473,7 @@ int nrf_modem_dect_phy_tx(const struct nrf_modem_dect_phy_tx_params *params)
             if (g_active_phy_ctx->timeline[i].active &&
                 g_active_phy_ctx->timeline[i].start_time_us < params->start_time + params->data_size * 8 * 10 &&
                 g_active_phy_ctx->timeline[i].end_time_us > params->start_time) {
-                printk("MOCK_PHY: Strict scheduling violation. New TX conflicts with existing operation.");
+                printk("[MOCK_PHY_TX] Strict scheduling violation. New TX conflicts with existing operation.");
                 return NRF_MODEM_DECT_PHY_ERR_OP_SCHEDULING_CONFLICT;
             }
         }
@@ -518,7 +518,7 @@ int nrf_modem_dect_phy_tx(const struct nrf_modem_dect_phy_tx_params *params)
     printk("  - Number of configured peers: %zu\n", g_active_phy_ctx->num_peers);
 
     /* Simulate air: queue this packet for all potential peers that are listening */
-   	printk("[MOCK_PHY] Simulate air: queue this packet for all potential peers that are listening \n");
+   	printk("[MOCK_PHY_TX] Simulate air: queue this packet for all potential peers that are listening \n");
 
     for (size_t i = 0; i < g_active_phy_ctx->num_peers; i++) {
         mock_phy_context_t *peer_ctx = g_active_phy_ctx->peers[i];
@@ -543,10 +543,10 @@ int nrf_modem_dect_phy_tx(const struct nrf_modem_dect_phy_tx_params *params)
                 memcpy(rx_pkt.pdc_payload, params->data, params->data_size);
             }
 
-            printk("[MOCK_TX_DBG]   -> Queuing packet for peer.\n");
+            printk("[MOCK_PHY_TX]   -> Queuing packet for peer.\n");
             mock_phy_queue_rx_packet(peer_ctx, &rx_pkt);
         } else {
-            printk("[MOCK_TX_DBG]   -> NO PEER for packet.\n");
+            printk("[MOCK_PHY_TX]   -> NO PEER for packet.\n");
         }
     }
     return 0;
@@ -584,7 +584,7 @@ int nrf_modem_dect_phy_rx(const struct nrf_modem_dect_phy_rx_params *params)
         g_active_phy_ctx->active_rx_ops[g_active_phy_ctx->num_active_rx_ops++] = &g_active_phy_ctx->timeline[slot];
     }
 
-    printk("[MOCK_PHY] RX operation scheduled. Handle: %u, Start: %llu us, End: %llu us\n",
+    printk("[MOCK_PHY_RX] RX operation scheduled. Handle: %u, Start: %llu us, End: %llu us\n",
            params->handle, start_time_us, end_time_us);
 
     return 0;
@@ -592,24 +592,24 @@ int nrf_modem_dect_phy_rx(const struct nrf_modem_dect_phy_rx_params *params)
 
 int nrf_modem_dect_phy_rssi(const struct nrf_modem_dect_phy_rssi_params *params)
 {
-    printk("[MOCK_PHY_RSSI_DBG] Entering mock nrf_modem_dect_phy_rssi g_active_phy_ctx = %p\n", (void *)g_active_phy_ctx);
+    printk("[MOCK_PHY_RSSI] Entering mock nrf_modem_dect_phy_rssi g_active_phy_ctx = %p\n", (void *)g_active_phy_ctx);
 
     if (!g_active_phy_ctx) {
-        printk("[MOCK_PHY] ERROR: rssi called with NULL g_active_phy_ctx!\n");
+        printk("[MOCK_PHY_RSSI] ERROR: rssi called with NULL g_active_phy_ctx!\n");
         return -1;
     }
 
     if (g_active_phy_ctx->state != PHY_STATE_ACTIVE) {
-        printk("[MOCK_PHY] ERROR: rssi called while PHY state is %d (Expected ACTIVE)\n", g_active_phy_ctx->state);
+        printk("[MOCK_PHY_RSSI] ERROR: rssi called while PHY state is %d (Expected ACTIVE)\n", g_active_phy_ctx->state);
         return -1;
     }
 
     int slot = find_free_timeline_slot(g_active_phy_ctx);
     if (slot < 0) {
-        printk("[MOCK_PHY_RSSI_DBG] find_free_timeline_slot < 0 [%d].\n",slot);
+        printk("[MOCK_PHY_RSSI] find_free_timeline_slot < 0 [%d].\n",slot);
         return -ENOMEM;
     }
-    printk("[MOCK_PHY_RSSI_DBG] find_free_timeline_slot returned: %d\n", slot);
+    printk("[MOCK_PHY_RSSI] find_free_timeline_slot returned: %d\n", slot);
 
     uint64_t start_time_us = 
         (params->start_time == 0) ?
@@ -617,12 +617,12 @@ int nrf_modem_dect_phy_rssi(const struct nrf_modem_dect_phy_rssi_params *params)
 					 get_timeline_end_time(g_active_phy_ctx)) :
 				     modem_ticks_to_us(params->start_time, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 
-    printk("[MOCK_PHY_RSSI_DBG] Calculating start time...\n");
+    printk("[MOCK_PHY_RSSI] Calculating start time...\n");
 
     uint64_t duration_us =
 	    modem_ticks_to_us(params->duration, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 
-    printk("[MOCK_PHY] RSSI Scheduled. Handle: %u, Start: %llu, End: %llu, Duration: %llu us\n",
+    printk("[MOCK_PHY_RSSI] RSSI Scheduled. Handle: %u, Start: %llu, End: %llu, Duration: %llu us\n",
 	   params->handle, start_time_us, start_time_us + duration_us, duration_us);
 
     g_active_phy_ctx->timeline[slot] = (mock_scheduled_operation_t){
@@ -642,11 +642,11 @@ int nrf_modem_dect_phy_rssi(const struct nrf_modem_dect_phy_rssi_params *params)
 int nrf_modem_dect_phy_activate(enum nrf_modem_dect_phy_radio_mode mode)
 {
     if (!g_active_phy_ctx) {
-        printk("[MOCK_PHY] ERROR: activate called with NULL g_active_phy_ctx!\n");
+        printk("[MOCK_PHY_ACTIVATE] ERROR: activate called with NULL g_active_phy_ctx!\n");
         return -1;
     }
     g_active_phy_ctx->state = PHY_STATE_ACTIVE;
-    printk("[MOCK_PHY] PHY Activated for MAC Context %p. State: ACTIVE\n", (void *)g_active_phy_ctx->mac_ctx);
+    printk("[MOCK_PHY_ACTIVATE] PHY Activated for MAC Context %p. State: ACTIVE\n", (void *)g_active_phy_ctx->mac_ctx);
 
     struct nrf_modem_dect_phy_event event = {
         .id = NRF_MODEM_DECT_PHY_EVT_ACTIVATE,
@@ -657,7 +657,7 @@ int nrf_modem_dect_phy_activate(enum nrf_modem_dect_phy_radio_mode mode)
 
 int nrf_modem_dect_phy_cancel(uint32_t handle)
 {
-    printk("[MOCK_PHY_CANCEL_DBG] Entering mock nrf_modem_dect_phy_cancel for handle %u.\n", handle);
+    printk("[MOCK_PHY_CANCEL] Entering mock nrf_modem_dect_phy_cancel for handle %u.\n", handle);
 
     if (g_active_phy_ctx->state != PHY_STATE_ACTIVE) {
         return -1;
@@ -669,7 +669,7 @@ int nrf_modem_dect_phy_cancel(uint32_t handle)
         if (g_active_phy_ctx->timeline[i].active &&
             g_active_phy_ctx->timeline[i].handle == handle) {
 
-            printk("[MOCK_PHY_CANCEL_DBG] Found handle %u in timeline slot %d. Deactivating.\n", handle, i);
+            printk("[MOCK_PHY_CANCEL] Found handle %u in timeline slot %d. Deactivating.\n", handle, i);
 
             g_active_phy_ctx->timeline[i].active = false;
             found = true;
@@ -732,14 +732,14 @@ static void mock_phy_send_event(const struct nrf_modem_dect_phy_event *event)
     if (g_event_handler) {
         g_event_handler(event);
     } else {
-        printk("[MOCK_PHY] ERROR: g_event_handler is NULL! Cannot send event %d\n", event->id);
+        printk("[MOCK_PHY_SEND_EVENT] ERROR: g_event_handler is NULL! Cannot send event %d\n", event->id);
     }
 }
 
 static int find_free_timeline_slot(mock_phy_context_t *ctx)
 {
     if (!ctx) {
-        printk("NULL context passed to find_free_timeline_slot\n");
+        printk("[MOCK_PHY_SEND_EVENT] NULL context passed to find_free_timeline_slot\n");
         return -EINVAL;
     }
     
@@ -750,7 +750,7 @@ static int find_free_timeline_slot(mock_phy_context_t *ctx)
             return i;
         }
     }
-	printk("[MOCK_HELPER_DBG] Exiting find_free_timeline_slot (no free slot).\n");
+	printk("[MOCK_PHY_SEND_EVENT] Exiting find_free_timeline_slot (no free slot).\n");
     return -1;
 }
 

@@ -396,8 +396,8 @@ static void dect_mac_mobility_before(void *fixture)
 	g_mac_ctx_pt.network_id_32bit = g_mac_ctx_ft1.network_id_32bit;
 	g_mac_ctx_ft2.network_id_32bit = g_mac_ctx_ft1.network_id_32bit;
 
-	printk("[DEBUG_PROBE] FT1 Network ID: 0x%08X\n", g_mac_ctx_ft1.network_id_32bit);
-	printk("[DEBUG_PROBE] FT2 Network ID: 0x%08X\n", g_mac_ctx_ft2.network_id_32bit);    
+	printk("FT1 Network ID: 0x%08X\n", g_mac_ctx_ft1.network_id_32bit);
+	printk("FT2 Network ID: 0x%08X\n", g_mac_ctx_ft2.network_id_32bit);    
 
     /* Configure test-specific timing */
     // g_mac_ctx_pt.config.keep_alive_period_ms = 1000;  // 1 second for testing

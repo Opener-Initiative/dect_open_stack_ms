@@ -84,7 +84,7 @@ uint32_t get_tbs_for_schedule(uint8_t num_subslots, uint8_t mcs_code, uint8_t mu
 			beta_code);
 	}
     
-    printk("TBS_GET: mu_code:%d \n", mu_code);
+    LOG_DBG("TBS_GET: mu_code:%d \n", mu_code);
 	switch (mu_code) {
 	case 0: /* mu = 1 */
 		selected_tbs_table = tbs_single_slot_mu1_beta1;
@@ -103,7 +103,7 @@ uint32_t get_tbs_for_schedule(uint8_t num_subslots, uint8_t mcs_code, uint8_t mu
 
 	uint32_t tbs_bits = selected_tbs_table[mcs_code][num_subslots - 1];
 
-    printk("TBS_GET: [mcs_code]%d[num_subslots - 1]%d - Returning tbs_bits/8:%d \n", mcs_code, num_subslots - 1, tbs_bits/8);
+    LOG_DBG("TBS_GET: [mcs_code]%d[num_subslots - 1]%d - Returning tbs_bits/8:%d \n", mcs_code, num_subslots - 1, tbs_bits/8);
 	return tbs_bits / 8;
 }
 
@@ -121,16 +121,16 @@ bool does_sdu_fit_schedule(dect_mac_context_t *ctx, mac_sdu_t *sdu,
 {
     /* Estimate the total PDU size */
 	size_t overhead = 0;
-    printk("[FIT_CHECK_DBG] SDU len: %u\n", sdu->len);
+    LOG_DBG("[FIT_CHECK_DBG] SDU len: %u\n", sdu->len);
 	overhead += sizeof(dect_mac_header_type_octet_t);
-    printk("[FIT_CHECK_DBG] After Hdr Type (size %zu): overhead = %zu\n", sizeof(dect_mac_header_type_octet_t), overhead);
-    printk("[FIT_CHECK_DBG] Size of Unicast Hdr: %zu, Size of Data PDU Hdr: %zu\n",
+    LOG_DBG("[FIT_CHECK_DBG] After Hdr Type (size %zu): overhead = %zu\n", sizeof(dect_mac_header_type_octet_t), overhead);
+    LOG_DBG("[FIT_CHECK_DBG] Size of Unicast Hdr: %zu, Size of Data PDU Hdr: %zu\n",
 	       sizeof(dect_mac_unicast_header_t), sizeof(dect_mac_data_pdu_header_t));
 	// overhead += sizeof(dect_mac_unicast_header_t);
     overhead += sizeof(dect_mac_data_pdu_header_t);
-    printk("[FIT_CHECK_DBG] After Unicast Hdr (size %zu): overhead = %zu\n", sizeof(dect_mac_unicast_header_t), overhead);
+    LOG_DBG("[FIT_CHECK_DBG] After Unicast Hdr (size %zu): overhead = %zu\n", sizeof(dect_mac_unicast_header_t), overhead);
 	overhead += 3; /* Max MUX header size for user data IE */
-    printk("[FIT_CHECK_DBG] After MUX Hdr (size 3): overhead = %zu\n", overhead);
+    LOG_DBG("[FIT_CHECK_DBG] After MUX Hdr (size 3): overhead = %zu\n", overhead);
 
 	bool is_secure = false;
 	dect_mac_peer_info_t *peer_ctx = NULL;
@@ -146,7 +146,7 @@ bool does_sdu_fit_schedule(dect_mac_context_t *ctx, mac_sdu_t *sdu,
 
 	if (is_secure) {
 		overhead += 5; /* MIC */
-        printk("[FIT_CHECK_DBG] After MIC (size 5): overhead = %zu\n", overhead);
+        LOG_DBG("[FIT_CHECK_DBG] After MIC (size 5): overhead = %zu\n", overhead);
         /* Simplified: Assume MAC Sec Info IE is not sent for this check. */
 	}
 
@@ -173,7 +173,7 @@ bool does_sdu_fit_schedule(dect_mac_context_t *ctx, mac_sdu_t *sdu,
 
 	uint32_t available_bytes = get_tbs_for_schedule(num_subslots, mcs_code, mu_code, beta_code);
 
-    printk("[FIT_CHECK_DBG] Final Check: total_pdu_size (%zu) vs available_bytes (%u)\n", total_pdu_size, available_bytes);
+    LOG_DBG("[FIT_CHECK_DBG] Final Check: total_pdu_size (%zu) vs available_bytes (%u)\n", total_pdu_size, available_bytes);
 
 	if (total_pdu_size > available_bytes) {
 		LOG_WRN("FIT_CHECK: SDU (len %u, total ~%zu) does NOT fit in schedule (slots %u, mcs %u, tbs %u bytes)",
@@ -292,7 +292,7 @@ void dect_mac_data_path_harq_timer_expired(struct k_timer *timer_id)
 
 
 void dect_mac_data_path_handle_harq_ack_action(int harq_process_idx) {
-    printk("[HARQ_FREE_DBG] Entering dect_mac_data_path_handle_harq_ack_action....\n");
+    LOG_DBG("[HARQ_FREE_DBG] Entering dect_mac_data_path_handle_harq_ack_action....\n");
 
     dect_mac_context_t *ctx = dect_mac_get_active_context();
     if (!ctx || harq_process_idx < 0 || harq_process_idx >= MAX_HARQ_PROCESSES) {
@@ -312,7 +312,7 @@ void dect_mac_data_path_handle_harq_ack_action(int harq_process_idx) {
             g_dlc_status_callback(harq_p->sdu->dlc_sn_for_status, true);
         }        
         if (harq_p->sdu) {
-            printk("[HARQ_FREE_DBG] Freeing SDU buffer at %p for HARQ process %d.\n",
+            LOG_DBG("[HARQ_FREE_DBG] Freeing SDU buffer at %p for HARQ process %d.\n",
 			       (void *)harq_p->sdu, harq_process_idx);
 
             dect_mac_buffer_free(harq_p->sdu); // Free the SDU buffer
@@ -563,9 +563,9 @@ static int send_data_mac_sdu_via_phy_internal(dect_mac_context_t* ctx,
     uint8_t *sdu_area_buf = NULL;
 
     // Debug prints
-    printk("[HEADER_TYPE_DBG] MAC_COMMON_HEADER_TYPE_UNICAST = 0x%02X\n", MAC_COMMON_HEADER_TYPE_UNICAST);
-    printk("[HEADER_TYPE_DBG] MAC_COMMON_HEADER_TYPE_DATA_PDU = 0x%02X\n", MAC_COMMON_HEADER_TYPE_DATA_PDU);
-    printk("[HEADER_TYPE_DBG] MAC_COMMON_HEADER_TYPE_BEACON = 0x%02X\n", MAC_COMMON_HEADER_TYPE_BEACON);
+    // LOG_DBG("[HEADER_TYPE_DBG] MAC_COMMON_HEADER_TYPE_UNICAST = 0x%02X\n", MAC_COMMON_HEADER_TYPE_UNICAST);
+    // LOG_DBG("[HEADER_TYPE_DBG] MAC_COMMON_HEADER_TYPE_DATA_PDU = 0x%02X\n", MAC_COMMON_HEADER_TYPE_DATA_PDU);
+    // LOG_DBG("[HEADER_TYPE_DBG] MAC_COMMON_HEADER_TYPE_BEACON = 0x%02X\n", MAC_COMMON_HEADER_TYPE_BEACON);
 
     /* Use the public API to allocate the buffer */
     pdu_sdu = dect_mac_buffer_alloc(K_NO_WAIT);
@@ -705,8 +705,7 @@ static int send_data_mac_sdu_via_phy_internal(dect_mac_context_t* ctx,
         mac_hdr_type_octet_byte |= (MAC_SECURITY_NONE & 0x03) << 4;
     }
 
-    printk("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
-    printk("[TX_DATA_DBG] Assembling data PDU. Using MAC Header Type: 0x%02X\n", mac_hdr_type_octet_byte);
+    LOG_DBG("[TX_DATA_DBG] Assembling data PDU. Using MAC Header Type: 0x%02X\n", mac_hdr_type_octet_byte);
 
     /* Build common header */
     dect_mac_data_pdu_header_t common_hdr;
@@ -779,7 +778,7 @@ static int send_data_mac_sdu_via_phy_internal(dect_mac_context_t* ctx,
               sdu_area_buf, current_sdu_area_len,
               &assembled_pdu_len_pre_mic);
 
-    printk("[PDU_ASSEMBLY_DBG] Called assemble_final_pdu with mac_hdr_type: 0x%02X\n", mac_hdr_type_octet_byte);
+    LOG_DBG("[PDU_ASSEMBLY_DBG] Called assemble_final_pdu with mac_hdr_type: 0x%02X\n", mac_hdr_type_octet_byte);
 
     if (ret != 0) { 
         LOG_ERR("DATA_TX_INT: Assemble final PDU failed: %d", ret); 
@@ -958,7 +957,7 @@ cleanup:
 
 void dect_mac_data_path_service_tx(void)
 {
-    // printk("\n--- STARTED: dect_mac_data_path_service_tx ---\n");
+    // LOG_DBG("\n--- STARTED: dect_mac_data_path_service_tx ---\n");
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
 if (ctx->state > 2 && ctx->state != 17 ){
@@ -987,7 +986,7 @@ if (ctx->state > 2 && ctx->state != 17 ){
 
 
 /* --- 1. Prioritize HARQ Retransmissions --- */
-printk("  - Checking for HARQ retransmissions...\n");
+LOG_DBG("  - Checking for HARQ retransmissions...\n");
 LOG_DBG("DP_SVC_TX: Starting HARQ processing for %d processes", MAX_HARQ_PROCESSES);
 
 // Add locking if not already present
@@ -1102,7 +1101,6 @@ for (int i = 0; i < MAX_HARQ_PROCESSES; i++) {
 
 
 	/* --- 2. Service New SDUs based on Role --- */
-    // printk("/* --- 2. Service New SDUs based on Role --- */ \n");
 	if (ctx->role == MAC_ROLE_FT) {
 		for (int i = 0; i < MAX_PEERS_PER_FT; i++) {
 			if (!ctx->role_ctx.ft.connected_pts[i].is_valid) {
@@ -1122,16 +1120,16 @@ for (int i = 0; i < MAX_HARQ_PROCESSES; i++) {
 					// if (ft_get_next_tx_opportunity(i, &start_time, &carrier, &schedule)) {
                     bool opportunity_found = ft_get_next_tx_opportunity(i, &start_time, &carrier, &schedule);
 
-        printk("[DIAGNOSTIC_TRACE] Step 2: FT Scheduler ran. Opportunity found: %s\n",
+        LOG_DBG("[DIAGNOSTIC_TRACE] Step 2: FT Scheduler ran. Opportunity found: %s\n",
 		       opportunity_found ? "YES" : "NO");
-		printk("  - pt_get_next_tx_opportunity returned: %s\n", opportunity_found ? "true" : "false");
-        printk(" &start_time:%lluus &carrier:%d &schedule:%lluu \n", start_time, carrier, schedule.schedule_init_modem_time);
+		LOG_DBG("  - pt_get_next_tx_opportunity returned: %s\n", opportunity_found ? "true" : "false");
+        LOG_DBG(" &start_time:%lluus &carrier:%d &schedule:%lluu \n", start_time, carrier, schedule.schedule_init_modem_time);
 
                     if (opportunity_found) {
 						mac_sdu_t *sdu = k_queue_get(queue_array[j], K_NO_WAIT);
 						// if (does_sdu_fit_schedule(ctx, sdu, &schedule, i)) {
                         bool fits = does_sdu_fit_schedule(ctx, sdu, &schedule, i);
-                        printk("[SCHED_FIT_DBG] FT Checking if SDU (len %u) fits schedule. Result: %s\n",
+                        LOG_DBG("[SCHED_FIT_DBG] FT Checking if SDU (len %u) fits schedule. Result: %s\n",
                             sdu->len, fits ? "YES" : "NO");
 
 					if (fits) {
@@ -1155,22 +1153,22 @@ for (int i = 0; i < MAX_HARQ_PROCESSES; i++) {
 		uint64_t start_time;
 		uint16_t carrier;
 		dect_mac_schedule_t schedule;
-		printk("  - PT Role: Checking for TX opportunity...\n");
+		LOG_DBG("  - PT Role: Checking for TX opportunity...\n");
 		bool opportunity_found = pt_get_next_tx_opportunity(&start_time, &carrier, &schedule);
-        printk("[DIAGNOSTIC_TRACE] Step 2: Scheduler ran. Opportunity found: %s\n",
+        LOG_DBG("[DIAGNOSTIC_TRACE] Step 2: Scheduler ran. Opportunity found: %s\n",
 		       opportunity_found ? "YES" : "NO");
-		// printk("  - pt_get_next_tx_opportunity returned: %s\n", opportunity_found ? "true" : "false");
-        printk(" &start_time:%lluus &carrier:%d &schedule:%lluu \n", start_time, carrier, schedule.schedule_init_modem_time);
+		// LOG_DBG("  - pt_get_next_tx_opportunity returned: %s\n", opportunity_found ? "true" : "false");
+        LOG_DBG(" &start_time:%lluus &carrier:%d &schedule:%lluu \n", start_time, carrier, schedule.schedule_init_modem_time);
 
 
 		if (opportunity_found) {
 			for (int j = 0; j < MAC_FLOW_COUNT; j++) {
 				if (!k_queue_is_empty(mac_tx_queues[j])) {
-                    printk("  - PT Role: k_queue is NOT empty(mac_tx_queues[%d])...\n",j);
+                    LOG_DBG("  - PT Role: k_queue is NOT empty(mac_tx_queues[%d])...\n",j);
 					mac_sdu_t *sdu = k_queue_get(mac_tx_queues[j], K_NO_WAIT);
 					// if (does_sdu_fit_schedule(ctx, sdu, &schedule, -1)) {
                     bool fits = does_sdu_fit_schedule(ctx, sdu, &schedule, -1);
-					printk("[SCHED_FIT_DBG] PT Checking if SDU (len %u) fits schedule. Result: %s\n",
+					LOG_DBG("[SCHED_FIT_DBG] PT Checking if SDU (len %u) fits schedule. Result: %s\n",
 					       sdu->len, fits ? "YES" : "NO");
 
 					if (fits) {
@@ -1216,22 +1214,19 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
 				      uint32_t transmitter_long_rd_id)
 {
 	if (mac_sdu_area_data == NULL || mac_sdu_area_len == 0) {
-        printk("RX_SDU_HANDLER: Received empty or NULL MAC SDU Area. \n");
-		// LOG_DBG("RX_SDU_HANDLER: Received empty or NULL MAC SDU Area.");
+		LOG_DBG("RX_SDU_HANDLER: Received empty or NULL MAC SDU Area.");
 		return;
 	}
 
-	printk("RX_SDU_HANDLER: Processing MAC SDU Area from 0x%08X, len %zu \n",
-		transmitter_long_rd_id, mac_sdu_area_len);    
-	// LOG_DBG("RX_SDU_HANDLER: Processing MAC SDU Area from 0x%08X, len %zu",
-	// 	transmitter_long_rd_id, mac_sdu_area_len);
+	LOG_DBG("RX_SDU_HANDLER: Processing MAC SDU Area from 0x%08X, len %zu",
+		transmitter_long_rd_id, mac_sdu_area_len);
 
 	const uint8_t *current_ie_ptr = mac_sdu_area_data;
 	size_t remaining_sdu_area_len = mac_sdu_area_len;
 
-    printk("RX_SDU_HANDLER: remaining_sdu_area_len:%zu > 0  \t", remaining_sdu_area_len);
+    LOG_DBG("RX_SDU_HANDLER: remaining_sdu_area_len:%zu > 0  \t", remaining_sdu_area_len);
 	while (remaining_sdu_area_len > 0) {
-        printk("%zu, ", remaining_sdu_area_len);
+        LOG_DBG("%zu, ", remaining_sdu_area_len);
 
 		uint8_t ie_type_from_mux;
 		uint16_t dlc_pdu_len_from_mux;
@@ -1252,18 +1247,18 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
 
         /* This check is still valid and important */
 		if (remaining_sdu_area_len < (size_t)parsed_mux_header_len + dlc_pdu_len_from_mux) {
-			printk("RX_SDU_HANDLER: MUX IE (type 0x%X) declared payload len %u exceeds actual remaining SDU area %zu. Corrupted PDU? \n",
+			LOG_ERR("RX_SDU_HANDLER: MUX IE (type 0x%X) declared payload len %u exceeds actual remaining SDU area %zu. Corrupted PDU? \n",
 				ie_type_from_mux, dlc_pdu_len_from_mux,
 				remaining_sdu_area_len - parsed_mux_header_len);
 			break;
 		}
 
-        printk("RX_SDU_HANDLER: IE type: 0x%X (%d), payload_len: %u\n", 
+        LOG_DBG("RX_SDU_HANDLER: IE type: 0x%X (%d), payload_len: %u\n", 
                ie_type_from_mux, ie_type_from_mux, dlc_pdu_len_from_mux);
 
         /* Signaling flows 1-2, User data flows 3-6 */
 		if (ie_type_from_mux >= 1 && ie_type_from_mux <= 6) {        
-            printk("RX_SDU_HANDLER: Higher layer flow detected (ID %d), checking DLC queue...\n", ie_type_from_mux);
+            LOG_DBG("RX_SDU_HANDLER: Higher layer flow detected (ID %d), checking DLC queue...\n", ie_type_from_mux);
             
             dect_mac_context_t *ctx = dect_mac_get_active_context();
             dect_mac_peer_info_t *peer = NULL;
@@ -1277,18 +1272,18 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
             }
             if (peer && peer->is_valid) {
                  peer->last_rx_sdu_len = dlc_pdu_len_from_mux;
-                 printk("RX_SDU_HANDLER: peer->last_rx_sdu_len = %d\n", peer->last_rx_sdu_len);
+                 LOG_DBG("RX_SDU_HANDLER: peer->last_rx_sdu_len = %d\n", peer->last_rx_sdu_len);
             }
             
             if (g_dlc_rx_sdu_queue_ptr != NULL) {
-                printk("RX_SDU_HANDLER: Allocating MAC SDU buffer...\n");
+                LOG_DBG("RX_SDU_HANDLER: Allocating MAC SDU buffer...\n");
                 mac_sdu_t *sdu_for_dlc = dect_mac_buffer_alloc(K_NO_WAIT);
                 
                 if (sdu_for_dlc) {
-                    printk("RX_SDU_HANDLER: SDU buffer allocated successfully\n");
+                    LOG_DBG("RX_SDU_HANDLER: SDU buffer allocated successfully\n");
                     
                     if (dlc_pdu_len_from_mux <= CONFIG_DECT_MAC_SDU_MAX_SIZE) {
-                        printk("RX_SDU_HANDLER: Copying %u bytes to SDU buffer...\n", dlc_pdu_len_from_mux);
+                        LOG_DBG("RX_SDU_HANDLER: Copying %u bytes to SDU buffer...\n", dlc_pdu_len_from_mux);
                         memcpy(sdu_for_dlc->data, dlc_pdu_ptr_from_mux,
                                dlc_pdu_len_from_mux);
                         sdu_for_dlc->len = (uint16_t)dlc_pdu_len_from_mux;
@@ -1319,19 +1314,19 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
                         sdu_for_dlc->flow_id = extracted_flow_id;
                         sdu_for_dlc->flow_id_present = true;
 
-                        printk("RX_SDU_HANDLER: Appending SDU to g_dlc_rx_sdu_queue_ptr - IE type: 0x%X (Flow %d), length: %u, data ptr: %p\n",
+                        LOG_DBG("RX_SDU_HANDLER: Appending SDU to g_dlc_rx_sdu_queue_ptr - IE type: 0x%X (Flow %d), length: %u, data ptr: %p\n",
                                ie_type_from_mux, extracted_flow_id, sdu_for_dlc->len, sdu_for_dlc->data);
                         
                         k_queue_append(g_dlc_rx_sdu_queue_ptr, sdu_for_dlc);
                         
-                        printk("[QUEUE_DBG] After append, g_dlc_rx_sdu_queue_ptr is %s.\n",
+                        LOG_DBG("[QUEUE_DBG] After append, g_dlc_rx_sdu_queue_ptr is %s.\n",
 				                k_queue_is_empty(g_dlc_rx_sdu_queue_ptr) ? "EMPTY" : "NOT EMPTY");
-                        printk("RX_SDU_HANDLER: Successfully added SDU to queue. k_queue ptr: %p\n", 
+                        LOG_DBG("RX_SDU_HANDLER: Successfully added SDU to queue. k_queue ptr: %p\n", 
                                 g_dlc_rx_sdu_queue_ptr);
                         
                         // Log first few bytes for verification
                         if (dlc_pdu_len_from_mux > 0) {
-                            printk("RX_SDU_HANDLER: First 4 bytes of SDU data: %02X %02X %02X %02X\n",
+                            LOG_DBG("RX_SDU_HANDLER: First 4 bytes of SDU data: %02X %02X %02X %02X\n",
                                    sdu_for_dlc->data[0], sdu_for_dlc->data[1],
                                    sdu_for_dlc->data[2], sdu_for_dlc->data[3]);
                         }
@@ -1339,22 +1334,18 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
                         LOG_ERR("RX_SDU_HANDLER: Extracted DLC PDU too large (%u > %d). Dropped.",
                             dlc_pdu_len_from_mux,
                             CONFIG_DECT_MAC_SDU_MAX_SIZE);
-                        printk("RX_SDU_HANDLER: Freeing SDU buffer due to size constraint\n");
                         dect_mac_buffer_free(sdu_for_dlc);
                     }
                 } else {
-                    LOG_ERR("RX_SDU_HANDLER: Failed to alloc SDU buffer for DLC RX. DLC PDU (len %u) dropped.",
-                        dlc_pdu_len_from_mux);
-                    printk("RX_SDU_HANDLER: Buffer allocation failed for IE type 0x%X\n", ie_type_from_mux);
+                    LOG_ERR("RX_SDU_HANDLER: Failed to alloc SDU buffer for DLC RX. DLC PDU (len %u) IE type 0x%X dropped.",
+                        dlc_pdu_len_from_mux, ie_type_from_mux);
                 }
             } else {
                 LOG_ERR("RX_SDU_HANDLER: DLC RX queue is NULL! DLC PDU dropped.");
-                printk("RX_SDU_HANDLER: g_dlc_rx_sdu_queue_ptr is NULL, cannot append SDU\n");
             }
 		} else {
 			LOG_DBG("RX_SDU_HANDLER: Skipping non-UserData MUX IE type 0x%X.",
 				ie_type_from_mux);
-            printk("RX_SDU_HANDLER: Non-user data IE type 0x%X skipped\n", ie_type_from_mux);
 		}
 
         // Declare and calculate the total number of bytes consumed by the current IE.
@@ -1367,17 +1358,16 @@ void dect_mac_data_path_handle_rx_sdu(const uint8_t *mac_sdu_area_data,
             break;
         }
 
-        printk("RX_SDU_HANDLER: Consumed %zu bytes (header: %d, payload: %u) for IE type 0x%X\n",
+        LOG_DBG("RX_SDU_HANDLER: Consumed %zu bytes (header: %d, payload: %u) for IE type 0x%X\n",
                consumed, parsed_mux_header_len, dlc_pdu_len_from_mux, ie_type_from_mux);
 
 		current_ie_ptr += consumed;
 		remaining_sdu_area_len -= consumed;
         
-        printk("RX_SDU_HANDLER: Remaining SDU area length: %zu\n", remaining_sdu_area_len);
-        printk("RX_SDU_HANDLER: *******************************************   END ITERATION   *******************************************\n");
+        LOG_DBG("RX_SDU_HANDLER: Remaining SDU area length: %zu\n", remaining_sdu_area_len);
 	}
     
-    printk("RX_SDU_HANDLER: Finished processing MAC SDU Area. Total processed: %zu bytes\n", 
+    LOG_DBG("RX_SDU_HANDLER: Finished processing MAC SDU Area. Total processed: %zu bytes\n", 
            mac_sdu_area_len - remaining_sdu_area_len);
 }
 

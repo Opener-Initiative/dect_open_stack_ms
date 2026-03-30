@@ -70,7 +70,7 @@ void dect_mac_phy_ctrl_build_pcc_header(union nrf_modem_dect_phy_hdr *pcc_hdr,
 				       pending_op_type_t op_type)
 {
 
-	printk("[PCC_BUILD] Building header. Active context role: %s, Network ID LSB to be used: 0x%02X\n",
+	LOG_DBG("[PCC_BUILD] Building header. Active context role: %s, Network ID LSB to be used: 0x%02X",
 	       (ctx->role == MAC_ROLE_PT ? "PT" : "FT"), (uint8_t)(ctx->network_id_32bit & 0xFF));
 
 
@@ -168,7 +168,7 @@ void dect_mac_phy_ctrl_build_pcc_header(union nrf_modem_dect_phy_hdr *pcc_hdr,
 		if (feedback) {
 			memcpy(&pcc2->feedback, feedback, sizeof(union nrf_modem_dect_phy_feedback));
 		}
-		printk("[PHY_CTRL] pcc2->short_network_id =%0x04 \n", pcc2->short_network_id) ;
+		LOG_DBG("pcc2->short_network_id =%0x04 ", pcc2->short_network_id) ;
 	}
 }
 
@@ -180,14 +180,14 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
-	printk("PHY_CTRL_RX: Starting RX op %s (H:%u), pending op %s (H:%u).\n",
+	LOG_DBG("PHY_CTRL_RX: Starting RX op %s (H:%u), pending op %s (H:%u).",
 				dect_pending_op_to_str(op_type), phy_op_handle,
 				dect_pending_op_to_str(ctx->pending_op_type),
 				ctx->pending_op_handle);
 
 	if (ctx->pending_op_type != PENDING_OP_NONE && ctx->pending_op_handle != phy_op_handle) {
 		if (ctx->pending_op_type != op_type || ctx->pending_op_handle != phy_op_handle) {
-			printk("PHY_CTRL_RX: Cannot start RX op %s (H:%u), op %s (H:%u) already pending.\n",
+			LOG_DBG("PHY_CTRL_RX: Cannot start RX op %s (H:%u), op %s (H:%u) already pending.",
 				dect_pending_op_to_str(op_type), phy_op_handle,
 				dect_pending_op_to_str(ctx->pending_op_type),
 				ctx->pending_op_handle);
@@ -198,7 +198,7 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 	ctx->pending_op_type = op_type;
 	ctx->current_rx_op_carrier = carrier;
 
-	printk("[PHY_CTRL_SET_PENDING] Set pending op to Type: %s, Handle: %u\n",
+	LOG_DBG("[PHY_CTRL_SET_PENDING] Set pending op to Type: %s, Handle: %u",
 	       dect_pending_op_to_str(op_type), phy_op_handle);
 
 	/* Pass start_time_modem_ticks directly. The mock PHY (and real PHY API) treats
@@ -230,7 +230,7 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 			    .receiver_identity = (expected_receiver_id) }
 	};
 
-	printk("PHY_CTRL_RX: Sending RX. Hdl: %u, C:%u (ARFCN:%u), Mode:%d, Dur:%u TU, RxID_Filter:0x%04X, OpT:%s, StartTime(ticks):%llu\n",
+	LOG_DBG("PHY_CTRL_RX: Sending RX. Hdl: %u, C:%u (ARFCN:%u), Mode:%d, Dur:%u TU, RxID_Filter:0x%04X, OpT:%s, StartTime(ticks):%llu",
 		phy_op_handle, carrier, arfcn, mode, duration_modem_units, expected_receiver_id,
 		dect_pending_op_to_str(op_type), start_time_modem_ticks);
 
@@ -261,31 +261,30 @@ int dect_mac_phy_ctrl_assemble_final_pdu(
     size_t mac_sdu_area_len,
     uint16_t *out_assembled_pdu_len_cleartext)
 {
-	printk("[PDU_ASSEMBLY_DBG] Entering assemble_final_pdu.\n");
-	printk("  -> mac_hdr_type_octet_byte: 0x%02X\n", mac_hdr_type_octet_byte);
-	printk("  -> common_hdr_len: %zu\n", common_hdr_len);
-	printk("  -> sdu_area_len: %zu\n", mac_sdu_area_len);
+	LOG_DBG("[PDU_ASSEMBLY_DBG] Entering assemble_final_pdu.");
+	LOG_DBG("  -> mac_hdr_type_octet_byte: 0x%02X", mac_hdr_type_octet_byte);
+	LOG_DBG("  -> common_hdr_len: %zu", common_hdr_len);
+	LOG_DBG("  -> sdu_area_len: %zu", mac_sdu_area_len);
 
 
     size_t current_offset = 0;
 
-    printk("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
-    printk("[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> Using MAC Header Type: 0x%02X\n", mac_hdr_type_octet_byte);	
+    LOG_DBG("[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> Using MAC Header Type: 0x%02X", mac_hdr_type_octet_byte);	
 
 	if (!target_final_mac_pdu_buf || !out_assembled_pdu_len_cleartext) {
-		if (!target_final_mac_pdu_buf ){printk("[PHY CTRL] ERROR:dect_mac_phy_ctrl_assemble_final_pdu -> (!target_final_mac_pdu_buf}\n");}
-		if (!mac_hdr_type_octet_byte){printk("[PHY CTRL] ERROR:dect_mac_phy_ctrl_assemble_final_pdu -> (!mac_hdr_type_octet_byte}\n");}
-		printk("[PHY CTRL] ERROR:dect_mac_phy_ctrl_assemble_final_pdu -> (!target_final_mac_pdu_buf || !mac_hdr_type_octet_byte || !out_assembled_pdu_len_cleartext) \n");
+		if (!target_final_mac_pdu_buf ){LOG_ERR("[PHY CTRL] ERROR:dect_mac_phy_ctrl_assemble_final_pdu -> (!target_final_mac_pdu_buf}");}
+		if (!mac_hdr_type_octet_byte){LOG_ERR("[PHY CTRL] ERROR:dect_mac_phy_ctrl_assemble_final_pdu -> (!mac_hdr_type_octet_byte}");}
+		LOG_ERR("[PHY CTRL] ERROR:dect_mac_phy_ctrl_assemble_final_pdu -> (!target_final_mac_pdu_buf || !mac_hdr_type_octet_byte || !out_assembled_pdu_len_cleartext) ");
         return -EINVAL;
     }
     // Validate conditional parameters
     if ((common_hdr_data == NULL && common_hdr_len > 0) || (common_hdr_data != NULL && common_hdr_len == 0)) {
-		printk("[PHY CTRL] ERROR:dect_mac_phy_ctrl_assemble_final_pdu -> ((common_hdr_data == NULL && common_hdr_len > 0) || (common_hdr_data != NULL && common_hdr_len == 0)) \n");
+		LOG_ERR("[PHY CTRL] ERROR:dect_mac_phy_ctrl_assemble_final_pdu -> ((common_hdr_data == NULL && common_hdr_len > 0) || (common_hdr_data != NULL && common_hdr_len == 0)) ");
         // Allow common_hdr_data to be NULL if common_hdr_len is 0 (e.g. no common header after type octet)
         if (common_hdr_data != NULL || common_hdr_len != 0) return -EINVAL;
     }
     if ((mac_sdu_area_data == NULL && mac_sdu_area_len > 0) || (mac_sdu_area_data != NULL && mac_sdu_area_len == 0)) {
-		printk("[PHY CTRL] ERROR:dect_mac_phy_ctrl_assemble_final_pdu -> ((mac_sdu_area_data == NULL && mac_sdu_area_len > 0) || (mac_sdu_area_data != NULL && mac_sdu_area_len == 0)) \n");
+		LOG_ERR("[PHY CTRL] ERROR:dect_mac_phy_ctrl_assemble_final_pdu -> ((mac_sdu_area_data == NULL && mac_sdu_area_len > 0) || (mac_sdu_area_data != NULL && mac_sdu_area_len == 0)) ");
         if (mac_sdu_area_data != NULL || mac_sdu_area_len != 0) return -EINVAL;
     }
 
@@ -300,7 +299,7 @@ int dect_mac_phy_ctrl_assemble_final_pdu(
     target_final_mac_pdu_buf[current_offset] = mac_hdr_type_octet_byte;
     current_offset += 1;
 
-printk("[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu - mac_hdr_type_octet_byte:0x%08X \n", mac_hdr_type_octet_byte);
+	LOG_DBG("[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu - mac_hdr_type_octet_byte:0x%08X ", mac_hdr_type_octet_byte);
 
 
     // 2. MAC Common Header
@@ -317,14 +316,15 @@ printk("[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu - mac_hdr_type_octet_byt
         current_offset += mac_sdu_area_len;
     }
 
-	printk("[PHY CTRL] dect_mac_phy_ctrl_assemble_final_pdu -> current_offset: %d \n", current_offset);
-	printk("  -> SDU Area len: %zu\n", mac_sdu_area_len);
-	printk("  -> Final PDU len: %zu\n", current_offset);
+	LOG_DBG("dect_mac_phy_ctrl_assemble_final_pdu -> current_offset: %d ", current_offset);
+	LOG_DBG("  -> SDU Area len: %zu", mac_sdu_area_len);
+	LOG_DBG("  -> Final PDU len: %zu", current_offset);
 
-	printk("[PDU_ASSEMBLY_DBG] Final PDU len: %zu\n", current_offset);
-	printk("  -> Final PDU hexdump (first 48 bytes): ");
-	for (int i=0; i<current_offset && i < 48; i++) { printk("%02x ", target_final_mac_pdu_buf[i]); }
-	printk("\n");
+	LOG_INF("Final PDU len: %zu", current_offset);
+	// LOG_DBG("  -> Final PDU hexdump (first 48 bytes): ");
+	LOG_HEXDUMP_INF(target_final_mac_pdu_buf, current_offset, "Final PDU Hexdump:");
+	// for (int i=0; i<current_offset && i < 48; i++) { printk("%02x ", target_final_mac_pdu_buf[i]); }
+	// printk("");
 
     *out_assembled_pdu_len_cleartext = current_offset;
     return 0;
@@ -340,29 +340,29 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 					 const union nrf_modem_dect_phy_feedback *feedback)
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
-	printk("[PHY_CTRL_TX] Function called with context %p (Role: %s)\n",
+	LOG_DBG("Function called with context %p (Role: %s)",
 	       (void *)ctx, (ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
-	printk("[PHY_CTRL_TX] Calling nrf_modem_dect_phy_tx with phy_type: %u  pending_op_type: %u ctx->pending_op_handle:%u phy_op_handle:%u \n",
+	LOG_DBG("Calling nrf_modem_dect_phy_tx with phy_type: %u  pending_op_type: %u ctx->pending_op_handle:%u phy_op_handle:%u ",
 	       is_beacon ? 0 : 1 , ctx->pending_op_type, ctx->pending_op_handle, phy_op_handle);
-	// printk("[PHY_CTRL_TX] Calling nrf_modem_dect_phy_tx with pending_op_type: %u\n",
+	// LOG_DBG("Calling nrf_modem_dect_phy_tx with pending_op_type: %u",
 	//        ctx->pending_op_type);
-	// printk("[PHY_CTRL_TX] Calling nrf_modem_dect_phy_tx with ctx->pending_op_handle:%u phy_op_handle:%u \n",
+	// LOG_DBG("Calling nrf_modem_dect_phy_tx with ctx->pending_op_handle:%u phy_op_handle:%u ",
 	//        ctx->pending_op_handle, phy_op_handle);
 	if (!ctx) {
-		printk("[PHY_CTRL] dect_mac_phy_ctrl_start_tx_assembled FAILED-> !ctx..(-EFAULT).\n");
+		LOG_ERR("FAILED-> !ctx..(-EFAULT).");
 		return -EFAULT;
 	}
 
 	ctx->pending_op_handle = phy_op_handle;
 	ctx->pending_op_type = op_type;
 
-	printk("[PHY_CTRL_SET_PENDING] Set pending op to Type: %s, Handle: %u\n",
+	LOG_DBG("[PHY_CTRL_SET_PENDING] Set pending op to Type: %s, Handle: %u",
 	       dect_pending_op_to_str(op_type), phy_op_handle);
 
 	if (full_mac_pdu_to_send == NULL || full_mac_pdu_len == 0 ||
 	    full_mac_pdu_len < sizeof(dect_mac_header_type_octet_t) ||
 	    full_mac_pdu_len > CONFIG_DECT_MAC_PDU_MAX_SIZE) {
-		LOG_ERR("PHY_CTRL_TX: Invalid PDU or length: %p, len %u", full_mac_pdu_to_send,
+		LOG_ERR("[TX] Invalid PDU or length: %p, len %u", full_mac_pdu_to_send,
 			full_mac_pdu_len);
 		if (ctx->pending_op_handle == phy_op_handle) {
 			ctx->pending_op_type = PENDING_OP_NONE;
@@ -370,17 +370,13 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 		}
 		return -EINVAL;
 	}
-
-		printk("\n");
-		printk("  - FULL MAC PDU Payload (MAC PDU, len %u):\n", full_mac_pdu_len);
-		for (int i = 0; i < full_mac_pdu_len; i++) {
-			printk("%02x ", full_mac_pdu_to_send[i]);
-		}
-		printk("\n");
+	/* Log the full MAC PDU */
+	// LOG_INF("[TX] Full MAC PDU len %u", full_mac_pdu_len);
+	// LOG_HEXDUMP_INF(full_mac_pdu_to_send, full_mac_pdu_len, "Payload:");
 
 	/* The PDC payload IS the full MAC PDU. Copy it to the constructor buffer. */
 	if (full_mac_pdu_len > sizeof(g_phy_pdc_tx_constructor_buf_ctrl)) {
-		LOG_ERR("PHY_CTRL_TX: Full MAC PDU for PHY TX too large (%u > %zu)",
+		LOG_ERR("[TX] Full MAC PDU for PHY TX too large (%u > %zu)",
 			full_mac_pdu_len, sizeof(g_phy_pdc_tx_constructor_buf_ctrl));
 		if (ctx->pending_op_handle == phy_op_handle) {
 			ctx->pending_op_type = PENDING_OP_NONE;
@@ -419,25 +415,28 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 
 	if (ret == 0) {
 
-		printk("[PHY_CTRL_TX] Scheduled TX for op %s (Hdl %u)\n",
+		LOG_DBG("Scheduled TX for op %s (Hdl %u)",
 		       dect_pending_op_to_str(op_type), phy_op_handle);
-		printk("  - PCC Header (PHY Type %u):\n", tx_params.phy_type);
+		LOG_DBG("  - PCC Header (PHY Type %u):", tx_params.phy_type);
 		size_t pcc_len = (tx_params.phy_type == 0) ? sizeof(struct nrf_modem_dect_phy_hdr_type_1)
 							   : sizeof(struct nrf_modem_dect_phy_hdr_type_2);
 		for (int i = 0; i < pcc_len; i++) {
-			printk("%02x ", ((uint8_t *)tx_params.phy_header)[i]);
+			LOG_DBG("%02x ", ((uint8_t *)tx_params.phy_header)[i]);
 		}
-		printk("\n");
-		printk("  - PDC Payload (MAC PDU, len %u):\n", tx_params.data_size);
-		for (int i = 0; i < tx_params.data_size; i++) {
-			printk("%02x ", tx_params.data[i]);
-		}
-		printk("\n");
+		// printk("");
 
-		printk("  - TX Params: StartTime:%llu, Handle:%u, NetID:0x%08X, PhyType:%u, Carrier:%u, DataSize:%zu\n",
+		LOG_INF("[TX] PDC Payload (MAC PDU, len %u)", tx_params.data_size);
+		LOG_HEXDUMP_INF(tx_params.data, tx_params.data_size, "PDC Payload:");
+		// printk("  - PDC Payload (MAC PDU, len %u):", tx_params.data_size);
+		// for (int i = 0; i < tx_params.data_size; i++) {
+		// 	printk("%02x ", tx_params.data[i]);
+		// }
+		// printk("");
+
+		LOG_DBG("  - TX Params: StartTime:%llu, Handle:%u, NetID:0x%08X, PhyType:%u, Carrier:%u, DataSize:%zu",
 		       tx_params.start_time, tx_params.handle, tx_params.network_id, tx_params.phy_type,
 		       tx_params.carrier, tx_params.data_size);
-		printk("  - LBT: Threshold:%d, Period:%u\n", tx_params.lbt_rssi_threshold_max, tx_params.lbt_period);
+		LOG_DBG("  - LBT: Threshold:%d, Period:%u", tx_params.lbt_rssi_threshold_max, tx_params.lbt_period);
 
 		
 
@@ -450,7 +449,7 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 						 ? g_phy_pcc_tx_constructor_buf.hdr_type_1.packet_length_type
 						 : g_phy_pcc_tx_constructor_buf.hdr_type_2.packet_length_type;
 
-		printk("  - PCC PktLenField: %u, PktLenType: %u\n", pcc_pkt_len_field, pcc_pkt_len_type);
+		LOG_DBG("  - PCC PktLenField: %u, PktLenType: %u", pcc_pkt_len_field, pcc_pkt_len_type);
 		uint32_t num_units = pcc_pkt_len_field + 1;
 		uint32_t duration_ticks;
 
@@ -480,7 +479,7 @@ int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_subslo
                                       enum nrf_modem_dect_phy_rssi_interval reporting_interval,
                                       uint32_t phy_op_handle, pending_op_type_t op_type) {
 
-	// printk("[PHY_CTRL_RSSI_DBG] Entering dect_mac_phy_ctrl_start_rssi_scan...\n");
+	// LOG_DBG("[PHY_CTRL_RSSI_DBG] Entering dect_mac_phy_ctrl_start_rssi_scan...");
 
     dect_mac_context_t *ctx = dect_mac_get_active_context();
     if (ctx->pending_op_type != PENDING_OP_NONE && ctx->pending_op_handle != phy_op_handle) {
@@ -494,7 +493,7 @@ int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_subslo
     ctx->pending_op_handle = phy_op_handle;
     ctx->pending_op_type = op_type;
 
-	printk("[PHY_CTRL_SET_PENDING] Set pending op to Type: %s, Handle: %u\n",
+	LOG_DBG("[PHY_CTRL_SET_PENDING] Set pending op to Type: %s, Handle: %u",
 	       dect_pending_op_to_str(op_type), phy_op_handle);
 
 	uint16_t arfcn = dect_mac_channel_num_to_arfcn(carrier);
@@ -509,10 +508,7 @@ int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_subslo
     LOG_INF("PHY_CTRL_RSSI: Starting RSSI. Hdl:%u, C:%u (ARFCN:%u), Dur:%u subslots, RepInt:%d, OpT:%s",
             phy_op_handle, carrier, arfcn, duration_subslots, reporting_interval, dect_pending_op_to_str(op_type));
 
-printk("[PHY_CTRL_RSSI_DBG] About to call nrf_modem_dect_phy_rssi...\n");
-
     int ret = nrf_modem_dect_phy_rssi(&rssi_params);
-printk("[PHY_CTRL_RSSI_DBG] Returned from nrf_modem_dect_phy_rssi with code: %d\n", ret);
 
 	if (ret == 0) {
 		dect_mac_phy_if_register_op_handle(phy_op_handle, ctx);
@@ -529,7 +525,7 @@ printk("[PHY_CTRL_RSSI_DBG] Returned from nrf_modem_dect_phy_rssi with code: %d\
 }
 
 int dect_mac_phy_ctrl_cancel_op(uint32_t phy_op_handle) {
-    LOG_INF("PHY_CTRL: Requesting cancel for PHY op handle %u", phy_op_handle);
+    LOG_INF("Requesting cancel for PHY op handle %u", phy_op_handle);
     // The NRF_MODEM_DECT_PHY_EVT_COMPLETED for the cancelled op will clear pending_op_type.
     // NRF_MODEM_DECT_PHY_EVT_CANCELED confirms the cancel request itself.
     return nrf_modem_dect_phy_cancel(phy_op_handle);
@@ -540,12 +536,11 @@ pending_op_type_t dect_mac_phy_ctrl_handle_op_complete(const struct nrf_modem_de
     pending_op_type_t completed_type = PENDING_OP_NONE;
 
     if (event == NULL) {
-        printk("{ERROR} PHY_CTRL_OP_DONE: NULL event pointer.\n");
-		// LOG_ERR("PHY_CTRL_OP_DONE: NULL event pointer.");
+        LOG_ERR("PHY_CTRL_OP_DONE: NULL event pointer.");
         return PENDING_OP_NONE;
     }
 
-	printk("[PHY_CTRL_OP_DONE] Received completion for Handle: %u. Current pending Handle: %u, Type: %s\n",
+	LOG_DBG("[PHY_CTRL_OP_DONE] Received completion for Handle: %u. Current pending Handle: %u, Type: %s",
 	       event->handle, ctx->pending_op_handle, dect_pending_op_to_str(ctx->pending_op_type));
 
 	/*
@@ -558,7 +553,7 @@ pending_op_type_t dect_mac_phy_ctrl_handle_op_complete(const struct nrf_modem_de
     // if (event->handle == ctx->pending_op_handle && ctx->pending_op_type != PENDING_OP_NONE) {
 	if (ctx && ctx->pending_op_handle == event->handle) {
         completed_type = ctx->pending_op_type;
-        printk("PHY_CTRL_OP_DONE: Matches pending op: Handle %u, Type %s, Err %d (%s) \n",
+        LOG_DBG("PHY_CTRL_OP_DONE: Matches pending op: Handle %u, Type %s, Err %d (%s) ",
                 event->handle, dect_pending_op_to_str(completed_type),
                 event->err, nrf_modem_dect_phy_err_to_str(event->err));
 
@@ -597,7 +592,7 @@ pending_op_type_t dect_mac_phy_ctrl_handle_op_complete(const struct nrf_modem_de
                     event->handle, ctx->pending_op_handle, dect_pending_op_to_str(ctx->pending_op_type));
         }
     }
-	// printk("completed_type:%d\n", completed_type);
+	// LOG_DBG("completed_type:%d", completed_type);
 	
     return completed_type;
 }

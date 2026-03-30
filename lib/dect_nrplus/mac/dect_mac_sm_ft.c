@@ -95,22 +95,22 @@ uint64_t modem_us_to_ticks(uint64_t us, uint32_t tick_rate_khz);
 // --- FT Timer Expiry Action Function (called by dispatcher) ---
 void dect_mac_sm_ft_beacon_timer_expired_action(void) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
-	printk("[FT_SM] dect_mac_sm_ft_beacon_timer_expired_action ctx->pending_op_type: %d\n", ctx->pending_op_type);
+	LOG_DBG(" dect_mac_sm_ft_beacon_timer_expired_action ctx->pending_op_type: %d", ctx->pending_op_type);
 
     if (ctx->pending_op_type == PENDING_OP_NONE ||
         ctx->pending_op_type == PENDING_OP_FT_RACH_RX_WINDOW) {
         /* If a RACH listen window is open, cancel it — beacon TX has priority.
          * The RX window will be re-armed immediately after the beacon completes. */
         if (ctx->pending_op_type == PENDING_OP_FT_RACH_RX_WINDOW) {
-            LOG_INF("FT SM: Beacon time — cancelling RACH RX window to send beacon.");
+            LOG_INF("Beacon time — cancelling RACH RX window to send beacon.");
             dect_mac_phy_ctrl_cancel_op(ctx->pending_op_handle);
             dect_mac_core_clear_pending_op();
         }
-		printk("[FT_SM] sending beacon -> ft_send_beacon_action()\n");
+		LOG_DBG(" sending beacon -> ft_send_beacon_action()");
         ft_send_beacon_action();
     } else {
         /* Some other critical op is in-flight (e.g. assoc resp, data TX) — defer. */
-        LOG_WRN("FT SM: Beacon time, but op %s pending. Skipping this beacon.",
+        LOG_WRN("Beacon time, but op %s pending. Skipping this beacon.",
                 dect_pending_op_to_str(ctx->pending_op_type));
         uint32_t short_delay_ms = ctx->config.ft_cluster_beacon_period_ms / 4;
         if (short_delay_ms < 10) short_delay_ms = 10;
@@ -126,7 +126,7 @@ void dect_mac_sm_ft_beacon_timer_expired_action(void) {
 // --- FT Public Functions ---
 void dect_mac_sm_ft_start_operation(void)
 {
-	printk("[FT_START_OP_DBG] Entering dect_mac_sm_ft_start_operation...\n");
+	LOG_DBG("[FT_START_OP_DBG] Entering dect_mac_sm_ft_start_operation...");
 
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
@@ -146,7 +146,7 @@ void dect_mac_sm_ft_start_operation(void)
 	}
 
 	if (ctx->role_ctx.ft.dcs_num_valid_candidate_channels == 0) {
-		LOG_WRN("FT SM: DCS: No valid channels to scan. Defaulting to carrier %u and starting beaconing.",
+		LOG_WRN("DCS: No valid channels to scan. Defaulting to carrier %u and starting beaconing.",
 			CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL);
 		ctx->role_ctx.ft.operating_carrier =
 			CONFIG_DECT_MAC_FT_DEFAULT_OPERATING_CHANNEL;
@@ -157,7 +157,7 @@ void dect_mac_sm_ft_start_operation(void)
 	ctx->role_ctx.ft.dcs_current_channel_scan_index = 0;
 	uint16_t scan_carrier = ctx->role_ctx.ft.dcs_candidate_channels[0];
 
-	// LOG_INF("FT SM: Starting DCS scan, 1/%u on carrier %u.",
+	// LOG_INF("Starting DCS scan, 1/%u on carrier %u.",
 	// 	ctx->role_ctx.ft.dcs_num_valid_candidate_channels, scan_carrier);
 
 	uint32_t phy_op_handle;
@@ -179,28 +179,26 @@ void dect_mac_sm_ft_start_operation(void)
 		phy_op_handle, PENDING_OP_FT_INITIAL_SCAN);
 
 	if (ret != 0) {
-		LOG_ERR("FT SM: Failed to start initial RSSI scan for DCS (channel %u): %d. Retrying after delay.",
+		LOG_ERR("Failed to start initial RSSI scan for DCS (channel %u): %d. Retrying after delay.",
 			scan_carrier, ret);
 		k_timer_start(&ctx->role_ctx.ft.beacon_timer, K_SECONDS(1), K_NO_WAIT);
 		dect_mac_change_state(MAC_STATE_IDLE);
 	}
 	
-	// printk("[FT_START_OP_DBG] Exiting dect_mac_sm_ft_start_operation.\n");
+	// LOG_DBG("[FT_START_OP_DBG] Exiting dect_mac_sm_ft_start_operation.");
 }
 
 
 
 void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
 
-	// printk("[FT_SM_DBG] Entering dect_mac_sm_ft_handle_event for event %s in state %s.\n",
+	// LOG_DBG("Entering dect_mac_sm_ft_handle_event for event %s in state %s.",
 	//        dect_mac_event_to_str(msg->type), dect_mac_state_to_str(dect_mac_get_active_context()->state));
 
     dect_mac_context_t *ctx = dect_mac_get_active_context();
 
-	printk("[FT_SM] dect_mac_sm_ft_handle_event: Received event %s in state %s\n",
+	LOG_DBG("Received %s in state %s",
 	       dect_mac_event_to_str(msg->type), dect_mac_state_to_str(ctx->state));
-	// LOG_INF("[FT_SM] Received event %s in state %s\n",
-	//        dect_mac_event_to_str(msg->type), dect_mac_state_to_str(ctx->state));
 
     switch (msg->type) {
         case MAC_EVENT_PHY_OP_COMPLETE:
@@ -210,11 +208,11 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
                     ft_handle_phy_op_complete_ft(&msg->data.op_complete, completed_op);
                     
                     if (completed_op == PENDING_OP_FT_ASSOC_RESP) {
-                         printk("[FT_SM] FT_ASSOC_RESP TX Complete. Opening RACH window.\n");
+                         LOG_DBG(" FT_ASSOC_RESP TX Complete. Opening RACH window.");
                          ft_schedule_rach_listen_action();
                     }
                 } else {
-                     LOG_DBG("FT SM: OP_COMPLETE for handle %u (err %d), but no matching/active MAC pending_op_type.",
+                     LOG_DBG("OP_COMPLETE for handle %u (err %d), but no matching/active MAC pending_op_type.",
                             msg->data.op_complete.handle, msg->data.op_complete.err);
                 }
             }
@@ -226,7 +224,7 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
             ft_handle_phy_pdc_ft(&msg->data.pdc);
             break;
         case MAC_EVENT_PHY_PCC_ERROR:
-            LOG_WRN("FT SM: Received PCC_ERROR for handle %u (TID %u).", msg->data.pcc_crc_err.handle, msg->data.pcc_crc_err.transaction_id);
+            LOG_WRN("Received PCC_ERROR for handle %u (TID %u).", msg->data.pcc_crc_err.handle, msg->data.pcc_crc_err.transaction_id);
             /* Invalidate matching transaction from cache on PCC CRC error.
              * A corrupt PCC means any subsequent PDC for this TID is unreliable. */
             {
@@ -235,7 +233,7 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
                     for (int i = 0; i < MAX_PENDING_PCC_TRANSACTIONS; i++) {
                         if (err_ctx->pcc_transaction_cache[i].is_valid &&
                             err_ctx->pcc_transaction_cache[i].transaction_id == msg->data.pcc_crc_err.transaction_id) {
-                            LOG_INF("FT SM: Invalidating PCC cache[%d] for TID %u due to CRC error.", i,
+                            LOG_INF("Invalidating PCC cache[%d] for TID %u due to CRC error.", i,
                                     msg->data.pcc_crc_err.transaction_id);
                             err_ctx->pcc_transaction_cache[i].is_valid = false;
                             k_timer_stop(&err_ctx->pcc_transaction_cache[i].timeout_timer);
@@ -246,7 +244,7 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
             }
             break;
         case MAC_EVENT_PHY_PDC_ERROR:
-            LOG_WRN("FT SM: Received PDC_ERROR for handle %u (TID %u).",
+            LOG_WRN("Received PDC_ERROR for handle %u (TID %u).",
                 msg->data.pdc_crc_err.handle, msg->data.pdc_crc_err.transaction_id);
             /* Invalidate matching PCC cache entry — the PDC payload is lost. */
             {
@@ -255,7 +253,7 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
                     for (int i = 0; i < MAX_PENDING_PCC_TRANSACTIONS; i++) {
                         if (err_ctx->pcc_transaction_cache[i].is_valid &&
                             err_ctx->pcc_transaction_cache[i].transaction_id == msg->data.pdc_crc_err.transaction_id) {
-                            LOG_INF("FT SM: Invalidating PCC cache[%d] for TID %u due to PDC CRC error.", i,
+                            LOG_INF("Invalidating PCC cache[%d] for TID %u due to PDC CRC error.", i,
                                     msg->data.pdc_crc_err.transaction_id);
                             err_ctx->pcc_transaction_cache[i].is_valid = false;
                             k_timer_stop(&err_ctx->pcc_transaction_cache[i].timeout_timer);
@@ -269,10 +267,10 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
             ft_handle_phy_rssi_ft(&msg->data.rssi);
             break;
         case MAC_EVENT_TIMER_EXPIRED_BEACON:
-			printk("[FT_SM] MAC_EVENT_TIMER_EXPIRED_BEACON ctx->state: %d \n", ctx->state);
+			LOG_DBG(" MAC_EVENT_TIMER_EXPIRED_BEACON ctx->state: %d ", ctx->state);
             if (ctx->state == MAC_STATE_FT_BEACONING ||
                 (ctx->state == MAC_STATE_FT_SCANNING && ctx->pending_op_type == PENDING_OP_NONE) ) {
-				printk("[FT_SM_DBG] Handling TMR_BEACON in FT_BEACONING state. dect_mac_sm_ft_beacon_timer_expired_action invoked\n");
+				LOG_DBG("Handling TMR_BEACON in FT_BEACONING state. dect_mac_sm_ft_beacon_timer_expired_action invoked");
                 dect_mac_sm_ft_beacon_timer_expired_action();
             }
             break;
@@ -280,13 +278,13 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
             {
                 int peer_idx = msg->data.timer_data.id;
                 if (peer_idx >= 0 && peer_idx < MAX_PEERS_PER_FT) {
-                    LOG_WRN("FT SM: Supervision timer expired for peer slot %d. Disconnecting.", peer_idx);
+                    LOG_WRN("Supervision timer expired for peer slot %d. Disconnecting.", peer_idx);
                     /* Invalidate the peer context */
                     ctx->role_ctx.ft.connected_pts[peer_idx].is_valid = false;
                     /* Clean up schedule if necessary */
                     ctx->role_ctx.ft.peer_schedules[peer_idx].is_active = false;
                 } else {
-                     LOG_ERR("FT SM: Supervision timeout for invalid peer index %d", peer_idx);
+                     LOG_ERR("Supervision timeout for invalid peer index %d", peer_idx);
                 }
             }
             break;
@@ -294,7 +292,7 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
             dect_mac_data_path_handle_harq_nack_action(msg->data.timer_data.id);
             break;
         default:
-            LOG_DBG("FT SM: Unhandled event type %s in state %s",
+            LOG_DBG("Unhandled event type %s in state %s",
                     dect_mac_event_to_str(msg->type), dect_mac_state_to_str(ctx->state));
             break;
     }
@@ -303,14 +301,14 @@ void dect_mac_sm_ft_handle_event(const struct dect_mac_event_msg *msg) {
     //     ft_evaluate_and_update_pt_schedules();
     // }
 
-	// printk("[FT_SM_DBG] Exiting dect_mac_sm_ft_handle_event.\n");
+	// LOG_DBG("Exiting dect_mac_sm_ft_handle_event.");
 }
 
 bool ft_get_next_tx_opportunity(int peer_slot_idx, uint64_t *out_start_time,
 				uint16_t *out_carrier, dect_mac_schedule_t *out_schedule)
 {
 
-	printk("[FT_SCHED_DBG] ft_get_next_tx_opportunity Called...\n");
+	LOG_DBG("[FT_SCHED_DBG] ft_get_next_tx_opportunity Called...");
 
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 	if (peer_slot_idx < 0 || peer_slot_idx >= MAX_PEERS_PER_FT ||
@@ -827,7 +825,7 @@ static void ft_select_operating_carrier_and_start_beaconing(
 {
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
-	LOG_INF("[FT_SM] In ft_select_operating_carrier_and_start_beaconing()\n");
+	LOG_INF(" In ft_select_operating_carrier_and_start_beaconing()");
 
 	if (ctx->state != MAC_STATE_FT_SCANNING) {
 		LOG_WRN("FT_DCS_SEL: Not in SCANNING state (%s), ignoring request to select carrier.",
@@ -919,14 +917,14 @@ static void ft_select_operating_carrier_and_start_beaconing(
 static void ft_start_beaconing_actions(void) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
     dect_mac_change_state(MAC_STATE_FT_BEACONING);
-    LOG_INF("FT SM: Entered BEACONING state on carrier %u.", ctx->role_ctx.ft.operating_carrier);
+    LOG_INF("Entered BEACONING state on carrier %u.", ctx->role_ctx.ft.operating_carrier);
 
 
 	/* Start an RX operation to listen for all incoming PT traffic (RACH and data).
 	 * NOTE: NCS 3.0.2 modem firmware requires duration > 0 for RX operations.
 	 * We use the beacon period as the window duration and re-arm in the beacon timer handler.
 	 */
-	LOG_INF("FT SM: Starting initial RX window for PT traffic (one beacon period).");
+	LOG_INF("Starting initial RX window for PT traffic (one beacon period).");
 	uint32_t phy_rx_op_handle;
 	uint32_t beacon_period_rx_ms = ctx->config.ft_cluster_beacon_period_ms;
 	if (beacon_period_rx_ms < 10) {
@@ -1010,9 +1008,7 @@ static void ft_send_beacon_action(void)
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
 	if (ctx->state != MAC_STATE_FT_BEACONING) {
-		printk("FT SM: Beacon TX attempt, but not in BEACONING state (%s). Aborting.\n",
-			dect_mac_state_to_str(ctx->state));		
-		LOG_WRN("FT SM: Beacon TX attempt, but not in BEACONING state (%s). Aborting.",
+		LOG_WRN("Beacon TX attempt, but not in BEACONING state (%s). Aborting.",
 			dect_mac_state_to_str(ctx->state));
 		return;
 	}
@@ -1025,9 +1021,9 @@ static void ft_send_beacon_action(void)
 
 
 	// if (ctx->pending_op_type != PENDING_OP_NONE) {
-	// 	printk("FT SM: Beacon TX time, but op %s pending. Delaying beacon. \n",
+	// 	LOG_DBG("Beacon TX time, but op %s pending. Delaying beacon. ",
 	// 		dect_pending_op_to_str(ctx->pending_op_type));		
-	// 	LOG_WRN("FT SM: Beacon TX time, but op %s pending. Delaying beacon.",
+	// 	LOG_WRN("Beacon TX time, but op %s pending. Delaying beacon.",
 	// 		dect_pending_op_to_str(ctx->pending_op_type));
 	// 	uint32_t short_delay_ms = ctx->config.ft_cluster_beacon_period_ms / 10;
 
@@ -1039,13 +1035,13 @@ static void ft_send_beacon_action(void)
 	// 	}
 	// 	k_timer_start(&ctx->role_ctx.ft.beacon_timer, K_MSEC(short_delay_ms),
 	// 		      K_MSEC(ctx->config.ft_cluster_beacon_period_ms));
-	// 	printk("[FT_SM] k_timer_start Started...\n");
+	// 	LOG_DBG(" k_timer_start Started...");
 	// 	return;
 	// }
 
 	uint8_t mac_sdu_area_buf[128];
 	int sdu_area_len;
-printk("[FT_SM] ft_send_beacon_action -> populate_cb_fields_from_ctx \n");
+	LOG_DBG(" ft_send_beacon_action -> populate_cb_fields_from_ctx ");
 	dect_mac_cluster_beacon_ie_fields_t cb_fields;
 	populate_cb_fields_from_ctx(ctx, &cb_fields);
 
@@ -1055,7 +1051,7 @@ printk("[FT_SM] ft_send_beacon_action -> populate_cb_fields_from_ctx \n");
 	uint8_t ft_operational_mu_code = 0;
 
 	if (ctx->own_phy_params.is_valid && ctx->own_phy_params.mu <= 7) {
-		printk("[FT_SM] ctx->own_phy_params.is_valid: %s && ctx->own_phy_params.mu: %d \n", ctx->own_phy_params.is_valid ? "valid" : "invalid", ctx->own_phy_params.mu);
+		LOG_DBG(" ctx->own_phy_params.is_valid: %s && ctx->own_phy_params.mu: %d ", ctx->own_phy_params.is_valid ? "valid" : "invalid", ctx->own_phy_params.mu);
 		ft_operational_mu_code = ctx->own_phy_params.mu;
 	} else {
 		LOG_WRN("FT_BEACON_ACT: FT's own operational mu_code not valid in context. Defaulting to mu_code=0 for RACH IE.");
@@ -1071,12 +1067,12 @@ printk("[FT_SM] ft_send_beacon_action -> populate_cb_fields_from_ctx \n");
 	sdu_area_len = build_beacon_sdu_area_content(mac_sdu_area_buf, sizeof(mac_sdu_area_buf),
 						   &cb_fields, rach_adv_fields);
 	if (sdu_area_len < 0) {
-		LOG_ERR("FT SM: Failed to build beacon SDU area content: %d. Skipping this beacon.",
+		LOG_ERR("Failed to build beacon SDU area content: %d. Skipping this beacon.",
 			sdu_area_len);
 		return;
 	}
 
-	printk("[FT_SM] ft_send_beacon_action -> ctx->own_route_cost: %d \n", ctx->own_route_cost);
+	LOG_DBG(" ft_send_beacon_action -> ctx->own_route_cost: %d ", ctx->own_route_cost);
 	if (ctx->own_route_cost != 255) {
 		dect_mac_route_info_ie_t route_info_fields = {
 			.sink_address_be = sys_cpu_to_be32(ctx->sink_long_rd_id),
@@ -1087,7 +1083,7 @@ printk("[FT_SM] ft_send_beacon_action -> populate_cb_fields_from_ctx \n");
 			build_route_info_ie_muxed(mac_sdu_area_buf + sdu_area_len,
 						  sizeof(mac_sdu_area_buf) - sdu_area_len,
 						  &route_info_fields);
-		printk("[FT_SM] ft_send_beacon_action -> route_info_len: %d \n", route_info_len);
+		LOG_DBG(" ft_send_beacon_action -> route_info_len: %d ", route_info_len);
 		if (route_info_len > 0) {
 			sdu_area_len += route_info_len;
 			LOG_DBG("BEACON_SDU_AREA: Added Route Info IE (len %d).", route_info_len);
@@ -1100,7 +1096,7 @@ printk("[FT_SM] ft_send_beacon_action -> populate_cb_fields_from_ctx \n");
 			NULL, 0);
 		if (join_ie_len > 0) {
 			sdu_area_len += join_ie_len;
-			LOG_DBG("FT_BEACON: Added Joining Information IE (len %d).", join_ie_len);
+			LOG_DBG("Added Joining Information IE (len %d).", join_ie_len);
 		}
 	}
 
@@ -1114,21 +1110,21 @@ printk("[FT_SM] ft_send_beacon_action -> populate_cb_fields_from_ctx \n");
 
 		if (group_ie_len > 0) {
 			sdu_area_len += group_ie_len;
-			LOG_DBG("FT_BEACON: Added Group Assignment IE (len %d).", group_ie_len);
+			LOG_DBG("Added Group Assignment IE (len %d).", group_ie_len);
 		}
 		ctx->role_ctx.ft.group_assignment_pending = false;
 	}
 
 	for (int i = 0; i < MAX_PEERS_PER_FT; i++) {
-		// printk("[FT_SM] ft_send_beacon_action -> ctx->role_ctx.ft.connected_pts[%d].is_valid: %s \n", i, ctx->role_ctx.ft.connected_pts[i].is_valid ? "Valid":"Invalid");
-		// printk("[FT_SM] ft_send_beacon_action -> ctx->role_ctx.ft.connected_pts[%d].paging_pending: %s \n", i, ctx->role_ctx.ft.connected_pts[i].paging_pending ? "Valid":"Invalid");
+		// LOG_DBG(" ft_send_beacon_action -> ctx->role_ctx.ft.connected_pts[%d].is_valid: %s ", i, ctx->role_ctx.ft.connected_pts[i].is_valid ? "Valid":"Invalid");
+		// LOG_DBG(" ft_send_beacon_action -> ctx->role_ctx.ft.connected_pts[%d].paging_pending: %s ", i, ctx->role_ctx.ft.connected_pts[i].paging_pending ? "Valid":"Invalid");
 		
 
 		if (ctx->role_ctx.ft.connected_pts[i].is_valid &&
 		    ctx->role_ctx.ft.connected_pts[i].paging_pending) {
-			printk("[FT_SM] ft_send_beacon_action -> ctx->role_ctx.ft.connected_pts[%d].short_rd_id 0x%04X for beacon.\n"
+			LOG_DBG(" ft_send_beacon_action -> ctx->role_ctx.ft.connected_pts[%d].short_rd_id 0x%04X for beacon."
 				, i, ctx->role_ctx.ft.connected_pts[i].short_rd_id);
-			LOG_INF("FT_BEACON: Paging PT 0x%04X in this beacon.",
+			LOG_DBG("Paging PT 0x%04X in this beacon.",
 				ctx->role_ctx.ft.connected_pts[i].short_rd_id);
 
 			int page_ie_len = build_broadcast_indication_ie_muxed(
@@ -1140,7 +1136,7 @@ printk("[FT_SM] ft_send_beacon_action -> populate_cb_fields_from_ctx \n");
 				sdu_area_len += page_ie_len;
 				ctx->role_ctx.ft.connected_pts[i].paging_pending = false;
 			} else {
-				LOG_ERR("FT_BEACON: Failed to add Broadcast Indication IE for paging.");
+				LOG_ERR("Failed to add Broadcast Indication IE for paging.");
 			}
 			break;
 		}
@@ -1158,7 +1154,7 @@ printk("[FT_SM] ft_send_beacon_action -> populate_cb_fields_from_ctx \n");
 
 	mac_sdu_t *pdu_sdu = dect_mac_buffer_alloc(K_NO_WAIT);
 	if (!pdu_sdu) {
-		LOG_ERR("FT SM: Failed to alloc PDU buf for beacon TX. Skipping this beacon.");
+		LOG_ERR("Failed to alloc PDU buf for beacon TX. Skipping this beacon.");
 		return;
 	}
 
@@ -1168,16 +1164,16 @@ printk("[FT_SM] ft_send_beacon_action -> populate_cb_fields_from_ctx \n");
 		&common_beacon_hdr, sizeof(common_beacon_hdr), mac_sdu_area_buf, (size_t)sdu_area_len,
 		&cleartext_pdu_len);
 
-printk("[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: %d (%d) \n", cleartext_pdu_len, ret);
+	LOG_DBG(" ft_send_beacon_action -> cleartext_pdu_len: %d (%d) ", cleartext_pdu_len, ret);
 
 	if (ret != 0) {
-		LOG_ERR("FT SM: Failed to assemble final beacon PDU: %d", ret);
+		LOG_ERR("Failed to assemble final beacon PDU: %d", ret);
 		dect_mac_buffer_free(pdu_sdu);
 		return;
 	}
 	pdu_sdu->len = cleartext_pdu_len;
 
-	// printk("[FT_SM] ft_send_beacon_action -> dect_mac_rand_get: Called... \n");
+	// LOG_DBG(" ft_send_beacon_action -> dect_mac_rand_get: Called... ");
 	uint32_t phy_op_handle;
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
 
@@ -1195,9 +1191,9 @@ printk("[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: %d (%d) \n", clearte
 		/* The next beacon should be at the start of the next frame */
 		beacon_target_start_time = current_frame_start_ticks + frame_duration_ticks_val + 1000 ;
 	}
-	printk("[FT_SM] MoKernel Time: ft_send_beacon_action -> beacon_target_start_time: %lluus \n", beacon_target_start_time);
+	LOG_DBG(" MoKernel Time: ft_send_beacon_action -> beacon_target_start_time: %lluus ", beacon_target_start_time);
 #else
-	printk("[FT_SM] ft_send_beacon_action -> frame_duration_ticks_val: %u ctx->last_known_modem_time: %llu \n", frame_duration_ticks_val, ctx->last_known_modem_time);
+	LOG_DBG(" ft_send_beacon_action -> frame_duration_ticks_val: %u ctx->last_known_modem_time: %llu ", frame_duration_ticks_val, ctx->last_known_modem_time);
 	if (frame_duration_ticks_val == 0) {
 		beacon_target_start_time = 0;
 	} else if (ctx->ft_sfn0_modem_time_anchor == 0) {
@@ -1246,7 +1242,7 @@ printk("[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: %d (%d) \n", clearte
 			ctx->role_ctx.ft.sfn_for_last_beacon_tx = ctx->role_ctx.ft.sfn;
 		}
 	}
-	printk("[FT_SM] Modem Ticks: ft_send_beacon_action -> beacon_target_start_time: %llu \n", beacon_target_start_time);
+	LOG_DBG(" Modem Ticks: ft_send_beacon_action -> beacon_target_start_time: %llu ", beacon_target_start_time);
 #endif /* IS_ENABLED(CONFIG_ZTEST) */
 
 
@@ -1262,7 +1258,7 @@ printk("[FT_SM] ft_send_beacon_action -> cleartext_pdu_len: %d (%d) \n", clearte
 		dect_mac_buffer_free(pdu_sdu);
 		dect_mac_enter_error_state("Failed to schedule beacon TX");
 	} else {
-		LOG_INF("FT SM: Beacon SFN %u TX scheduled on C%u (Hdl %u), TargetStart %llu",
+		LOG_INF("Beacon SFN %u TX scheduled on C%u (Hdl %u), TargetStart %llu",
 			ctx->role_ctx.ft.sfn, ctx->role_ctx.ft.operating_carrier, phy_op_handle,
 			beacon_target_start_time);
 
@@ -1300,7 +1296,7 @@ static void ft_add_group_res_alloc_to_beacon(dect_mac_context_t *ctx, uint8_t *b
 	int len = build_resource_alloc_ie_muxed(buf + *sdu_area_len, max_len - *sdu_area_len, &res_fields);
 	if (len > 0) {
 		*sdu_area_len += len;
-		LOG_DBG("FT_BEACON: Added Group Resource Allocation IE (len %d).", len);
+		LOG_DBG("Added Group Resource Allocation IE (len %d).", len);
 	}
 }
 
@@ -1310,24 +1306,23 @@ static void ft_add_group_res_alloc_to_beacon(dect_mac_context_t *ctx, uint8_t *b
 static void ft_schedule_rach_listen_action(void) 
 {
 #if !IS_ENABLED(CONFIG_ZTEST)
-	printk("STARTING ft_schedule_rach_listen_action \n");
+	LOG_DBG("STARTING ft_schedule_rach_listen_action ");
 
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
     if (ctx->state != MAC_STATE_FT_BEACONING && ctx->state != MAC_STATE_ASSOCIATED) {
-        printk("FT_RACH_LSN: Not in a state to listen for RACH (%s).", dect_mac_state_to_str(ctx->state));
-		// LOG_DBG("FT_RACH_LSN: Not in a state to listen for RACH (%s).", dect_mac_state_to_str(ctx->state));
+        LOG_DBG("FT_RACH_LSN: Not in a state to listen for RACH (%s).", dect_mac_state_to_str(ctx->state));
         return;
     }
     if (ctx->pending_op_type != PENDING_OP_NONE && ctx->pending_op_type != PENDING_OP_FT_BEACON) {
         if (ctx->pending_op_type == PENDING_OP_FT_RACH_RX_WINDOW) {
             /* If a RACH listen window is already open or pending, we allow replacing it
              * with a more precise one (e.g. from a fresh beacon sync). */
-            printk("FT_RACH_LSN: Replacing existing RACH RX window (Hdl %u).\n", ctx->pending_op_handle);
+            LOG_DBG("FT_RACH_LSN: Replacing existing RACH RX window (Hdl %u).", ctx->pending_op_handle);
             dect_mac_phy_ctrl_cancel_op(ctx->pending_op_handle);
             dect_mac_core_clear_pending_op();
         } else {
-            printk("FT_RACH_LSN: PHY op %s pending. Deferring RACH listen.\n", dect_pending_op_to_str(ctx->pending_op_type));
+            LOG_DBG("FT_RACH_LSN: PHY op %s pending. Deferring RACH listen.", dect_pending_op_to_str(ctx->pending_op_type));
             return;
         }
     }
@@ -1339,23 +1334,20 @@ static void ft_schedule_rach_listen_action(void)
                             rach_adv_fields->channel_abs_num :
                             ctx->role_ctx.ft.operating_carrier;
     // if (rach_carrier == 0 || rach_carrier == 0xFFFF) {
-    //     printk("FT_RACH_LSN: Invalid RACH carrier 0x%04X configured. Cannot listen.", rach_carrier);
-	// 	// LOG_ERR("FT_RACH_LSN: Invalid RACH carrier 0x%04X configured. Cannot listen.", rach_carrier);
+	// 	LOG_ERR("FT_RACH_LSN: Invalid RACH carrier 0x%04X configured. Cannot listen.", rach_carrier);
     //     return;
     // }
 
     // Point 4 & 5 (partially): Duration and mu-awareness for timing
     uint8_t ft_mu_for_rach = rach_adv_fields->mu_value_for_ft_beacon;
     if (ft_mu_for_rach > 7) { 
-        printk("FT_RACH_LSN: Invalid mu_code (%u) in FT's advertised RACH IE. Defaulting to mu_code=0 (mu=1).", ft_mu_for_rach);
-		// LOG_WRN("FT_RACH_LSN: Invalid mu_code (%u) in FT's advertised RACH IE. Defaulting to mu_code=0 (mu=1).", ft_mu_for_rach);
+        LOG_WRN("FT_RACH_LSN: Invalid mu_code (%u) in FT's advertised RACH IE. Defaulting to mu_code=0 (mu=1).", ft_mu_for_rach);
         ft_mu_for_rach = 0; 
     }
     
     uint32_t ft_subslot_duration_ticks = get_subslot_duration_ticks_for_mu(ft_mu_for_rach);
     if (ft_subslot_duration_ticks == 0) {
-        printk("FT_RACH_LSN: Calculated FT subslot duration is 0 for mu_code %u. Cannot proceed.", ft_mu_for_rach);
-		// LOG_ERR("FT_RACH_LSN: Calculated FT subslot duration is 0 for mu_code %u. Cannot proceed.", ft_mu_for_rach);
+        LOG_ERR("FT_RACH_LSN: Calculated FT subslot duration is 0 for mu_code %u. Cannot proceed.", ft_mu_for_rach);
         return;
     }
 
@@ -1367,8 +1359,7 @@ static void ft_schedule_rach_listen_action(void)
         rach_resource_len_subslots *= subslots_per_etsi_slot_for_ft_mu;
     }
     if (rach_resource_len_subslots == 0) {
-        printk("FT_RACH_LSN: Advertised RACH resource length is 0 subslots. Cannot listen.");
-		// LOG_ERR("FT_RACH_LSN: Advertised RACH resource length is 0 subslots. Cannot listen.");
+        LOG_ERR("FT_RACH_LSN: Advertised RACH resource length is 0 subslots. Cannot listen.");
 		// /* Fallback for tests or simple configurations where no precise RACH resources are advertised.
         //  * Start a continuous window spanning the full beacon period. */
         // uint32_t fallback_ms = ctx->config.ft_cluster_beacon_period_ms;
@@ -1377,7 +1368,7 @@ static void ft_schedule_rach_listen_action(void)
         // uint32_t fallback_handle;
         // dect_mac_rand_get((uint8_t *)&fallback_handle, sizeof(fallback_handle));
 
-        // printk("FT_RACH_LSN: No precise RACH IE. Starting fallback continuous RX window (%u ms, Hdl %u).\n", 
+        // LOG_DBG("FT_RACH_LSN: No precise RACH IE. Starting fallback continuous RX window (%u ms, Hdl %u).", 
         //        fallback_ms, fallback_handle);
 
         // (void)dect_mac_phy_ctrl_start_rx(
@@ -1397,8 +1388,7 @@ static void ft_schedule_rach_listen_action(void)
 
         uint8_t repetition_interval_frames = 1U << rach_adv_fields->repetition_code; 
         if (repetition_interval_frames == 0 || repetition_interval_frames > 8) { // Code 0-3 maps to 1,2,4,8
-            printk("FT_RACH_LSN: Invalid repetition_code %u, defaulting interval to 1 frame.", rach_adv_fields->repetition_code);
-			// LOG_WRN("FT_RACH_LSN: Invalid repetition_code %u, defaulting interval to 1 frame.", rach_adv_fields->repetition_code);
+            LOG_WRN("FT_RACH_LSN: Invalid repetition_code %u, defaulting interval to 1 frame.", rach_adv_fields->repetition_code);
             repetition_interval_frames = 1; 
         }
         
@@ -1422,8 +1412,7 @@ static void ft_schedule_rach_listen_action(void)
             sfn_loop_guard++;
         }
         if (sfn_loop_guard >= 256) {
-             printk("FT_RACH_LSN: Could not find aligned SFN for SFN-based RACH. Check repetition/validity. Skipping.");
-			//  LOG_ERR("FT_RACH_LSN: Could not find aligned SFN for SFN-based RACH. Check repetition/validity. Skipping.");
+             LOG_ERR("FT_RACH_LSN: Could not find aligned SFN for SFN-based RACH. Check repetition/validity. Skipping.");
              return;
         }
 
@@ -1432,8 +1421,7 @@ static void ft_schedule_rach_listen_action(void)
         if (frames_from_initial_validity_sfn < 0) frames_from_initial_validity_sfn += 256; 
 
         if (rach_adv_fields->validity_frames != 0xFF && (uint8_t)frames_from_initial_validity_sfn >= rach_adv_fields->validity_frames) {
-            printk("FT_RACH_LSN: Advertised RACH validity expired for target SFN %u. Not listening.", target_sfn_for_rach);
-			// LOG_WRN("FT_RACH_LSN: Advertised RACH validity expired for target SFN %u. Not listening.", target_sfn_for_rach);
+            LOG_WRN("FT_RACH_LSN: Advertised RACH validity expired for target SFN %u. Not listening.", target_sfn_for_rach);
             return;
         }
     } else { 
@@ -1442,10 +1430,8 @@ static void ft_schedule_rach_listen_action(void)
         // TODO: If repetition_code is non-zero and sfn_validity_present is false, how is the repetition anchored?
         // Assuming for now it means "every X frames/subslots starting from this beacon's frame context".
         // The "too soon" loop will handle advancing if current SFN is already past the immediate opportunity.
-        printk("FT_RACH_LSN: SFN not in RACH IE, targeting current SFN %u, repetition relative to beacon SFN %u",
-                target_sfn_for_rach, sfn_of_initial_rach_advertisement);
-        // LOG_DBG("FT_RACH_LSN: SFN not in RACH IE, targeting current SFN %u, repetition relative to beacon SFN %u",
-        //         target_sfn_for_rach, sfn_of_initial_rach_advertisement);				
+        LOG_DBG("FT_RACH_LSN: SFN not in RACH IE, targeting current SFN %u, repetition relative to beacon SFN %u",
+                target_sfn_for_rach, sfn_of_initial_rach_advertisement);				
     }
 
     // Point 3 & 5: Subslot Alignment & Modem Time Calculation
@@ -1470,10 +1456,8 @@ static void ft_schedule_rach_listen_action(void)
 
     while (ctx->last_known_modem_time > 0 && rach_listen_start_time < (ctx->last_known_modem_time + min_prep_time_ticks) && advance_loop_guard < 255) {
         advance_loop_guard++;
-        printk("FT_RACH_LSN: Target RACH listen SFN %u, SS %u at time %llu is too soon. Advancing by repetition.",
+        LOG_WRN("FT_RACH_LSN: Target RACH listen SFN %u, SS %u at time %llu is too soon. Advancing by repetition.",
                 target_sfn_for_rach, rach_adv_fields->start_subslot_index, rach_listen_start_time);
-        // LOG_WRN("FT_RACH_LSN: Target RACH listen SFN %u, SS %u at time %llu is too soon. Advancing by repetition.",
-        //         target_sfn_for_rach, rach_adv_fields->start_subslot_index, rach_listen_start_time);
 
         uint8_t repetition_interval_frames = 1U << rach_adv_fields->repetition_code;
         if (repetition_interval_frames == 0) repetition_interval_frames = 1; 
@@ -1484,8 +1468,7 @@ static void ft_schedule_rach_listen_action(void)
             int16_t frames_from_initial_validity_sfn = (int16_t)target_sfn_for_rach - (int16_t)sfn_of_initial_rach_advertisement;
             if (frames_from_initial_validity_sfn < 0) frames_from_initial_validity_sfn += 256;
             if ((uint8_t)frames_from_initial_validity_sfn >= rach_adv_fields->validity_frames) {
-                printk("FT_RACH_LSN: Next RACH repetition (SFN %u) would exceed validity. Stopping listen.", target_sfn_for_rach);
-				// LOG_WRN("FT_RACH_LSN: Next RACH repetition (SFN %u) would exceed validity. Stopping listen.", target_sfn_for_rach);
+                LOG_WRN("FT_RACH_LSN: Next RACH repetition (SFN %u) would exceed validity. Stopping listen.", target_sfn_for_rach);
                 return;
             }
         }
@@ -1500,30 +1483,23 @@ static void ft_schedule_rach_listen_action(void)
                 target_sfn_for_rach, rach_listen_start_time);
     }
     if (advance_loop_guard >= 255) {
-        printk("FT_RACH_LSN: Cycled SFNs fully while advancing for 'too soon'. Check RACH params/timing. Skipping.");
-		// LOG_ERR("FT_RACH_LSN: Cycled SFNs fully while advancing for 'too soon'. Check RACH params/timing. Skipping.");
+        LOG_ERR("FT_RACH_LSN: Cycled SFNs fully while advancing for 'too soon'. Check RACH params/timing. Skipping.");
         return;
     }
 
 
     if (listen_duration_modem_units == 0) {
-        printk("FT_RACH_LSN: Calculated listen duration is 0 for mu_code %u. Aborting.", ft_mu_for_rach);
-		// LOG_ERR("FT_RACH_LSN: Calculated listen duration is 0 for mu_code %u. Aborting.", ft_mu_for_rach);
+        LOG_ERR("FT_RACH_LSN: Calculated listen duration is 0 for mu_code %u. Aborting.", ft_mu_for_rach);
         return;
     }
 
-    printk("FT_RACH_LSN: Scheduling RX on RACH C%u for SFN %u (initial target was SFN %u), StartSS %u (len %u actual units, %u subslots). RXDur:%u TU, TargetStart:%llu \n",
+    LOG_INF("FT_RACH_LSN: Scheduling RX on RACH C%u for SFN %u (initial target was SFN %u), StartSS %u (len %u actual units, %u subslots). RXDur:%u TU, TargetStart:%llu",
             rach_carrier, target_sfn_for_rach, initial_target_sfn_for_log,
             rach_adv_fields->start_subslot_index,
             rach_resource_len_actual_units, rach_resource_len_subslots,
             listen_duration_modem_units, rach_listen_start_time);
-    // LOG_INF("FT_RACH_LSN: Scheduling RX on RACH C%u for SFN %u (initial target was SFN %u), StartSS %u (len %u actual units, %u subslots). RXDur:%u TU, TargetStart:%llu",
-    //         rach_carrier, target_sfn_for_rach, initial_target_sfn_for_log,
-    //         rach_adv_fields->start_subslot_index,
-    //         rach_resource_len_actual_units, rach_resource_len_subslots,
-    //         listen_duration_modem_units, rach_listen_start_time);
 
-printk("[FT_PM] before the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d \n", ctx->pending_op_type);
+	LOG_DBG("[FT_PM] before the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d ", ctx->pending_op_type);
 	uint32_t phy_op_handle;
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
     int ret = dect_mac_phy_ctrl_start_rx(
@@ -1534,11 +1510,10 @@ printk("[FT_PM] before the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_t
         ctx->own_short_rd_id,
         PENDING_OP_FT_RACH_RX_WINDOW, rach_listen_start_time);
 
-printk("[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d \n", ctx->pending_op_type);
+	LOG_DBG("[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d ", ctx->pending_op_type);
 
     if (ret != 0) {
-        printk("FT_SM: Failed to schedule RACH RX window (SFN %u): %d", target_sfn_for_rach, ret);
-		// LOG_ERR("FT_SM: Failed to schedule RACH RX window (SFN %u): %d", target_sfn_for_rach, ret);
+        LOG_ERR("Failed to schedule RACH RX window (SFN %u): %d", target_sfn_for_rach, ret);
     }
 #endif /* #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
 }
@@ -1552,7 +1527,7 @@ static void ft_link_supervision_timeout_handler(struct k_timer *timer_id) {
     // Calculate peer index by pointer arithmetic
     int peer_idx = peer - ctx->role_ctx.ft.connected_pts;
     if (peer_idx < 0 || peer_idx >= MAX_PEERS_PER_FT) {
-        LOG_ERR("FT_SM: Supervision timeout for invalid peer pointer/index %d", peer_idx);
+        LOG_ERR("Supervision timeout for invalid peer pointer/index %d", peer_idx);
         return;
     }
 
@@ -1576,9 +1551,7 @@ static int ft_find_and_init_peer_slot(uint32_t pt_long_id, uint16_t pt_short_id,
     // Check if PT with this Long ID already exists
     for (int i = 0; i < MAX_PEERS_PER_FT; i++) {
         if (ctx->role_ctx.ft.connected_pts[i].is_valid && ctx->role_ctx.ft.connected_pts[i].long_rd_id == pt_long_id) {
-            printk("FT_SM_PEER: PT LongID 0x%08X already in slot %d (OldShort:0x%04X). Updating ShortID to 0x%04X and RSSI.\n",
-                    pt_long_id, i, ctx->role_ctx.ft.connected_pts[i].short_rd_id, pt_short_id);
-			LOG_WRN("FT_SM_PEER: PT LongID 0x%08X already in slot %d (OldShort:0x%04X). Updating ShortID to 0x%04X and RSSI.",
+            LOG_WRN("FT_SM_PEER: PT LongID 0x%08X already in slot %d (OldShort:0x%04X). Updating ShortID to 0x%04X and RSSI.",
                     pt_long_id, i, ctx->role_ctx.ft.connected_pts[i].short_rd_id, pt_short_id);
             ctx->role_ctx.ft.connected_pts[i].short_rd_id = pt_short_id;
             ctx->role_ctx.ft.connected_pts[i].rssi_2 = rssi;
@@ -1615,32 +1588,31 @@ static int ft_find_and_init_peer_slot(uint32_t pt_long_id, uint16_t pt_short_id,
             if (sup_timeout < 1000) sup_timeout = 5000; // Minimum safety net
             k_timer_start(&ctx->role_ctx.ft.connected_pts[i].link_supervision_timer, K_MSEC(sup_timeout), K_NO_WAIT);
 
-            LOG_INF("FT SM: PT 0x%08X (S:0x%04X) assigned to new peer slot %d.", pt_long_id, pt_short_id, i);
+            LOG_INF("PT 0x%08X (S:0x%04X) assigned to new peer slot %d.", pt_long_id, pt_short_id, i);
             return i;
         }
     }
-    LOG_WRN("FT_SM: No free peer slots for PT LongID 0x%08X.", pt_long_id);
+    LOG_WRN("No free peer slots for PT LongID 0x%08X.", pt_long_id);
     return -1;
 }
 
 static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_complete_event *event, pending_op_type_t completed_op_type) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
-	printk("[FT_SM] Handling OP_COMPLETE for op_type: %s\n",
-	       dect_pending_op_to_str(completed_op_type));
-	// LOG_INF("[FT_SM] Handling OP_COMPLETE for op_type: %s\n", dect_pending_op_to_str(completed_op_type));
+	LOG_INF(" Handling OP_COMPLETE for op_type: %s", dect_pending_op_to_str(completed_op_type));
 
     switch (completed_op_type) {
         case PENDING_OP_FT_INITIAL_SCAN:
-		printk("\n--- FT DCS OP_COMPLETE DEBUG ---\n");
-		// printk("  - Current Scan Index (before inc): %u\n",
+		// LOG_DBG("--- FT DCS OP_COMPLETE DEBUG ---");
+
+		// LOG_DBG("  - Current Scan Index (before inc): %u",
 		//        ctx->role_ctx.ft.dcs_current_channel_scan_index);
-		// printk("  - Total Valid Channels to Scan: %u\n",
+		// LOG_DBG("  - Total Valid Channels to Scan: %u",
 		//        ctx->role_ctx.ft.dcs_num_valid_candidate_channels);		
-		// printk("  > In PENDING_OP_FT_INITIAL_SCAN case. Scan index before inc: %u\n",
+		// LOG_DBG("  > In PENDING_OP_FT_INITIAL_SCAN case. Scan index before inc: %u",
 		//        ctx->role_ctx.ft.dcs_current_channel_scan_index);		
 		
             if (ctx->role_ctx.ft.dcs_current_channel_scan_index < ctx->role_ctx.ft.dcs_num_valid_candidate_channels) {
-                 LOG_INF("FT SM: DCS Scan for channel %u (idx %u of %u) completed (err %d).",
+                 LOG_INF("DCS Scan for channel %u (idx %u of %u) completed (err %d).",
                         ctx->role_ctx.ft.dcs_candidate_channels[ctx->role_ctx.ft.dcs_current_channel_scan_index],
                         ctx->role_ctx.ft.dcs_current_channel_scan_index + 1, // 1-based for logging
                         ctx->role_ctx.ft.dcs_num_valid_candidate_channels,
@@ -1648,7 +1620,7 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
             } // else, this might be a stale completion if dcs_current_channel_scan_index was reset.
 
             if (event->err != NRF_MODEM_DECT_PHY_SUCCESS && event->err != NRF_MODEM_DECT_PHY_ERR_OP_CANCELED) {
-				printk("  > Scan op failed with err %d. Marking channel as unusable.\n", event->err);			
+				LOG_DBG("  > Scan op failed with err %d. Marking channel as unusable.", event->err);			
                 if (ctx->role_ctx.ft.dcs_current_channel_scan_index <= ctx->role_ctx.ft.dcs_num_valid_candidate_channels) {
                     LOG_ERR("FT_DCS: Scan op for C%u failed (err %d). Marking as unusable.",
                             ctx->role_ctx.ft.dcs_candidate_channels[ctx->role_ctx.ft.dcs_current_channel_scan_index], event->err);
@@ -1658,17 +1630,17 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
             }
 
             ctx->role_ctx.ft.dcs_current_channel_scan_index++;
-			printk("  - Current Scan Index (after inc): %u\n",
+			LOG_DBG("  - Current Scan Index (after inc): %u",
 				ctx->role_ctx.ft.dcs_current_channel_scan_index);
-			printk("  - Comparison Check: (%u < %u) is %s\n",
+			LOG_DBG("  - Comparison Check: (%u < %u) is %s",
 				ctx->role_ctx.ft.dcs_current_channel_scan_index,
 				ctx->role_ctx.ft.dcs_num_valid_candidate_channels,
 				(ctx->role_ctx.ft.dcs_current_channel_scan_index <
 				ctx->role_ctx.ft.dcs_num_valid_candidate_channels)
 					? "true (will scan next)"
 					: "false (should stop and select)");
-			printk("--- END FT DCS OP_COMPLETE DEBUG ---\n");			
-			printk("  > Scan index after inc: %u. Total channels to scan: %u\n",
+			LOG_DBG("--- END FT DCS OP_COMPLETE DEBUG ---");			
+			LOG_DBG("  > Scan index after inc: %u. Total channels to scan: %u",
 				ctx->role_ctx.ft.dcs_current_channel_scan_index,
 				ctx->role_ctx.ft.dcs_num_valid_candidate_channels);			
             if (ctx->role_ctx.ft.dcs_current_channel_scan_index < ctx->role_ctx.ft.dcs_num_valid_candidate_channels) {
@@ -1679,9 +1651,9 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
 			 */
 			dect_mac_core_clear_pending_op();
 
-				printk("  > More channels to scan. Starting next scan on carrier %u.\n",
+				LOG_DBG("  > More channels to scan. Starting next scan on carrier %u.",
 			       next_scan_carrier);
-                // LOG_INF("FT SM: Starting DCS scan %u/%u on carrier %u.",
+                // LOG_INF("Starting DCS scan %u/%u on carrier %u.",
                 //         ctx->role_ctx.ft.dcs_current_channel_scan_index + 1,
                 //         ctx->role_ctx.ft.dcs_num_valid_candidate_channels, next_scan_carrier);
 						
@@ -1700,17 +1672,16 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
                     NRF_MODEM_DECT_PHY_RSSI_INTERVAL_24_SLOTS,
                     phy_op_handle, PENDING_OP_FT_INITIAL_SCAN);
                 if (ret != 0) {
-					printk("  - LOGIC: Scheduling next scan FAILED with code %d.\n", ret);
-					printk("  > FAILED to start next scan. Triggering carrier selection.\n");
-                    LOG_ERR("FT SM: Failed to start next DCS scan (C%u): %d. Proceeding with selection based on current results.", next_scan_carrier, ret);
+					LOG_ERR("  - LOGIC: Scheduling next scan FAILED with code %d.", ret);
+					LOG_ERR("  > FAILED to start next scan. Triggering carrier selection.");
+                    LOG_ERR("Failed to start next DCS scan (C%u): %d. Proceeding with selection based on current results.", next_scan_carrier, ret);
                     ctx->role_ctx.ft.dcs_scan_complete = true;
                     ft_select_operating_carrier_and_start_beaconing(NULL);
                 }
             } else {
-				printk("  > All scans complete. Triggering carrier selection.\n");
-				printk("  - LOGIC: Entering block to finalize scan and select carrier.\n");
-                printk("FT SM: DCS scan sequence complete (%u channels scanned).", ctx->role_ctx.ft.dcs_num_valid_candidate_channels);
-				LOG_INF("FT SM: DCS scan sequence complete (%u channels scanned).", ctx->role_ctx.ft.dcs_num_valid_candidate_channels);
+				LOG_DBG("  > All scans complete. Triggering carrier selection.");
+				LOG_DBG("  - LOGIC: Entering block to finalize scan and select carrier.");
+				LOG_INF("DCS scan sequence complete (%u channels scanned).", ctx->role_ctx.ft.dcs_num_valid_candidate_channels);
                 ctx->role_ctx.ft.dcs_scan_complete = true;
 				/* The scan sequence is fully complete. Clear the pending op state
 				* so that the subsequent beaconing can proceed.
@@ -1724,14 +1695,12 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
 
         case PENDING_OP_FT_BEACON:
             if (event->err != NRF_MODEM_DECT_PHY_SUCCESS) {
-                printk("FT SM: Beacon TX failed (err %d). Next beacon by timer.", event->err);
-				// LOG_ERR("FT SM: Beacon TX failed (err %d). Next beacon by timer.", event->err);
+                LOG_ERR("Beacon TX failed (err %d). Next beacon by timer.", event->err);
             } else {
-                printk("FT SM: Beacon TX SFN %u successful.", ctx->role_ctx.ft.sfn_for_last_beacon_tx);
-				// LOG_DBG("FT SM: Beacon TX SFN %u successful.", ctx->role_ctx.ft.sfn_for_last_beacon_tx);
+                LOG_INF("Beacon TX SFN %u successful.", ctx->role_ctx.ft.sfn_for_last_beacon_tx);
             }
 
-            printk("[FT_SM_STATE] Before clear (BEACON): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
+            LOG_DBG("[FT_SM_STATE] Before clear (BEACON): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));
 
             // if (event->err == NRF_MODEM_DECT_PHY_SUCCESS) {
             //     /* Establish the SFN 0 anchor based on the successful beacon TX.
@@ -1742,7 +1711,7 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
             // }
 
             dect_mac_core_clear_pending_op();
-            printk("[FT_SM_STATE] After clear (BEACON): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
+            LOG_DBG("[FT_SM_STATE] After clear (BEACON): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));
 
             if (ctx->state == MAC_STATE_FT_BEACONING) {
                 /* Re-arm the RACH RX window for the next beacon period so
@@ -1764,10 +1733,10 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
             }
             break;
         case PENDING_OP_FT_RACH_RX_WINDOW:
-            LOG_DBG("FT SM: RACH RX window op completed (err %d). Re-arming for next period.", event->err);
-            printk("[FT_SM_STATE] Before clear (RACH_RX): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
+            LOG_DBG("RACH RX window op completed (err %d). Re-arming for next period.", event->err);
+            LOG_DBG("[FT_SM_STATE] Before clear (RACH_RX): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));
             dect_mac_core_clear_pending_op();
-            printk("[FT_SM_STATE] After clear (RACH_RX): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
+            LOG_DBG("[FT_SM_STATE] After clear (RACH_RX): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));
             /* Re-arm the RX window for the next beacon period if still beaconing */
             if (ctx->state == MAC_STATE_FT_BEACONING && ctx->pending_op_type == PENDING_OP_NONE) {
                 uint32_t rearm_period_ms = ctx->config.ft_cluster_beacon_period_ms;
@@ -1785,14 +1754,14 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
 
         case PENDING_OP_FT_ASSOC_RESP:
              if (event->err == NRF_MODEM_DECT_PHY_SUCCESS) {
-                LOG_INF("FT SM: Association Response sent successfully to PT ShortID 0x%04X.",
+                LOG_INF("Association Response sent successfully to PT ShortID 0x%04X.",
                         ctx->role_ctx.ft.last_assoc_resp_pt_short_id);
 
 				/*
 				* The response was sent. Now, open a continuous RX window to listen
 				* for traffic from any/all connected PTs.
 				*/
-				LOG_INF("FT SM: Opening continuous RX window for PT traffic.");
+				LOG_INF("Opening continuous RX window for PT traffic.");
 				uint32_t phy_rx_op_handle;
 
 				dect_mac_rand_get((uint8_t *)&phy_rx_op_handle,
@@ -1811,17 +1780,17 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
 					NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, phy_rx_op_handle,
 					ctx->own_short_rd_id, PENDING_OP_FT_DATA_RX, 0);
 				if (ret != 0) {
-					LOG_ERR("FT SM: Failed to start continuous RX for PT data: %d",
+					LOG_ERR("Failed to start continuous RX for PT data: %d",
 						ret);
 					/* TODO: Handle this failure, maybe release the PT */
 				}
              } else {
-                LOG_ERR("FT SM: Association Response TX failed (err %d) for PT ShortID 0x%04X.",
+                LOG_ERR("Association Response TX failed (err %d) for PT ShortID 0x%04X.",
                         event->err, ctx->role_ctx.ft.last_assoc_resp_pt_short_id);
                 int peer_idx = ft_get_peer_slot_idx(ctx, ctx->role_ctx.ft.last_assoc_resp_pt_short_id);
                 if (peer_idx != -1 && ctx->role_ctx.ft.connected_pts[peer_idx].is_valid) {
                     if (ctx->role_ctx.ft.connected_pts[peer_idx].long_rd_id != 0) { // Check if it was an actual acceptance attempt
-                        LOG_INF("FT SM: Invalidating peer slot %d for PT 0x%04X due to failed AssocResp TX.",
+                        LOG_INF("Invalidating peer slot %d for PT 0x%04X due to failed AssocResp TX.",
                                 peer_idx, ctx->role_ctx.ft.last_assoc_resp_pt_short_id);
                         // Don't fully clear, just mark not valid, so no new PT takes this slot immediately if it was a temp issue
                         ctx->role_ctx.ft.connected_pts[peer_idx].is_valid = false; // Or a more nuanced state like "assoc_pending_retry"
@@ -1830,37 +1799,37 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
                 }
             }
             ctx->role_ctx.ft.last_assoc_resp_pt_short_id = 0; // Clear
-            printk("[FT_SM_STATE] Before clear (ASSOC_RESP): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
+            LOG_DBG("[FT_SM_STATE] Before clear (ASSOC_RESP): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));
             dect_mac_core_clear_pending_op();
-            printk("[FT_SM_STATE] After clear (ASSOC_RESP): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
+            LOG_DBG("[FT_SM_STATE] After clear (ASSOC_RESP): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));
             break;
         case PENDING_OP_FT_DATA_TX_HARQ0:
         case PENDING_OP_FT_DATA_TX_HARQ_MAX: // Covers range with fallthrough
             {
                 int harq_idx = completed_op_type - PENDING_OP_FT_DATA_TX_HARQ0;
-				printk("FT SM: Data TX HARQ %d LBT  %s\n",harq_idx, dect_pending_op_to_str(ctx->pending_op_type));
+				LOG_DBG("Data TX HARQ %d LBT  %s",harq_idx, dect_pending_op_to_str(ctx->pending_op_type));
                 if (harq_idx >= 0 && harq_idx < MAX_HARQ_PROCESSES) {
                     if (event->err == NRF_MODEM_DECT_PHY_ERR_LBT_CHANNEL_BUSY) {
-                        LOG_WRN("FT SM: Data TX HARQ %d LBT busy. Data Path will re-TX.", harq_idx);
+                        LOG_WRN("Data TX HARQ %d LBT busy. Data Path will re-TX.", harq_idx);
                         dect_mac_data_path_handle_harq_nack_action(harq_idx);
                     } else if (event->err != NRF_MODEM_DECT_PHY_SUCCESS) {
-                        LOG_ERR("FT SM: Data TX HARQ %d failed (err %d). Data Path will re-TX/discard.", harq_idx, event->err);
+                        LOG_ERR("Data TX HARQ %d failed (err %d). Data Path will re-TX/discard.", harq_idx, event->err);
                         dect_mac_data_path_handle_harq_nack_action(harq_idx);
                     } else {
-                        LOG_DBG("FT SM: Data TX HARQ %d PHY op complete. Awaiting feedback.", harq_idx);
+                        LOG_DBG("Data TX HARQ %d PHY op complete. Awaiting feedback.", harq_idx);
 						/* The HARQ process is now waiting for feedback, the PHY op itself is done. */
-                    printk("[FT_SM_STATE] Before clear (HARQ_TX): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));
+                    LOG_DBG("[FT_SM_STATE] Before clear (HARQ_TX): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));
                     dect_mac_core_clear_pending_op();
-                    printk("[FT_SM_STATE] After clear (HARQ_TX): pending_op_type = %s\n", dect_pending_op_to_str(ctx->pending_op_type));						
+                    LOG_DBG("[FT_SM_STATE] After clear (HARQ_TX): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));						
                     }
                 } else {
-                     LOG_ERR("FT SM: OP_COMPLETE for invalid FT_DATA_TX_HARQ op type: %d", completed_op_type);
+                     LOG_ERR("OP_COMPLETE for invalid FT_DATA_TX_HARQ op type: %d", completed_op_type);
                 }
             }
             break;
 
 		case PENDING_OP_FT_DATA_RX:
-			LOG_DBG("FT SM: Scheduled Data RX window completed (err %d).", event->err);
+			LOG_DBG("Scheduled Data RX window completed (err %d).", event->err);
 			/* The listening window has closed. Deregister handle and clear pending state.
 			* Any data received during this window was handled by the PDC event. */
 			dect_mac_phy_if_deregister_op_handle(event->handle);
@@ -1868,7 +1837,7 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
 		break;
 
         default:
-            LOG_WRN("FT SM: OP_COMPLETE for unhandled FT op type: %s, err %d",
+            LOG_WRN("OP_COMPLETE for unhandled FT op type: %s, err %d",
                     dect_pending_op_to_str(completed_op_type), event->err);
             break;
     }
@@ -1882,7 +1851,7 @@ static void ft_handle_phy_rssi_ft(const struct nrf_modem_dect_phy_rssi_event *rs
     if (rssi_event->meas_start_time > ctx->last_known_modem_time) {
         ctx->last_known_modem_time = rssi_event->meas_start_time;
         // ctx->last_modem_event_kernel_time = k_uptime_get();
-        printk("[RSSI_TIME] Updated modem time to %llu from RSSI event (carrier %u)\n", 
+        LOG_DBG("[RSSI_TIME] Updated modem time to %llu from RSSI event (carrier %u)", 
                rssi_event->meas_start_time, rssi_event->carrier);
     }
 
@@ -1938,7 +1907,7 @@ static void ft_handle_phy_rssi_ft(const struct nrf_modem_dect_phy_rssi_event *rs
             ctx->role_ctx.ft.dcs_candidate_busy_percent[current_scan_idx] = (busy_sample_count * 100) / valid_sample_count;
 			// LOG_INF("FT_DCS: Scan %u/%u Avg RSSI:%d dBm,  Buzy count:%d",
 			// 		current_scan_idx + 1, CONFIG_DECT_MAC_DCS_NUM_CHANNELS_TO_SCAN, ctx->role_ctx.ft.dcs_candidate_rssi_avg[current_scan_idx], busy_sample_count);
-			printk("[FT_SM] Stored scan result for idx %u: AvgRSSI: %d (Q7.1), Busy: %u%%\n",
+			LOG_DBG(" Stored scan result for idx %u: AvgRSSI: %d (Q7.1), Busy: %u%%",
 							current_scan_idx,
 							ctx->role_ctx.ft.dcs_candidate_rssi_avg[current_scan_idx],
 							ctx->role_ctx.ft.dcs_candidate_busy_percent[current_scan_idx]);
@@ -1964,13 +1933,15 @@ static void ft_handle_phy_rssi_ft(const struct nrf_modem_dect_phy_rssi_event *rs
 
 static void ft_handle_phy_pcc_ft(const struct nrf_modem_dect_phy_pcc_event *pcc_event)
 {
-	printk("[FT_RX_EVIDENCE] Received PCC for TID %u:\n", pcc_event->transaction_id);
+	LOG_DBG("Received PCC for TID %u:", pcc_event->transaction_id);
 	size_t pcc_len = (pcc_event->phy_type == 0) ? sizeof(struct nrf_modem_dect_phy_hdr_type_1)
 						   : sizeof(struct nrf_modem_dect_phy_hdr_type_2);
+
+	// LOG_HEXDUMP_INF(pcc_event->hdr, pcc_len, "[RX] Received PCC:");					   
 	for (int i = 0; i < pcc_len; i++) {
-		printk("%02x ", ((uint8_t *)&pcc_event->hdr)[i]);
+		LOG_DBG("%02x ", ((uint8_t *)&pcc_event->hdr)[i]);
 	}
-	printk("\n");
+	LOG_DBG("");
 
 
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
@@ -1997,7 +1968,7 @@ static void ft_handle_phy_pcc_ft(const struct nrf_modem_dect_phy_pcc_event *pcc_
 
 	if (free_slot == -1) {
 		free_slot = oldest_slot;
-		LOG_WRN("FT_PCC_CACHE: Cache full, evicting oldest entry (TID %u) from slot %d.",
+		LOG_WRN("Cache full, evicting oldest entry (TID %u) from slot %d.",
 			ctx->pcc_transaction_cache[free_slot].transaction_id, free_slot);
 		k_timer_stop(&ctx->pcc_transaction_cache[free_slot].timeout_timer);
 	}
@@ -2011,7 +1982,7 @@ static void ft_handle_phy_pcc_ft(const struct nrf_modem_dect_phy_pcc_event *pcc_
 
 	k_timer_start(&transaction->timeout_timer, K_MSEC(200), K_NO_WAIT);
 
-	LOG_DBG("FT_PCC_CACHE: Stored PCC with TID %u in slot %d.", transaction->transaction_id,
+	LOG_DBG("Stored PCC with TID %u in slot %d.", transaction->transaction_id,
 		free_slot);
 }
 
@@ -2020,22 +1991,22 @@ static void ft_handle_phy_pdc_ft(const struct nrf_modem_dect_phy_pdc_event *pdc_
 {
 	dect_mac_context_t *ctx_for_log = dect_mac_get_active_context();
 
-	printk("[FT_PDC_EVIDENCE] Entering handler for PDC TID %u. Current cache state:\n", pdc_event->transaction_id);
+	LOG_DBG("Entering handler for PDC TID %u. Current cache state:", pdc_event->transaction_id);
 	for (int i = 0; i < MAX_PENDING_PCC_TRANSACTIONS; i++) {
 		if (ctx_for_log->pcc_transaction_cache[i].is_valid) {
-			printk("  - Cache[%d]: VALID, TID: %u\n", i, ctx_for_log->pcc_transaction_cache[i].transaction_id);
+			LOG_DBG("  - Cache[%d]: VALID, TID: %u", i, ctx_for_log->pcc_transaction_cache[i].transaction_id);
 		} else {
-			// printk("  - Cache[%d]: INVALID\n", i);
+			// LOG_DBG("  - Cache[%d]: INVALID", i);
 		}
 	}
 
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 	int pcc_slot = -1;
 
-	// printk("Find the matching PCC in the cache by transaction ID... \n");
+	// LOG_DBG("Find the matching PCC in the cache by transaction ID... ");
 	/* Find the matching PCC in the cache by transaction ID */
 	for (int i = 0; i < MAX_PENDING_PCC_TRANSACTIONS; i++) {
-		// printk("vaild:%s pcc_transaction_cache[%d]->phy_type:%d TID:%u pdc_event->transaction_id:%u \n", 
+		// LOG_DBG("vaild:%s pcc_transaction_cache[%d]->phy_type:%d TID:%u pdc_event->transaction_id:%u ", 
 		// 	ctx->pcc_transaction_cache[i].is_valid ? "True":"False", i,
 		// 	ctx->pcc_transaction_cache[i].pcc_data.phy_type, 
 		// 	ctx->pcc_transaction_cache[i].transaction_id,
@@ -2047,17 +2018,15 @@ static void ft_handle_phy_pdc_ft(const struct nrf_modem_dect_phy_pdc_event *pdc_
 		}
 		if (ctx->pcc_transaction_cache[i].is_valid && ctx->pcc_transaction_cache[i].transaction_id >= 0 &&
 		    ctx->pcc_transaction_cache[i].transaction_id == pdc_event->transaction_id) {
-			printk("[FT_PDC_HANDLER_DBG] Found matching PCC for PDC TID %u.\n", pdc_event->transaction_id);
+			LOG_DBG(" Found matching PCC for PDC TID %u.", pdc_event->transaction_id);
 			pcc_slot = i;
 			break;
 		}
 	}
 
 	if (pcc_slot == -1) {
-		printk("FT_SM_PDC: PDC (TID %u) without matching valid PCC. Discarding.\n",
+		LOG_WRN(" PDC (TID %u) without matching valid PCC. Discarding.",
 			pdc_event->transaction_id);
-		// LOG_WRN("FT_SM_PDC: PDC (TID %u) without matching valid PCC. Discarding.",
-		// 	pdc_event->transaction_id);			
 		return;
 	}
 
@@ -2073,32 +2042,31 @@ static void ft_handle_phy_pdc_ft(const struct nrf_modem_dect_phy_pdc_event *pdc_
 	memset(mac_pdc_payload_copy, 0, sizeof(mac_pdc_payload_copy));
 	uint16_t pdc_payload_len = pdc_event->len;
 
-	printk("FT_PDC_HANDLER_DBG: Processing PDC for TID %u, associated PCC phy_type:%u assoc_pcc_event->handle:%d\n",
+	LOG_DBG("Processing PDC for TID %u, associated PCC phy_type:%u assoc_pcc_event->handle:%d",
 	       pdc_event->transaction_id, assoc_pcc_event->phy_type, assoc_pcc_event->handle);
 
 	if (pdc_payload_len == 0 && pdc_event->transaction_id != 0) {
-		printk("FT_SM_PDC: Empty PDC (TID %u). Ignoring. \n", pdc_event->transaction_id);
-		// LOG_DBG("FT_SM_PDC: Empty PDC (TID %u). Ignoring.", pdc_event->transaction_id);
+		LOG_WRN(" Empty PDC (TID %u). Ignoring. ", pdc_event->transaction_id);
 		transaction->is_valid = false; /* Invalidate the slot */
 		return;
 	}
 	if (pdc_payload_len > sizeof(mac_pdc_payload_copy)) {
-		printk("FT_SM_PDC: PDC payload from PHY (%u bytes) too large for copy buffer (%zu). Discarding. \n",
+		LOG_WRN(" PDC payload from PHY (%u bytes) too large for copy buffer (%zu). Discarding. ",
 			pdc_payload_len, sizeof(mac_pdc_payload_copy));
-		// LOG_ERR("FT_SM_PDC: PDC payload from PHY (%u bytes) too large for copy buffer (%zu). Discarding.",
-		// 	pdc_payload_len, sizeof(mac_pdc_payload_copy));			
 		transaction->is_valid = false; /* Invalidate the slot */
 		return;
 	}
 
 	memcpy(mac_pdc_payload_copy, pdc_event->data, pdc_payload_len);
 
-	printk("[FT_RX_EVIDENCE] Received PDC Payload (len %u) for TID %u:\n",
+	LOG_INF("Received PDC Payload (len %u) for TID %u:",
 	       pdc_payload_len, pdc_event->transaction_id);
-	for (int i = 0; i < pdc_payload_len; i++) {
-		printk("%02x ", mac_pdc_payload_copy[i]);
-	}
-	printk("\n");
+
+	LOG_HEXDUMP_INF(mac_pdc_payload_copy, pdc_payload_len, "[RX] Received PDC Payload:");
+	// for (int i = 0; i < pdc_payload_len; i++) {
+	// 	LOG_DBG("%02x ", mac_pdc_payload_copy[i]);
+	// }
+	// LOG_DBG("");
 
 
 	dect_mac_header_type_octet_t mac_hdr_type_octet;
@@ -2109,14 +2077,12 @@ static void ft_handle_phy_pdc_ft(const struct nrf_modem_dect_phy_pdc_event *pdc_
 	uint16_t pt_sender_short_id_from_pcc = 0;
 
 	if (assoc_pcc_event->phy_type == 1) { /* Unicast/Data */
-		printk("FT_SM_PDC: PDC for Unicast/Data PCC phy_type %d. \n",
+		LOG_DBG(" PDC for Unicast/Data PCC phy_type %d. ",
 			assoc_pcc_event->phy_type);
 		pt_sender_short_id_from_pcc = dect_mac_phy_ctrl_get_transmitter_id((const union nrf_modem_dect_phy_hdr *)&assoc_pcc_event->hdr, assoc_pcc_event->phy_type);
 	} else {
-		printk("FT_SM_PDC: PDC for non-unicast PCC phy_type %d. Discarding. \n",
+		LOG_WRN(" PDC for non-unicast PCC phy_type %d. Discarding. ",
 			assoc_pcc_event->phy_type);
-		// LOG_ERR("FT_SM_PDC: PDC for non-unicast PCC phy_type %d. Discarding.",
-		// 	assoc_pcc_event->phy_type);			
 		transaction->is_valid = false; /* Invalidate the slot */
 		return;
 	}
@@ -2130,14 +2096,14 @@ static void ft_handle_phy_pdc_ft(const struct nrf_modem_dect_phy_pdc_event *pdc_
 	uint8_t *common_hdr_start_in_payload = pdu_content_start + sizeof(dect_mac_header_type_octet_t);
 
 	if (mac_hdr_type_octet.mac_header_type == MAC_COMMON_HEADER_TYPE_UNICAST) {
-		printk("[FT_PDC_HANDLER_DBG]   -> Packet is UNICAST. Checking for data...\n");
+		LOG_DBG("   -> Packet is UNICAST. Checking for data...");
 		const dect_mac_unicast_header_t *uch = (const dect_mac_unicast_header_t *)common_hdr_start_in_payload;
 		uint32_t sender_long_id_final = sys_be32_to_cpu(uch->transmitter_long_rd_id_be);
 
 		/* CRITICAL FIX: Verify the packet is addressed to this FT; Belts and braces */
 		uint32_t receiver_long_id = sys_be32_to_cpu(uch->receiver_long_rd_id_be);
 		if (receiver_long_id != ctx->own_long_rd_id) {
-			LOG_WRN("FT_SM_PDC: Discarding Unicast PDU addressed to another FT (0x%08X).", receiver_long_id);
+			LOG_WRN(" Discarding Unicast PDU addressed to another FT (0x%08X).", receiver_long_id);
 			transaction->is_valid = false;
 			return;
 		}
@@ -2158,7 +2124,7 @@ static void ft_handle_phy_pdc_ft(const struct nrf_modem_dect_phy_pdc_event *pdc_
 		const uint8_t *ie_payload;
 		int mux_hdr_len = parse_mac_mux_header(sdu_area_after_common_hdr, sdu_area_len, &ie_type, &ie_len, &ie_payload);
 
-		printk("[FT_PDC_UNICAST_DBG] Parsed MUX header. IE Type: %u\n", ie_type);
+		LOG_DBG("Parsed MUX header. IE Type: %u", ie_type);
 		
 		if (mux_hdr_len > 0 && ie_type == IE_TYPE_ASSOC_REQ) {
 			ft_process_association_request_pdu(sdu_area_after_common_hdr, sdu_area_len, pt_sender_short_id_from_pcc, sender_long_id_final, assoc_pcc_event->rssi_2);
@@ -2172,26 +2138,22 @@ static void ft_handle_phy_pdc_ft(const struct nrf_modem_dect_phy_pdc_event *pdc_
 	size_t sdu_area_plus_mic_len_in_payload = 0;
 
 	if (mac_hdr_type_octet.mac_header_type == MAC_COMMON_HEADER_TYPE_UNICAST) {
-		printk("[FT_PDC_HANDLER_DBG]      -> Identified as UNICAST. Passing to unicast path.\n");
+		LOG_DBG("      -> Identified as UNICAST. Passing to unicast path.");
 		common_hdr_actual_len = sizeof(dect_mac_unicast_header_t);
 	} else if (mac_hdr_type_octet.mac_header_type == MAC_COMMON_HEADER_TYPE_DATA_PDU) {
-		printk("[FT_PDC_HANDLER_DBG]      -> Identified as DATA. Passing to data path.\n");
+		LOG_DBG("      -> Identified as DATA. Passing to data path.");
 		common_hdr_actual_len = sizeof(dect_mac_data_pdu_header_t);
 	} else {
-		printk("[FT_PDC_HANDLER_DBG]      -> Not Unicast/Data. Ignoring.\n");
-		printk("FT_SM_PDC: Received PDC with MAC Hdr Type %u, not Unicast/Data from PT. TID %u",
-			mac_hdr_type_octet.mac_header_type, pdc_event->transaction_id);
-		// LOG_WRN("FT_SM_PDC: Received PDC with MAC Hdr Type %u, not Unicast/Data from PT. TID %u",
-		// 	mac_hdr_type_octet.mac_header_type, pdc_event->transaction_id);			
+		LOG_DBG("      -> Not Unicast/Data. Ignoring.");
+		LOG_WRN(" Received PDC with MAC Hdr Type %u, not Unicast/Data from PT. TID %u",
+			mac_hdr_type_octet.mac_header_type, pdc_event->transaction_id);			
 		transaction->is_valid = false; /* Invalidate the slot */
 		return;
 	}
 
 	if (pdu_content_len < (sizeof(dect_mac_header_type_octet_t) + common_hdr_actual_len)) {
-		printk("FT_SM_PDC: PDU too short (%u) for Common Hdr type %u (len %zu).",
-			pdu_content_len, mac_hdr_type_octet.mac_header_type, common_hdr_actual_len);
-		// LOG_ERR("FT_SM_PDC: PDU too short (%u) for Common Hdr type %u (len %zu).",
-		// 	pdu_content_len, mac_hdr_type_octet.mac_header_type, common_hdr_actual_len);			
+		LOG_WRN(" PDU too short (%u) for Common Hdr type %u (len %zu).",
+			pdu_content_len, mac_hdr_type_octet.mac_header_type, common_hdr_actual_len);			
 		transaction->is_valid = false; /* Invalidate the slot */
 		return;
 	}
@@ -2395,7 +2357,7 @@ process_feedback_ft_pdc_secure_rx_path:; /* Label must have a statement */
 
 	/* HARQ Feedback logic now runs for both secure and unsecure data packets */
 	if (pt_peer_ctx && pt_peer_ctx->is_valid && assoc_pcc_event->phy_type == 1) {
-		printk("FT_SM_PDC: Feedback buffer adding for PT 0x%04X \n", pt_sender_short_id_from_pcc);
+		LOG_DBG(" Feedback buffer adding for PT 0x%04X ", pt_sender_short_id_from_pcc);
 		uint8_t harq_proc_in_pt_tx = assoc_pcc_event->hdr.hdr_type_2.df_harq_process_num;
 		if (pt_peer_ctx->num_pending_feedback_items < 2) {
 			int fb_idx = pt_peer_ctx->num_pending_feedback_items++;
@@ -2403,13 +2365,12 @@ process_feedback_ft_pdc_secure_rx_path:; /* Label must have a statement */
 			pt_peer_ctx->pending_feedback_to_send[fb_idx].is_ack = pdc_process_ok_for_feedback;
 			pt_peer_ctx->pending_feedback_to_send[fb_idx].harq_process_num_for_peer = harq_proc_in_pt_tx;
 		} else {
-			printk("FT_SM_PDC: Feedback buffer full for PT 0x%04X \n", pt_sender_short_id_from_pcc);
-			// LOG_WRN("FT_SM_PDC: Feedback buffer full for PT 0x%04X", pt_sender_short_id_from_pcc);
+			LOG_WRN(" Feedback buffer full for PT 0x%04X ", pt_sender_short_id_from_pcc);
 		}
 	}
 
 	if (!pdc_process_ok_for_feedback) {
-		printk("FT_SM_PDC: NOT OK for Feedback for PT 0x%04X", pt_sender_short_id_from_pcc);
+		LOG_WRN(" NOT OK for Feedback for PT 0x%04X", pt_sender_short_id_from_pcc);
 		transaction->is_valid = false; /* Invalidate the slot */
 		return;
 	}
@@ -2422,12 +2383,12 @@ process_feedback_ft_pdc_secure_rx_path:; /* Label must have a statement */
 		uint32_t receiver_long_id_cpu = sys_be32_to_cpu(receiver_long_id_be);
 
 		if (receiver_long_id_cpu != ctx->own_long_rd_id) {
-			printk("[FT_ADDR_FILTER] Discarding Unicast PDU. Recv:0x%08X, Own:0x%08X (Short:0x%04X)\n",
+			LOG_DBG("[FT_ADDR_FILTER] Discarding Unicast PDU. Recv:0x%08X, Own:0x%08X (Short:0x%04X)",
 			       receiver_long_id_cpu, ctx->own_long_rd_id, ctx->own_short_rd_id);
 			return;
 		}
 
-		printk("[FT_ADDR_FILTER] ACCEPTED Unicast PDU for us! Recv:0x%08X, Own:0x%08X (Short:0x%04X)\n",
+		LOG_DBG("[FT_ADDR_FILTER] ACCEPTED Unicast PDU for us! Recv:0x%08X, Own:0x%08X (Short:0x%04X)",
 		       receiver_long_id_cpu, ctx->own_long_rd_id, ctx->own_short_rd_id);
 
 		sender_long_id_final = sys_be32_to_cpu(uch->transmitter_long_rd_id_be);
@@ -2436,30 +2397,30 @@ process_feedback_ft_pdc_secure_rx_path:; /* Label must have a statement */
 		int mux_hdr_len = parse_mac_mux_header(sdu_area_for_data_path, sdu_area_len_for_data_path, &ie_type, &ie_len, &ie_payload);
 
 
-		// printk("\nxxxxxxxxx mux_hdr_len:%d ie_type:%d \n\n\n\n\n",mux_hdr_len ,ie_type );
+		// LOG_DBG("xxxxxxxxx mux_hdr_len:%d ie_type:%d ",mux_hdr_len ,ie_type );
 		if (mux_hdr_len > 0) {
 			switch (ie_type) {
 			case IE_TYPE_ASSOC_REQ:
-				printk("FT_SM_PDC: ft_handle_phy_pdc_ft: case IE_TYPE_ASSOC_REQ: ctx->pending_op_type:%s (%d) \n",dect_pending_op_to_str(ctx->pending_op_type), ctx->pending_op_type);
+				LOG_DBG(" case IE_TYPE_ASSOC_REQ: ctx->pending_op_type:%s (%d) ",dect_pending_op_to_str(ctx->pending_op_type), ctx->pending_op_type);
 				if (ctx->pending_op_type == PENDING_OP_FT_RACH_RX_WINDOW && pt_peer_ctx == NULL) {
 					ft_process_association_request_pdu(sdu_area_for_data_path, sdu_area_len_for_data_path, pt_sender_short_id_from_pcc, sender_long_id_final, assoc_pcc_event->rssi_2);
 				}
 				else {
-					printk("[FT_PDC_HANDLER] ***DEBUG***: Skipped AssocReq processing. Reason:\n");
-					printk("  -> pending_op_type is %s (expected %s)\n",
+					LOG_DBG("[FT_PDC_HANDLER] ***DEBUG***: Skipped AssocReq processing. Reason:");
+					LOG_DBG("  -> pending_op_type is %s (expected %s)",
 					       dect_pending_op_to_str(ctx->pending_op_type),
 					       dect_pending_op_to_str(PENDING_OP_FT_RACH_RX_WINDOW));
-					printk("  -> pt_peer_ctx is %s (expected NULL)\n",
+					LOG_DBG("  -> pt_peer_ctx is %s (expected NULL)",
 					       (pt_peer_ctx == NULL) ? "NULL" : "NOT NULL");
 				}
 				break;
 			case IE_TYPE_ASSOC_RELEASE:
-				printk("[ft_sm] ft_handle_phy_pdc_ft: case IE_TYPE_ASSOC_RELEASE: ctx->pending_op_type %d \n", ctx->pending_op_type);
+				LOG_DBG(" case IE_TYPE_ASSOC_RELEASE: ctx->pending_op_type %d ", ctx->pending_op_type);
 				if (pt_peer_ctx) {
-					printk("***************************** [ft_sm] ft_handle_phy_pdc_ft: case IE_TYPE_ASSOC_RELEASE: ctx->pending_op_type %d \n", ctx->pending_op_type);
+					LOG_DBG(" case IE_TYPE_ASSOC_RELEASE: ctx->pending_op_type %d ", ctx->pending_op_type);
 					dect_mac_assoc_release_ie_t release_fields;
 					if (parse_assoc_release_ie_payload(ie_payload, ie_len, &release_fields) == 0) {
-						LOG_WRN("FT SM: Received Association Release from PT 0x%04X (cause: %u). Invalidating peer slot %d.",
+						LOG_WRN("Received Association Release from PT 0x%04X (cause: %u). Invalidating peer slot %d.",
 							pt_sender_short_id_from_pcc, release_fields.cause, peer_slot_idx);
 						/* Send a release confirmation back to the PT FIRST */
 						dect_mac_assoc_release_ie_t confirm_fields = {
@@ -2471,7 +2432,7 @@ process_feedback_ft_pdc_secure_rx_path:; /* Label must have a statement */
 							&confirm_fields);
 
 						/* NOW, invalidate the peer slot */
-						printk("  -- NOW, invalidate the peer slot %0X [%0X : %d] \n", 
+						LOG_DBG("  -- NOW, invalidate the peer slot %0X [%0X : %d] ", 
 							ctx->own_short_rd_id, pt_peer_ctx->short_rd_id, peer_slot_idx);
 
 						pt_peer_ctx->is_valid = false;
@@ -2490,7 +2451,7 @@ process_feedback_ft_pdc_secure_rx_path:; /* Label must have a statement */
 				}
 				break;
 			case IE_TYPE_AUTH_RESPONSE:
-				printk("FT_SM_PDC: ft_handle_phy_pdc_ft: case IE_TYPE_AUTH_RESPONSE:  ctx->pending_op_type %d \n", ctx->pending_op_type);
+				LOG_DBG(" case IE_TYPE_AUTH_RESPONSE:  ctx->pending_op_type %d ", ctx->pending_op_type);
 				if (ie_len == sizeof(dect_mac_auth_response_ie_t) && pt_peer_ctx) {
 					const dect_mac_auth_response_ie_t *auth_resp_ie = (const dect_mac_auth_response_ie_t *)ie_payload;
 					ft_send_auth_success_action(peer_slot_idx, auth_resp_ie->pt_mac);
@@ -2498,16 +2459,16 @@ process_feedback_ft_pdc_secure_rx_path:; /* Label must have a statement */
 				break;
 			case IE_TYPE_RECONFIG_REQ:
 				if (pt_peer_ctx) {
-					LOG_INF("FT_SM_PDC: Received Reconfiguration Request from PT 0x%04X.", pt_sender_short_id_from_pcc);
+					LOG_INF(" Received Reconfiguration Request from PT 0x%04X.", pt_sender_short_id_from_pcc);
 					ft_send_reconfig_response_action(pt_peer_ctx->long_rd_id, pt_peer_ctx->short_rd_id);
 				}
 				break;
 			default:
-				printk("FT_SM_PDC: ft_handle_phy_pdc_ft: case default:  ctx->pending_op_type %d \n", ctx->pending_op_type);
+				LOG_DBG(" case default:  ctx->pending_op_type %d ", ctx->pending_op_type);
 				if (pt_peer_ctx && pt_peer_ctx->is_valid) {
 					dect_mac_data_path_handle_rx_sdu(sdu_area_for_data_path, sdu_area_len_for_data_path, sender_long_id_final);
 				} else {
-					LOG_WRN("FT_SM_PDC: Unicast from unknown PT 0x%04X or unexpected state. Discarding.", pt_sender_short_id_from_pcc);
+					LOG_WRN(" Unicast from unknown PT 0x%04X or unexpected state. Discarding.", pt_sender_short_id_from_pcc);
 				}
 				break;
 			}
@@ -2515,14 +2476,15 @@ process_feedback_ft_pdc_secure_rx_path:; /* Label must have a statement */
 	} else if (mac_hdr_type_octet.mac_header_type == MAC_COMMON_HEADER_TYPE_DATA_PDU && pt_peer_ctx && pt_peer_ctx->is_valid) {
 		sender_long_id_final = pt_peer_ctx->long_rd_id;
 
-		printk("[FT_DATA_PASS_UP_DBG] Passing SDU to data path (len %zu):\n", sdu_area_len_for_data_path);
-		for (int i=0; i<sdu_area_len_for_data_path && i < 64; i++) { printk("%02x ", sdu_area_for_data_path[i]); }
-		printk("\n");
+		LOG_DBG("[FT_DATA_PASS_UP_DBG] Passing SDU to data path (len %zu):", sdu_area_len_for_data_path);
+		// LOG_HEXDUMP_DBG(sdu_area_for_data_path, sdu_area_len_for_data_path, "FT_DATA_PASS_UP_DBG: SDU");
+		for (int i=0; i<sdu_area_len_for_data_path && i < 64; i++) { LOG_DBG("%02x ", sdu_area_for_data_path[i]); }
+		LOG_DBG("");
 
-		printk("FT_SM_PDC: Received PDC with MAC Common DATA Header Type %u after security. \n", mac_hdr_type_octet.mac_header_type);
+		LOG_DBG(" Received PDC with MAC Common DATA Header Type %u after security. ", mac_hdr_type_octet.mac_header_type);
 		dect_mac_data_path_handle_rx_sdu(sdu_area_for_data_path, sdu_area_len_for_data_path, sender_long_id_final);
 	} else {
-		LOG_WRN("FT_SM_PDC: Received PDC with unhandled/unexpected MAC Common Header Type %u after security.", mac_hdr_type_octet.mac_header_type);
+		LOG_WRN(" Received PDC with unhandled/unexpected MAC Common Header Type %u after security.", mac_hdr_type_octet.mac_header_type);
 	}
 
 	/* Invalidate the cache entry now that it has been fully processed */
@@ -2541,7 +2503,7 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 	bool assoc_req_ie_found = false;
 	bool pt_cap_ie_found = false;
 
-	LOG_INF("FT_SM_ASSOC: FT LongID:0x%08X is Processing Association Request from PT LongID:0x%08X, ShortID:0x%04X, RSSI:%d dBm",
+	LOG_INF("FT LongID:0x%08X is Processing Association Request from PT LongID:0x%08X, ShortID:0x%04X, RSSI:%d dBm",
 		ctx->own_long_rd_id, pt_tx_long_rd_id, pt_tx_short_rd_id, rssi_from_pcc);
 
 	/* --- 1. Parse all relevant IEs from the request PDU --- */
@@ -2586,7 +2548,7 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 	}
 
 	if (!assoc_req_ie_found || !pt_cap_ie_found) {
-		LOG_WRN("FT_SM_ASSOC: AssocReq or RDCap IE missing from PDU from PT 0x%04X. Ignoring.",
+		LOG_WRN("AssocReq or RDCap IE missing from PDU from PT 0x%04X. Ignoring.",
 			pt_tx_short_rd_id);
 		return;
 	}
@@ -2596,7 +2558,7 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 	 * has served its purpose and can now be closed.
 	 */
 	if (ctx->pending_op_type == PENDING_OP_FT_RACH_RX_WINDOW) {
-		LOG_INF("FT_SM_ASSOC: Association Request received. Cancelling RACH listen window (Hdl: %u).",
+		LOG_INF("Association Request received. Cancelling RACH listen window (Hdl: %u).",
 			ctx->pending_op_handle);
 		dect_mac_phy_ctrl_cancel_op(ctx->pending_op_handle);
 	}
@@ -2606,7 +2568,7 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 		ft_find_and_init_peer_slot(pt_tx_long_rd_id, pt_tx_short_rd_id, rssi_from_pcc);
 
 	if (peer_slot_idx < 0) {
-		LOG_WRN("FT_SM_ASSOC: FT is full. Rejecting association from PT 0x%08X.", pt_tx_long_rd_id);
+		LOG_WRN("FT is full. Rejecting association from PT 0x%08X.", pt_tx_long_rd_id);
 		dect_mac_assoc_resp_ie_t reject_fields = {
 			.ack_nack = false,
 			// .reject_cause = ASSOC_REJECT_CAUSE_OTHER,
@@ -2617,7 +2579,7 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 					       &reject_fields);
 		return;
 	}
-	LOG_WRN("FT_SM_ASSOC: FT is accepting association from PT 0x%08X. slot %d", pt_tx_long_rd_id, peer_slot_idx);
+	LOG_WRN("FT is accepting association from PT 0x%08X. slot %d", pt_tx_long_rd_id, peer_slot_idx);
 
 	dect_mac_peer_info_t *pt_peer_ctx = &ctx->role_ctx.ft.connected_pts[peer_slot_idx];
 
@@ -2626,16 +2588,16 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 	/* Act on Setup Cause */
 	switch (req_fields.setup_cause_val) {
 	case ASSOC_CAUSE_INITIAL_ASSOCIATION:
-		LOG_DBG("FT_SM_ASSOC: Processing as Initial Association.");
+		LOG_DBG("Processing as Initial Association.");
 		break;
 	case ASSOC_CAUSE_MOBILITY:
-		LOG_INF("FT_SM_ASSOC: PT 0x%04X is associating due to mobility.", pt_tx_short_rd_id);
+		LOG_INF("PT 0x%04X is associating due to mobility.", pt_tx_short_rd_id);
 		break;
 	case ASSOC_CAUSE_REASSOC_AFTER_ERROR:
-		LOG_WRN("FT_SM_ASSOC: PT 0x%04X is re-associating after an error.", pt_tx_short_rd_id);
+		LOG_WRN("PT 0x%04X is re-associating after an error.", pt_tx_short_rd_id);
 		break;
 	default:
-		LOG_DBG("FT_SM_ASSOC: Unhandled setup cause %u.", req_fields.setup_cause_val);
+		LOG_DBG("Unhandled setup cause %u.", req_fields.setup_cause_val);
 		break;
 	}
 
@@ -2659,7 +2621,7 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)
 	if (ctx->config.ft_policy_secure_on_assoc) {
 		if (!ctx->master_psk_provisioned) {
-			LOG_WRN("FT_SM_ASSOC: Rejecting PT 0x%04X. Policy requires security, but no PSK is provisioned.",
+			LOG_WRN("Rejecting PT 0x%04X. Policy requires security, but no PSK is provisioned.",
 				pt_tx_short_rd_id);
 			resp_fields.ack_nack = false;
 			resp_fields.reject_cause = ASSOC_REJECT_CAUSE_NON_SECURED_NOT_ACCEPTED;
@@ -2673,9 +2635,9 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 				ctx->role_ctx.ft.keys_provisioned_for_peer[peer_slot_idx] = true;
 				pt_peer_ctx->is_secure = true;
 				pt_peer_ctx->hpc = 1; /* Initialize HPC */
-				LOG_INF("FT_SM_ASSOC: Successfully derived session keys for PT 0x%04X.", pt_tx_short_rd_id);
+				LOG_INF("Successfully derived session keys for PT 0x%04X.", pt_tx_short_rd_id);
 			} else {
-				LOG_ERR("FT_SM_ASSOC: Failed to derive session keys for PT 0x%04X. Rejecting.", pt_tx_short_rd_id);
+				LOG_ERR("Failed to derive session keys for PT 0x%04X. Rejecting.", pt_tx_short_rd_id);
 				resp_fields.ack_nack = false;
 				resp_fields.reject_cause = ASSOC_REJECT_CAUSE_OTHER;
 			}
@@ -2793,7 +2755,7 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 		
 		update_next_occurrence(ctx, ft_peer_sched, ctx->last_known_modem_time, ctx->own_phy_params.mu);
 
-		LOG_INF("FT_SM_ASSOC: Unicast DL/UL Schedule for PT 0x%04X idx %d ACTIVATED. NextOcc: %llu", 
+		LOG_INF("Unicast DL/UL Schedule for PT 0x%04X idx %d ACTIVATED. NextOcc: %llu", 
 			pt_tx_short_rd_id, peer_slot_idx, ft_peer_sched->next_occurrence_modem_time);
 
 		ft_send_association_response_action(peer_slot_idx, &resp_fields,
@@ -2820,13 +2782,13 @@ static void ft_send_association_response_action(
 	const dect_mac_resource_alloc_ie_fields_t *res_alloc_fields)
 {
 
-	printk("[FT_ASSOC_RESP_ACTION] Entering ft_send_association_response_action for peer slot %d.\n", peer_slot_idx);
+	LOG_DBG("Entering Association Response for peer slot %d.", peer_slot_idx);
 
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
-	printk("[FT_ASSOC_RESP_ACTION] Entered for peer_slot_idx %d\n", peer_slot_idx);
+	LOG_DBG("Entered for peer_slot_idx %d", peer_slot_idx);
     // Add a guard to prevent crashes
     if (peer_slot_idx < 0 || peer_slot_idx >= MAX_PEERS_PER_FT) {
-        LOG_ERR("[FT_ASSOC_RESP_ACTION] Invalid peer_slot_idx %d. Aborting.", peer_slot_idx);
+        LOG_ERR("Invalid peer_slot_idx %d. Aborting.", peer_slot_idx);
         return;
     }
 
@@ -2847,37 +2809,38 @@ static void ft_send_association_response_action(
 			sdu_area_buf, sizeof(sdu_area_buf), 0, ft_key_index_for_pt,
 			sec_iv_type_for_assoc_resp, ctx->hpc);
 		if (ie_len_sec_info < 0) {
-			LOG_ERR("[FT_ASSOC_RESP_ACTION] Build MAC Sec Info IE failed: %d", ie_len_sec_info);
+			LOG_ERR("Build MAC Sec Info IE failed: %d", ie_len_sec_info);
 			return;
 		}
 		sdu_area_len_built_bytes += ie_len_sec_info;
 		len_of_muxed_sec_ie_for_crypto_calc = ie_len_sec_info;
 	}
 
-	printk("[FT_ASSOC_RESP_ACTION] Building SDU area...\n");
+	LOG_DBG("Building SDU area...");
 	int resp_ies_len = build_assoc_resp_sdu_area_content(
 		sdu_area_buf, sizeof(sdu_area_buf), sdu_area_len_built_bytes, resp_fields,
 		ft_cap_fields, res_alloc_fields);
 
 	if (resp_ies_len < 0) {
-		LOG_ERR("[FT_ASSOC_RESP_ACTION] Failed to build SDU area content: %d", resp_ies_len);
+		LOG_ERR("Failed to build SDU area content: %d", resp_ies_len);
 		return;
 	}
 
 	if (sdu_area_len_built_bytes + resp_ies_len > sizeof(sdu_area_buf)) {
-		LOG_ERR("[FT_ASSOC_RESP_ACTION] SDU area overflow: %d > %zu", 
+		LOG_ERR("SDU area overflow: %d > %zu", 
 			sdu_area_len_built_bytes + resp_ies_len, sizeof(sdu_area_buf));
 		return;
 	}
 
 	sdu_area_len_built_bytes += resp_ies_len;
-		printk("[FT_ASSOC_RESP_ACTION] SDU Area Built. Total len: %d. Hexdump:\n", sdu_area_len_built_bytes);
-	for (int i = 0; i < sdu_area_len_built_bytes; i++) {
-		printk("%02x ", sdu_area_buf[i]);
-	}
-	printk("\n");
+	LOG_DBG("SDU Area Built. Total len: %d. Hexdump:", sdu_area_len_built_bytes);
+	LOG_HEXDUMP_DBG(sdu_area_buf, sdu_area_len_built_bytes, "SDU");
+	// for (int i = 0; i < sdu_area_len_built_bytes; i++) {
+	// 	LOG_DBG("%02x ", sdu_area_buf[i]);
+	// }
+	// LOG_DBG("");
 
-// printk("[FT_SM] Constructed hdr_type_octet byte: 0x%02X\n", *(uint8_t*)&hdr_type_octet);	
+// LOG_DBG(" Constructed hdr_type_octet byte: 0x%02X", *(uint8_t*)&hdr_type_octet);	
 	uint8_t hdr_type_octet_byte = 0;
 	hdr_type_octet_byte |= (MAC_COMMON_HEADER_TYPE_UNICAST & 0x0F) << 0;
 	if (secure_this_response) {
@@ -2886,7 +2849,7 @@ static void ft_send_association_response_action(
 		hdr_type_octet_byte |= (MAC_SECURITY_NONE & 0x03) << 4;
 	}
 	/* Version is 0, so no need to set bits 6-7 */
-// printk("[FT_SM] Constructed hdr_type_octet byte: 0x%02X\n", *(uint8_t*)&hdr_type_octet_byte);
+// LOG_DBG(" Constructed hdr_type_octet byte: 0x%02X", *(uint8_t*)&hdr_type_octet_byte);
 
 	dect_mac_unicast_header_t common_hdr;
 	increment_psn_and_hpc(ctx);
@@ -2896,37 +2859,38 @@ static void ft_send_association_response_action(
 	common_hdr.receiver_long_rd_id_be = sys_cpu_to_be32(pt_peer_ctx->long_rd_id);
     mac_sdu_t *pdu_sdu = dect_mac_buffer_alloc(K_NO_WAIT);
     if (!pdu_sdu) {
-        LOG_ERR("[FT_ASSOC_RESP_ACTION] FT_REJECT_SEND: Failed to alloc PDU buffer.");
+        LOG_ERR("FT_REJECT_SEND: Failed to alloc PDU buffer.");
         return;
     }
 
 	uint16_t pdu_len;
-	printk("[FT_ASSOC_RESP_ACTION] Assembling final PDU...\n");
+	LOG_DBG("Assembling final PDU...");
 
 	ret = dect_mac_phy_ctrl_assemble_final_pdu(pdu_sdu->data, CONFIG_DECT_MAC_PDU_MAX_SIZE, hdr_type_octet_byte, 
 							&common_hdr, sizeof(common_hdr), sdu_area_buf,
 						   (size_t)sdu_area_len_built_bytes, &pdu_len);
 	if (ret != 0) {
-		printk("[FT_ASSOC_RESP_ACTION] ***FAILURE***: Assemble final PDU failed with code %d\n", ret);
+		LOG_ERR("***FAILURE***: Assemble final PDU failed with code %d", ret);
 		dect_mac_buffer_free(pdu_sdu);
 		return;
 	}
 
-	printk("[FT_ASSOC_RESP_ACTION] Assembled Association Response PDU (len %u) for PT 0x%04X:\n",
+	LOG_DBG("Assembled Association Response PDU (len %u) for PT 0x%04X:",
 	       pdu_len, pt_peer_ctx->short_rd_id);
-	for (int i = 0; i < pdu_len; i++) {
-		printk("%02x ", pdu_sdu->data[i]);
-	}
-	printk("\n");
+	LOG_HEXDUMP_DBG(pdu_sdu->data, pdu_len, "PDU");
+	// for (int i = 0; i < pdu_len; i++) {
+	// 	LOG_DBG("%02x ", pdu_sdu->data[i]);
+	// }
+	// LOG_DBG("");
 
 
 	uint16_t final_tx_pdu_len = pdu_len;
-
-	printk("[FT_ASSOC_RESP_ACTION] Assembled PDU (len %u) to be sent:\n", final_tx_pdu_len);
-	for (int i = 0; i < final_tx_pdu_len; i++) {
-		printk("%02x ", pdu_sdu->data[i]);
-	}
-	printk("\n");
+	LOG_DBG("Assembled PDU (len %u) to be sent:", final_tx_pdu_len);
+	LOG_HEXDUMP_DBG(pdu_sdu->data, final_tx_pdu_len, "PDU");
+	// for (int i = 0; i < final_tx_pdu_len; i++) {
+	// 	LOG_DBG("%02x ", pdu_sdu->data[i]);
+	// }
+	// LOG_DBG("");
 
 #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)	
 	if (secure_this_response) {
@@ -2962,13 +2926,13 @@ static void ft_send_association_response_action(
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
 	ctx->role_ctx.ft.last_assoc_resp_pt_short_id = pt_peer_ctx->short_rd_id;
 
-	printk("[FT_ASSOC_RESP_ACTION] Scheduling TX with PHY control...\n");
+	LOG_DBG("Scheduling TX with PHY control...");
 	ret = dect_mac_phy_ctrl_start_tx_assembled(
 		ctx->role_ctx.ft.operating_carrier, pdu_sdu->data, final_tx_pdu_len,
 		pt_peer_ctx->short_rd_id, false, phy_op_handle, PENDING_OP_FT_ASSOC_RESP, true, 0,
 		ctx->own_phy_params.mu, NULL);
 
-	printk("[FT_ASSOC_RESP_ACTION] After scheduling TX, pending_op_type is now: %s\n",
+	LOG_DBG("After scheduling TX, pending_op_type is now: %s",
 	       dect_pending_op_to_str(ctx->pending_op_type));
 		   
 	if (ret == 0) {
@@ -2977,7 +2941,7 @@ static void ft_send_association_response_action(
 		 */
 		// dect_mac_phy_if_register_op_handle(phy_op_handle, ctx);
 
-		LOG_INF("FT_SM: Association Response (%s) TX scheduled to PT 0x%04X (Hdl %u). Secure: %s",
+		LOG_INF("Association Response (%s) TX scheduled to PT 0x%04X (Hdl %u). Secure: %s",
 			resp_fields->ack_nack ? "ACCEPT" : "REJECT", pt_peer_ctx->short_rd_id, phy_op_handle,
 			secure_this_response ? "Yes" : "No");
 		if (resp_fields->ack_nack) {
@@ -2990,15 +2954,15 @@ static void ft_send_association_response_action(
 		}
 	} else {
 		// 4. Free the buffer without needing a cast
-		printk("[FT_ASSOC_RESP_ACTION] ***FAILURE***: dect_mac_phy_ctrl_start_tx_assembled failed with code %d\n", ret);
-		LOG_ERR("FT_SM: Failed to schedule TX to PT 0x%04X: %d", pt_peer_ctx->short_rd_id, ret);
+		LOG_ERR("***FAILURE***: dect_mac_phy_ctrl_start_tx_assembled failed with code %d", ret);
+		LOG_ERR("Failed to schedule TX to PT 0x%04X: %d", pt_peer_ctx->short_rd_id, ret);
 		dect_mac_buffer_free(pdu_sdu);
 		if (resp_fields->ack_nack) {
 			pt_peer_ctx->is_valid = false;
 			ctx->role_ctx.ft.keys_provisioned_for_peer[peer_slot_idx] = false;
 		}
 	}
-	printk("[FT_ASSOC_RESP_ACTION] Exiting.\n");
+	LOG_DBG("Exiting.");
 
 }
 
@@ -3006,7 +2970,7 @@ static void ft_send_association_response_action(
 static void ft_send_association_release_action(uint32_t pt_long_id, uint16_t pt_short_id,
 					   const dect_mac_assoc_release_ie_t *release_fields)
 {
-	printk("Called - ft_send_association_release_action() \n");
+	LOG_DBG("Called - ft_send_association_release_action() ");
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 	uint8_t sdu_area_buf[4]; /* Max size for a release IE is 1 byte + MUX header */
 	int ret;
@@ -3234,7 +3198,7 @@ void ft_service_schedules(void)
 			next_op_is_group_ul ? PENDING_OP_FT_GROUP_RX : PENDING_OP_FT_DATA_RX,
 			next_op_time);
 
-		printk("[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d \n", ctx->pending_op_type);
+		LOG_DBG("[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d ", ctx->pending_op_type);
 	}
 }		
 
@@ -3375,21 +3339,21 @@ static int ft_parse_dcs_channel_list(const char *chan_list_str, uint32_t *out_ch
 		long chan_val = strtol(search_start, &next_chan_str, 10);
 
 		if (search_start == next_chan_str) {
-			LOG_WRN("FT_DCS_INIT: Invalid character in channel list '%c'. Skipping rest.", *search_start);
+			LOG_WRN("Invalid character in channel list '%c'. Skipping rest.", *search_start);
 			break;
 		}
 
 		if (chan_val >= 0 && chan_val <= 8191) {
 			out_channels[parsed_count] = (uint32_t)chan_val;
-			LOG_DBG("FT_DCS_INIT: Added C%u to scan list (idx %d).", (uint32_t)chan_val, parsed_count);
+			LOG_DBG("Added C%u to scan list (idx %d).", (uint32_t)chan_val, parsed_count);
 			parsed_count++;
 		} else {
-			LOG_WRN("FT_DCS_INIT: Channel %ld out of range. Skipping.", chan_val);
+			LOG_WRN("Channel %ld out of range. Skipping.", chan_val);
 		}
 
 		search_start = next_chan_str;
 	}
 
-	LOG_INF("FT_DCS_INIT: Parsed %d valid channels for DCS.", parsed_count);
+	LOG_INF("Parsed %d valid channels for DCS.", parsed_count);
 	return parsed_count;
 }

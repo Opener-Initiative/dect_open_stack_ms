@@ -60,7 +60,7 @@ void dect_mac_thread_entry(void *p1, void *p2, void *p3)
 	ARG_UNUSED(p2);
 	ARG_UNUSED(p3);
 
-	printk("[MAC_THREAD_DBG] DECT MAC Thread has started execution.\n");
+	// printk("[MAC_THREAD_DBG] DECT MAC Thread has started execution.");
 	LOG_INF("DECT MAC Thread Started. TID: %p", k_current_get());
 
 	/* Start the periodic timer that will service the data path */
@@ -78,7 +78,7 @@ void dect_mac_thread_entry(void *p1, void *p2, void *p3)
 // 	ARG_UNUSED(p2);
 // 	ARG_UNUSED(p3);
 
-// 	printk("[MAC_THREAD_DBG] DECT MAC Thread has started execution.\n");
+// 	printk("[MAC_THREAD_DBG] DECT MAC Thread has started execution.");
 // 	LOG_INF("DECT MAC Thread Started. TID: %p", k_current_get());
 
 // 	while (1) {
@@ -110,24 +110,24 @@ extern struct k_msgq mac_event_msgq;
 
 int dect_mac_init(struct k_queue *rx_queue_from_dlc, dlc_tx_status_cb_t status_cb)
 {
-	// printk("[INIT_DBG] Entering dect_mac_init. Checking for spy callback...\n");
+	// printk(" Checking for spy callback...");
 // #if IS_ENABLED(CONFIG_DECT_MAC_SEND_MOCK_API)
-// printk("g_init_spy_cb is %s \n", g_init_spy_cb ? "OK":"NULL");
+// printk("g_init_spy_cb is %s ", g_init_spy_cb ? "OK":"NULL");
 // 	if (g_init_spy_cb) {
-// 		printk("[INIT_DBG] Spy callback for dect_mac_init is registered. Calling it.\n");
+// 		printk("Spy callback for dect_mac_init is registered. Calling it.");
 // 		return g_init_spy_cb(rx_queue_from_dlc, status_cb);
 // 	}
 // #endif
 	
 	int err;
 
-	printk("[DECT_MAC] Entering dect_mac_init. Current active context: %p\n", (void *)dect_mac_get_active_context());
+	LOG_DBG("[DECT_MAC]  Current active context: %p", (void *)dect_mac_get_active_context());
 
 	#if IS_ENABLED(CONFIG_DECT_MAC_SEND_MOCK_API)
-	printk("[INIT_DBG] Entering dect_mac_init. Current spy pointer: %p\n", (void *)g_send_spy_cb);
+	LOG_DBG(" Current spy pointer: %p", (void *)g_send_spy_cb);
 	/* Restore the real send function pointer on every init to ensure clean test state */
 	g_send_spy_cb = NULL;
-	printk("[INIT_DBG] Spy pointer has been reset to: %p\n", (void *)g_send_spy_cb);
+	LOG_DBG("Spy pointer has been reset to: %p", (void *)g_send_spy_cb);
 	#endif /*  */
 
 	err = dect_mac_phy_if_init();
@@ -136,7 +136,7 @@ int dect_mac_init(struct k_queue *rx_queue_from_dlc, dlc_tx_status_cb_t status_c
 		return err;
 	}
 
-	printk("[MAC_INIT_PROPAGATION_DBG] About to call dect_mac_api_init with queue pointer: %p\n",
+	LOG_DBG("About to call dect_mac_api_init with queue pointer: %p",
 	       (void *)rx_queue_from_dlc);
 
 	err = dect_mac_api_init(rx_queue_from_dlc);
@@ -180,7 +180,7 @@ int dect_mac_init(struct k_queue *rx_queue_from_dlc, dlc_tx_status_cb_t status_c
 
 void dect_mac_start(void)
 {
-	printk("[MAC_START_DBG] Entering dect_mac_start...\n");
+	LOG_DBG("Called...");
 
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
@@ -208,13 +208,11 @@ void dect_mac_start(void)
 
 	if (ctx->role == MAC_ROLE_PT) {
 #if defined(CONFIG_DECT_MAC_PT_STARTUP_DELAY_MS) && CONFIG_DECT_MAC_PT_STARTUP_DELAY_MS > 0
-		LOG_INF("PT SM: Applying %d ms startup delay before first scan.", CONFIG_DECT_MAC_PT_STARTUP_DELAY_MS);
+		LOG_INF("Applying %d ms PT startup delay before first scan.", CONFIG_DECT_MAC_PT_STARTUP_DELAY_MS);
 		k_msleep(CONFIG_DECT_MAC_PT_STARTUP_DELAY_MS);
 #endif
-		// printk("[MAC_START_DBG] Entering dect_mac_start...\n");
 		dect_mac_sm_pt_start_operation();
 	} else {
-		// printk("[MAC_START_DBG] Calling dect_mac_sm_ft_start_operation...\n");
 		dect_mac_sm_ft_start_operation();
 	}
 }
@@ -223,12 +221,12 @@ int dect_mac_send(mac_sdu_t *sdu, mac_flow_id_t flow)
 {
 
 #if IS_ENABLED(CONFIG_DECT_MAC_SEND_MOCK_API)
-	printk("[MAC_SEND_DBG] TEST dect_mac_send() function was called. \n");
+	LOG_INF("TEST dect_mac_send() function was called. ");
 	if (g_send_spy_cb) {
 		return g_send_spy_cb(sdu, flow);
 	}
 #else
-	printk("[MAC_SEND_DBG] REAL dect_mac_send() function was called.\n");
+	LOG_DBG("REAL dect_mac_send() function was called.");
 #endif
 	return dect_mac_api_send(sdu, flow);
 }
@@ -236,7 +234,7 @@ int dect_mac_send(mac_sdu_t *sdu, mac_flow_id_t flow)
 #if IS_ENABLED(CONFIG_DECT_MAC_SEND_MOCK_API)
 void dect_mac_test_set_send_spy(int (*handler)(mac_sdu_t *sdu, mac_flow_id_t flow))
 {
-	printk("[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: %p\n", (void *)handler);
+	LOG_INF("[SPY_DBG] dect_mac_test_set_send_spy called. Handler set to: %p", (void *)handler);
 	g_send_spy_cb = handler;
 }
 #endif /* IS_ENABLED(CONFIG_DECT_MAC_SEND_MOCK_API) */
@@ -253,21 +251,21 @@ int dect_mac_process_event_timeout(k_timeout_t timeout)
 	switch (ret)
 	{
 	case 0:
-		// printk("[MAC_PROCESS_DBG] k_msgq_get returned error: Found Message (%d) \n", ret);
+		// printk("[MAC_PROCESS_DBG] k_msgq_get returned error: Found Message (%d) ", ret);
 		break;
 	case -42:
-		printk("[MAC_PROCESS_DBG] k_msgq_get returned error: NO Message (%d) \n", ret);
+		LOG_DBG("k_msgq_get returned: NO Message(%d) ", ret);
 		break;
 	case -11:
-		printk("[MAC_PROCESS_DBG] k_msgq_get returned error: Try Again (%d) \n", ret);
+		LOG_DBG("k_msgq_get returned: Try Again(%d)", ret);
 		break;			
 	default:
-		printk("[MAC_PROCESS_DBG] k_msgq_get returned error: (%d)... \n", ret);
+		LOG_DBG("k_msgq_get returned:%d", ret);
 		break;
 	}
 
 	if (ret == 0) {
-		printk("[MAC]: dect_mac_process_event_timeout(): msg->type: %s(%d) err:%d\n",dect_mac_event_to_str(msg.type), msg.type, ret);
+		LOG_DBG("msg->type:%s(%d) err:%d",dect_mac_event_to_str(msg.type), msg.type, ret);
 		dect_mac_event_dispatch(&msg);
 	}
 

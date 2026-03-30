@@ -209,7 +209,7 @@ void update_next_occurrence(dect_mac_context_t *ctx, dect_mac_schedule_t *schedu
 			    uint64_t current_modem_time, uint8_t link_mu_code)
 {
 	if (!schedule || !schedule->is_active) {
-		printk("[TIME_UTILs] update_next_occurrence: (!schedule || !schedule->is_active)  \n");
+		LOG_ERR("[TIME_UTILs] update_next_occurrence: (!schedule || !schedule->is_active)  ");
 		return;
 	}
 
@@ -315,12 +315,12 @@ void update_next_occurrence(dect_mac_context_t *ctx, dect_mac_schedule_t *schedu
 			ticks_from_sfn0_anchor / frame_duration_ticks;
 		uint8_t current_sfn = (uint8_t)(frames_from_sfn0_anchor_now % 256);
 
-		printk("[DEBUG_PROBE] frames_from_sfn0_anchor_now:%u ticks_from_sfn0_anchor:%u frame_duration_ticks:%u current_sfn:%u \n", (unsigned int)frames_from_sfn0_anchor_now, (unsigned int)ticks_from_sfn0_anchor, frame_duration_ticks, current_sfn);
+		LOG_DBG("frames_from_sfn0_anchor_now:%u ticks_from_sfn0_anchor:%u frame_duration_ticks:%u current_sfn:%u ", (unsigned int)frames_from_sfn0_anchor_now, (unsigned int)ticks_from_sfn0_anchor, frame_duration_ticks, current_sfn);
 
 		int16_t frames_elapsed_since_initial =
 			(int16_t)current_sfn - (int16_t)schedule->sfn_of_initial_occurrence;
 
-		printk("[DEBUG_PROBE] Schedule for Ch %u Init SFN %u, Current SFN %u, Validity %u frames, Elapsed ~%d, Initial Occurrence %d\n",
+		LOG_DBG("Schedule for Ch %u Init SFN %u, Current SFN %u, Validity %u frames, Elapsed ~%d, Initial Occurrence %d",
 			schedule->channel, schedule->sfn_of_initial_occurrence, current_sfn,
 			schedule->validity_value, frames_elapsed_since_initial, (int16_t)schedule->sfn_of_initial_occurrence);
 
@@ -329,7 +329,7 @@ void update_next_occurrence(dect_mac_context_t *ctx, dect_mac_schedule_t *schedu
 		// }
 
 		// if ((uint8_t)frames_elapsed_since_initial >= schedule->validity_value) {
-		// 	// printk("[DEBUG_PROBE] Schedule for Ch %u is being DEACTIVATED due to validity expiry. Init SFN %u, Current SFN %u, Validity %u frames, Elapsed ~%d\n",
+		// 	// LOG_DBG("Schedule for Ch %u is being DEACTIVATED due to validity expiry. Init SFN %u, Current SFN %u, Validity %u frames, Elapsed ~%d",
 		// 	// 	schedule->channel, schedule->sfn_of_initial_occurrence, current_sfn,
 		// 	// 	schedule->validity_value, frames_elapsed_since_initial);
 		// 	LOG_INF("SCHED_UPD: Schedule (Ch %u, SS %u) deactivated: validity expired. Init SFN %u, Current SFN %u, Validity %u frames, Elapsed ~%d",
