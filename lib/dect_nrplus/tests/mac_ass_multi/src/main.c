@@ -24,9 +24,9 @@
 uint8_t g_last_tx_pdu_capture[CONFIG_DECT_MAC_PDU_MAX_SIZE];
 uint16_t g_last_tx_pdu_len_capture = 0;
 
-/* This test works but the number of nodes is limited to 8 per FT, be careful due to buffers and memory*/
-#define NUM_FTS 3
-#define NUM_PTS 5
+/* This test works but the number of nodes is limited, be careful due to buffers and memory*/
+#define NUM_FTS 4
+#define NUM_PTS 15
 
 static dect_mac_context_t g_mac_ctx_pt[NUM_PTS];
 static dect_mac_context_t g_mac_ctx_ft[NUM_FTS];
