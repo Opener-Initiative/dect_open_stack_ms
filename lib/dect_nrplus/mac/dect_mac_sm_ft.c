@@ -81,15 +81,12 @@ static void ft_send_reconfig_response_action(uint32_t pt_long_id, uint16_t pt_sh
 static void ft_send_association_response_action(int peer_slot_idx, const dect_mac_assoc_resp_ie_t *resp_fields, const dect_mac_rd_capability_ie_t *ft_cap_fields,const dect_mac_resource_alloc_ie_fields_t *res_alloc_fields);
 static void ft_send_association_release_action(uint32_t pt_long_id, uint16_t pt_short_id, const dect_mac_assoc_release_ie_t *release_fields);
 static int  ft_parse_dcs_channel_list(const char *chan_list_str, uint32_t *out_channels, int max_channels);
-uint64_t calculate_target_modem_time(dect_mac_context_t *ctx, uint64_t sfn_zero_anchor_time, uint8_t sfn_of_anchor_relevance, uint8_t target_sfn_val, uint16_t target_subslot_idx, uint8_t link_mu_code, uint8_t link_beta_code);
 void ft_service_schedules(void);
 
 static void ft_send_auth_challenge_action(int peer_slot_idx);
 static void ft_send_auth_success_action(int peer_slot_idx, const uint8_t *pt_mac);
 
 // Helpers (ensure these are defined or made extern if in another file)
-uint32_t get_subslot_duration_ticks(dect_mac_context_t *ctx);
-uint64_t modem_us_to_ticks(uint64_t us, uint32_t tick_rate_khz);
 
 
 // --- FT Timer Expiry Action Function (called by dispatcher) ---
@@ -1013,11 +1010,58 @@ static void ft_send_beacon_action(void)
 		return;
 	}
 
-	/* Increment the SFN for the next beacon transmission */
-	ctx->current_sfn_at_anchor_update = (ctx->current_sfn_at_anchor_update + 1) % 1024;
-
 	/* Update statistics */
 	ctx->role_ctx.ft.beacon_tx_count++;
+
+	/* Calculate the Target Time and SFN proactively before assembling PDU */
+	uint32_t frame_duration_ticks_val = FRAME_DURATION_TICKS;
+	uint64_t beacon_target_start_time = 0;
+
+#if IS_ENABLED(CONFIG_ZTEST)
+	if (frame_duration_ticks_val != 0) {
+		uint64_t now_us = k_ticks_to_us_floor64(k_uptime_ticks());
+		uint64_t now_ticks = modem_us_to_ticks(now_us, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+		uint64_t current_frame_start_ticks = (now_ticks / frame_duration_ticks_val) * frame_duration_ticks_val;
+		
+		/* Schedule for next frame start + small margin */
+		beacon_target_start_time = current_frame_start_ticks + frame_duration_ticks_val + 1000;
+		
+		/* Update FT SFN for the beacon being sent (the next one) */
+		ctx->role_ctx.ft.sfn = (uint32_t)((beacon_target_start_time - ctx->ft_sfn0_modem_time_anchor) / frame_duration_ticks_val);
+	}
+#else
+	if (frame_duration_ticks_val != 0) {
+		if (ctx->ft_sfn0_modem_time_anchor == 0) {
+			uint32_t initial_tx_delay_ticks =
+				modem_us_to_ticks(CONFIG_DECT_MAC_SCHEDULING_MARGIN_US, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+			uint64_t estimated_now = dect_mac_estimate_modem_now(ctx);
+			beacon_target_start_time =
+				(estimated_now > 0 ? estimated_now : modem_us_to_ticks(1000, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ)) +
+				initial_tx_delay_ticks;
+		} else {
+			uint64_t check_now = dect_mac_estimate_modem_now(ctx);
+			uint32_t min_prep_time_ticks = modem_us_to_ticks(
+				ctx->phy_latency.idle_to_active_tx_us +
+					ctx->phy_latency.scheduled_operation_startup_us + CONFIG_DECT_MAC_SCHEDULING_MARGIN_US,
+				NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+
+			uint64_t earliest_possible_start_from_now = check_now > 0 ? check_now + min_prep_time_ticks : 0;
+			uint64_t frames_since_anchor = 0;
+
+			if (earliest_possible_start_from_now > ctx->ft_sfn0_modem_time_anchor) {
+				frames_since_anchor =
+					(earliest_possible_start_from_now -
+					 ctx->ft_sfn0_modem_time_anchor +
+					 frame_duration_ticks_val - 1) /
+					frame_duration_ticks_val;
+			}
+
+			ctx->role_ctx.ft.sfn = (uint32_t)(ctx->current_sfn_at_anchor_update + frames_since_anchor);
+			beacon_target_start_time = ctx->ft_sfn0_modem_time_anchor + (frames_since_anchor * frame_duration_ticks_val);
+            ctx->current_sfn_at_anchor_update = 0;
+		}
+	}
+#endif
 
 
 	// if (ctx->pending_op_type != PENDING_OP_NONE) {
@@ -1057,6 +1101,14 @@ static void ft_send_beacon_action(void)
 		LOG_WRN("FT_BEACON_ACT: FT's own operational mu_code not valid in context. Defaulting to mu_code=0 for RACH IE.");
 	}
 	rach_adv_fields->mu_value_for_ft_beacon = ft_operational_mu_code;
+
+	/* Refresh the RACH IE SFN anchor to the current beacon SFN on every beacon.
+	 * This prevents the FT's own validity check from expiring (frames_since_initial
+	 * would grow unbounded if sfn_value stays at 0). Since validity_frames=0xFF the
+	 * check is also skipped, but keeping sfn_value current is correct for PTs too. */
+	if (rach_adv_fields->sfn_validity_present) {
+		rach_adv_fields->sfn_value = ctx->role_ctx.ft.sfn;
+	}
 
 	if (rach_adv_fields->channel_abs_num != ctx->role_ctx.ft.operating_carrier ||
 	    !rach_adv_fields->channel_field_present) {
@@ -1178,72 +1230,7 @@ static void ft_send_beacon_action(void)
 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
 
 	ctx->role_ctx.ft.sfn_for_last_beacon_tx = ctx->role_ctx.ft.sfn;
-	uint64_t beacon_target_start_time;	uint32_t frame_duration_ticks_val = FRAME_DURATION_TICKS;
-
-
-#if IS_ENABLED(CONFIG_ZTEST)
-	if (frame_duration_ticks_val == 0) {
-		beacon_target_start_time = 0; /* Immediate TX */
-	} else {
-		/* Calculate the start time of the current frame */
-		uint64_t now_ticks = k_ticks_to_us_floor64(k_uptime_ticks());
-		uint64_t current_frame_start_ticks = (now_ticks / frame_duration_ticks_val) * frame_duration_ticks_val;
-		/* The next beacon should be at the start of the next frame */
-		beacon_target_start_time = current_frame_start_ticks + frame_duration_ticks_val + 1000 ;
-	}
-	LOG_DBG(" MoKernel Time: ft_send_beacon_action -> beacon_target_start_time: %lluus ", beacon_target_start_time);
-#else
-	LOG_DBG(" ft_send_beacon_action -> frame_duration_ticks_val: %u ctx->last_known_modem_time: %llu ", frame_duration_ticks_val, ctx->last_known_modem_time);
-	if (frame_duration_ticks_val == 0) {
-		beacon_target_start_time = 0;
-	} else if (ctx->ft_sfn0_modem_time_anchor == 0) {
-		uint32_t initial_tx_delay_ticks =
-			modem_us_to_ticks(CONFIG_DECT_MAC_SCHEDULING_MARGIN_US, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
-		uint64_t estimated_now = dect_mac_estimate_modem_now(ctx);
-		beacon_target_start_time =
-			(estimated_now > 0
-				 ? estimated_now
-				 : modem_us_to_ticks(1000, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ)) +
-			initial_tx_delay_ticks;
-	} else {
-		beacon_target_start_time = calculate_target_modem_time(
-			ctx, ctx->ft_sfn0_modem_time_anchor, 0, ctx->role_ctx.ft.sfn, 0,
-			ctx->own_phy_params.mu, ctx->own_phy_params.beta);
-	}
-
-	if (beacon_target_start_time != 0) {
-		/* Add a MAC processing margin to account for serial logging and PDU construction delays */
-		uint32_t min_prep_time_ticks = modem_us_to_ticks(
-			ctx->phy_latency.idle_to_active_tx_us +
-				ctx->phy_latency.scheduled_operation_startup_us + CONFIG_DECT_MAC_SCHEDULING_MARGIN_US,
-			NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
-
-
-		uint64_t check_now = dect_mac_estimate_modem_now(ctx);
-		if (check_now > 0 &&
-		    beacon_target_start_time < (check_now + min_prep_time_ticks)) {
-			uint64_t earliest_possible_start_from_now =
-				check_now + min_prep_time_ticks;
-			uint64_t frames_since_anchor = 0;
-
-			if (earliest_possible_start_from_now >= ctx->ft_sfn0_modem_time_anchor) {
-				frames_since_anchor =
-					(earliest_possible_start_from_now -
-					 ctx->ft_sfn0_modem_time_anchor +
-					 frame_duration_ticks_val - 1) /
-					frame_duration_ticks_val;
-			}
-
-			ctx->role_ctx.ft.sfn = (uint8_t)((ctx->current_sfn_at_anchor_update +
-							frames_since_anchor) %
-						       256);
-			beacon_target_start_time = ctx->ft_sfn0_modem_time_anchor +
-						 (frames_since_anchor * frame_duration_ticks_val);
-			ctx->role_ctx.ft.sfn_for_last_beacon_tx = ctx->role_ctx.ft.sfn;
-		}
-	}
 	LOG_DBG(" Modem Ticks: ft_send_beacon_action -> beacon_target_start_time: %llu ", beacon_target_start_time);
-#endif /* IS_ENABLED(CONFIG_ZTEST) */
 
 
 
@@ -1266,7 +1253,6 @@ static void ft_send_beacon_action(void)
 			ctx->ft_sfn0_modem_time_anchor = beacon_target_start_time - (ctx->role_ctx.ft.sfn * FRAME_DURATION_TICKS);
 			ctx->current_sfn_at_anchor_update = 0;
 		}
-		ctx->role_ctx.ft.sfn = (ctx->role_ctx.ft.sfn + 1) & 0xFF;
 	}
 }
 
@@ -1306,9 +1292,13 @@ static void ft_add_group_res_alloc_to_beacon(dect_mac_context_t *ctx, uint8_t *b
 static void ft_schedule_rach_listen_action(void) 
 {
 #if !IS_ENABLED(CONFIG_ZTEST)
-	LOG_DBG("STARTING ft_schedule_rach_listen_action ");
+	LOG_DBG("STARTING...");
 
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
+
+	LOG_DBG("FT_RACH_LSN: ctx->state = %s", dect_mac_state_to_str(ctx->state));
+	LOG_DBG("FT_RACH_LSN: ctx->short_id = ShortID 0x%04X", ctx->own_short_rd_id);
+	LOG_DBG("FT_RACH_LSN: ctx->long_id = LongID 0x%08X", ctx->own_long_rd_id);
 
     if (ctx->state != MAC_STATE_FT_BEACONING && ctx->state != MAC_STATE_ASSOCIATED) {
         LOG_DBG("FT_RACH_LSN: Not in a state to listen for RACH (%s).", dect_mac_state_to_str(ctx->state));
@@ -1333,10 +1323,10 @@ static void ft_schedule_rach_listen_action(void)
     uint16_t rach_carrier = rach_adv_fields->channel_field_present ?
                             rach_adv_fields->channel_abs_num :
                             ctx->role_ctx.ft.operating_carrier;
-    // if (rach_carrier == 0 || rach_carrier == 0xFFFF) {
-	// 	LOG_ERR("FT_RACH_LSN: Invalid RACH carrier 0x%04X configured. Cannot listen.", rach_carrier);
-    //     return;
-    // }
+    if (rach_carrier == 0 || rach_carrier == 0xFFFF) {
+		LOG_ERR("FT_RACH_LSN: Invalid RACH carrier 0x%04X configured. Cannot listen.", rach_carrier);
+        return;
+    }
 
     // Point 4 & 5 (partially): Duration and mu-awareness for timing
     uint8_t ft_mu_for_rach = rach_adv_fields->mu_value_for_ft_beacon;
@@ -1353,6 +1343,11 @@ static void ft_schedule_rach_listen_action(void)
 
     uint32_t rach_resource_len_actual_units = rach_adv_fields->num_subslots_or_slots;
     uint32_t rach_resource_len_subslots = rach_resource_len_actual_units;
+
+	LOG_DBG("FT_RACH_LSN: rach_resource_len_actual_units = %u, rach_resource_len_subslots = %u", rach_resource_len_actual_units, rach_resource_len_subslots);
+	LOG_DBG("FT_RACH_LSN: length_type_is_slots = %u", rach_adv_fields->length_type_is_slots);
+	LOG_DBG("FT_RACH_LSN: ft_mu_for_rach = %u", ft_mu_for_rach);
+	LOG_DBG("FT_RACH_LSN: subslots_per_etsi_slot_for_ft_mu = %u", get_subslots_per_etsi_slot_for_mu(ft_mu_for_rach));
 
     if (rach_adv_fields->length_type_is_slots) {
         uint8_t subslots_per_etsi_slot_for_ft_mu = get_subslots_per_etsi_slot_for_mu(ft_mu_for_rach);
@@ -1379,12 +1374,12 @@ static void ft_schedule_rach_listen_action(void)
     }
 
     // Point 2: SFN Alignment (Target SFN Calculation)
-    uint8_t target_sfn_for_rach;
-    uint8_t sfn_of_initial_rach_advertisement; 
+    uint32_t target_sfn_for_rach;
+    uint32_t sfn_of_initial_rach_advertisement; 
 
     if (rach_adv_fields->sfn_validity_present) {
-        sfn_of_initial_rach_advertisement = rach_adv_fields->sfn_value;
-        target_sfn_for_rach = sfn_of_initial_rach_advertisement; 
+        /* Expand the 8-bit truncated SFN from the IE to the nearest 32-bit absolute SFN */
+        sfn_of_initial_rach_advertisement = dect_mac_expand_sfn(ctx->role_ctx.ft.sfn, rach_adv_fields->sfn_value);
 
         uint8_t repetition_interval_frames = 1U << rach_adv_fields->repetition_code; 
         if (repetition_interval_frames == 0 || repetition_interval_frames > 8) { // Code 0-3 maps to 1,2,4,8
@@ -1392,49 +1387,48 @@ static void ft_schedule_rach_listen_action(void)
             repetition_interval_frames = 1; 
         }
         
-        uint8_t sfn_loop_guard = 0; // To prevent potential infinite loop with bad params
-        while (sfn_loop_guard < 256) { // Max SFN cycle
-    /* SFN diff within an epoch (0-255) */
-    int16_t sfn_diff_to_current = (int16_t)target_sfn_for_rach - (int16_t)ctx->role_ctx.ft.sfn;
-    if (sfn_diff_to_current < 0) {
-        sfn_diff_to_current += 256;
-    }
+        target_sfn_for_rach = ctx->role_ctx.ft.sfn; // Start search from current SFN
+        uint16_t sfn_loop_guard = 0; // To prevent potential infinite loop with bad params
+        while (sfn_loop_guard < 512) { // Allow searching a couple of epochs if needed
+            int32_t frames_from_initial_adv = (int32_t)target_sfn_for_rach - (int32_t)sfn_of_initial_rach_advertisement;
 
-            if (sfn_diff_to_current >= 0) { 
-                int16_t frames_from_initial_adv = (int16_t)target_sfn_for_rach - (int16_t)sfn_of_initial_rach_advertisement;
-                if (frames_from_initial_adv < 0) frames_from_initial_adv += 256;
-
-                if ((uint8_t)frames_from_initial_adv % repetition_interval_frames == 0) {
-                    break; 
-                }
+            if (frames_from_initial_adv >= 0 && (frames_from_initial_adv % repetition_interval_frames == 0)) {
+                break; 
             }
-            target_sfn_for_rach = (target_sfn_for_rach + 1) & 0xFF; // Check next SFN
+            target_sfn_for_rach++;
             sfn_loop_guard++;
         }
-        if (sfn_loop_guard >= 256) {
+        if (sfn_loop_guard >= 512) {
              LOG_ERR("FT_RACH_LSN: Could not find aligned SFN for SFN-based RACH. Check repetition/validity. Skipping.");
              return;
         }
 
+        int32_t frames_from_initial_validity_sfn = (int32_t)target_sfn_for_rach - (int32_t)sfn_of_initial_rach_advertisement;
 
-        int16_t frames_from_initial_validity_sfn = (int16_t)target_sfn_for_rach - (int16_t)sfn_of_initial_rach_advertisement;
-        if (frames_from_initial_validity_sfn < 0) frames_from_initial_validity_sfn += 256; 
-
-        if (rach_adv_fields->validity_frames != 0xFF && (uint8_t)frames_from_initial_validity_sfn >= rach_adv_fields->validity_frames) {
+        if (rach_adv_fields->validity_frames != 0xFF && (uint32_t)frames_from_initial_validity_sfn >= rach_adv_fields->validity_frames) {
             LOG_WRN("FT_RACH_LSN: Advertised RACH validity expired for target SFN %u. Not listening.", target_sfn_for_rach);
             return;
         }
     } else { 
-        target_sfn_for_rach = ctx->role_ctx.ft.sfn; // Listen in current SFN cycle
+        target_sfn_for_rach = ctx->role_ctx.ft.sfn; // Listen in current SFN
         sfn_of_initial_rach_advertisement = ctx->role_ctx.ft.sfn_for_last_beacon_tx; 
-        // TODO: If repetition_code is non-zero and sfn_validity_present is false, how is the repetition anchored?
-        // Assuming for now it means "every X frames/subslots starting from this beacon's frame context".
-        // The "too soon" loop will handle advancing if current SFN is already past the immediate opportunity.
         LOG_DBG("FT_RACH_LSN: SFN not in RACH IE, targeting current SFN %u, repetition relative to beacon SFN %u",
                 target_sfn_for_rach, sfn_of_initial_rach_advertisement);				
     }
 
     // Point 3 & 5: Subslot Alignment & Modem Time Calculation
+	/**
+	* @brief Calculates the target modem time for an event based on SFN and subslot.
+	*
+	* @param ctx Pointer to the global MAC context.
+	* @param sfn_zero_anchor_time The modem time corresponding to SFN 0 of the relevant entity.
+	* @param sfn_of_anchor_relevance The SFN value at which sfn_zero_anchor_time was valid/established.
+	* @param target_sfn_val The target SFN for the event.
+	* @param target_subslot_idx The target subslot index within the target SFN.
+	* @param link_mu_code The mu_code (0-7) of the link/entity whose timeline is being used.
+	* @param link_beta_code The beta_code (0-15) of the link/entity. (Currently unused by subslot duration, but good for completeness)
+	* @return The calculated target modem time, or UINT64_MAX on error.
+	*/
     uint64_t rach_listen_start_time = calculate_target_modem_time(ctx,
                                                                   ctx->ft_sfn0_modem_time_anchor,
                                                                   ctx->current_sfn_at_anchor_update, 
@@ -1447,6 +1441,20 @@ static void ft_schedule_rach_listen_action(void)
     uint32_t listen_duration_subslots = rach_resource_len_subslots + 2; 
     uint32_t listen_duration_modem_units = listen_duration_subslots * ft_subslot_duration_ticks;
 
+	LOG_DBG("FT_RACH_LSN: listen_duration_subslots = %u, listen_duration_modem_units = %u", listen_duration_subslots, listen_duration_modem_units);
+	LOG_DBG("FT_RACH_LSN: ft_subslot_duration_ticks = %u", ft_subslot_duration_ticks);
+	LOG_DBG("FT_RACH_LSN: rach_adv_fields->start_subslot_index = %u", rach_adv_fields->start_subslot_index);
+	LOG_DBG("FT_RACH_LSN: rach_listen_start_time = %llu", rach_listen_start_time);
+	LOG_DBG("FT_RACH_LSN: ctx->last_known_modem_time = %llu", ctx->last_known_modem_time);
+	LOG_DBG("FT_RACH_LSN: ctx->phy_latency.idle_to_active_rx_us = %u", ctx->phy_latency.idle_to_active_rx_us);
+	LOG_DBG("FT_RACH_LSN: ctx->phy_latency.scheduled_operation_startup_us = %u", ctx->phy_latency.scheduled_operation_startup_us);
+
+// 	uint32_t rach_period_ms = ctx->config.ft_cluster_beacon_period_ms;
+// 	if (rach_period_ms < 10) { rach_period_ms = 100; }
+// 	uint32_t rach_win_ticks = modem_us_to_ticks(
+// 		(uint64_t)rach_period_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+
+
     // Point 6: "Too Soon" Handling
     uint32_t min_prep_time_ticks = modem_us_to_ticks(ctx->phy_latency.idle_to_active_rx_us +
                                                      ctx->phy_latency.scheduled_operation_startup_us,
@@ -1454,7 +1462,7 @@ static void ft_schedule_rach_listen_action(void)
     uint8_t initial_target_sfn_for_log = target_sfn_for_rach;
     uint8_t advance_loop_guard = 0; // Prevent potential infinite loop in "too soon"
 
-    while (ctx->last_known_modem_time > 0 && rach_listen_start_time < (ctx->last_known_modem_time + min_prep_time_ticks) && advance_loop_guard < 255) {
+    while (ctx->last_known_modem_time > 0 && rach_listen_start_time < (ctx->last_known_modem_time + min_prep_time_ticks) && advance_loop_guard < 100) {
         advance_loop_guard++;
         LOG_WRN("FT_RACH_LSN: Target RACH listen SFN %u, SS %u at time %llu is too soon. Advancing by repetition.",
                 target_sfn_for_rach, rach_adv_fields->start_subslot_index, rach_listen_start_time);
@@ -1462,12 +1470,11 @@ static void ft_schedule_rach_listen_action(void)
         uint8_t repetition_interval_frames = 1U << rach_adv_fields->repetition_code;
         if (repetition_interval_frames == 0) repetition_interval_frames = 1; 
 
-        target_sfn_for_rach = (target_sfn_for_rach + repetition_interval_frames) & 0xFF;
+        target_sfn_for_rach += repetition_interval_frames;
 
         if (rach_adv_fields->sfn_validity_present && rach_adv_fields->validity_frames != 0xFF) {
-            int16_t frames_from_initial_validity_sfn = (int16_t)target_sfn_for_rach - (int16_t)sfn_of_initial_rach_advertisement;
-            if (frames_from_initial_validity_sfn < 0) frames_from_initial_validity_sfn += 256;
-            if ((uint8_t)frames_from_initial_validity_sfn >= rach_adv_fields->validity_frames) {
+            int32_t frames_from_initial_validity_sfn = (int32_t)target_sfn_for_rach - (int32_t)sfn_of_initial_rach_advertisement;
+            if ((uint32_t)frames_from_initial_validity_sfn >= rach_adv_fields->validity_frames) {
                 LOG_WRN("FT_RACH_LSN: Next RACH repetition (SFN %u) would exceed validity. Stopping listen.", target_sfn_for_rach);
                 return;
             }
@@ -1482,8 +1489,8 @@ static void ft_schedule_rach_listen_action(void)
         LOG_INF("FT_RACH_LSN: Advanced to next RACH opp: SFN %u, new start_time %llu",
                 target_sfn_for_rach, rach_listen_start_time);
     }
-    if (advance_loop_guard >= 255) {
-        LOG_ERR("FT_RACH_LSN: Cycled SFNs fully while advancing for 'too soon'. Check RACH params/timing. Skipping.");
+    if (advance_loop_guard >= 100) {
+        LOG_ERR("FT_RACH_LSN: Cycled too many times while advancing for 'too soon'. Check RACH params/timing. skipping.");
         return;
     }
 
@@ -1493,22 +1500,52 @@ static void ft_schedule_rach_listen_action(void)
         return;
     }
 
+	LOG_DBG("JUST BEFORE CALLING THE PHY CTRL START RX ");
     LOG_INF("FT_RACH_LSN: Scheduling RX on RACH C%u for SFN %u (initial target was SFN %u), StartSS %u (len %u actual units, %u subslots). RXDur:%u TU, TargetStart:%llu",
             rach_carrier, target_sfn_for_rach, initial_target_sfn_for_log,
             rach_adv_fields->start_subslot_index,
             rach_resource_len_actual_units, rach_resource_len_subslots,
             listen_duration_modem_units, rach_listen_start_time);
 
-	LOG_DBG("[FT_PM] before the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d ", ctx->pending_op_type);
-	uint32_t phy_op_handle;
-	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
+#if IS_ENABLED(CONFIG_ZTEST)
+	LOG_DBG("FT_RACH_LSN: ft_subslot_duration_ticks = %u", ft_subslot_duration_ticks);
+	LOG_DBG("FT_RACH_LSN: rach_adv_fields->start_subslot_index = %u", rach_adv_fields->start_subslot_index);
+	LOG_DBG("FT_RACH_LSN: rach_listen_start_time = %llu", rach_listen_start_time);
+	LOG_DBG("FT_RACH_LSN: ctx->last_known_modem_time = %llu", ctx->last_known_modem_time);
+#endif
+	uint32_t rach_win_handle;
+	dect_mac_rand_get((uint8_t *)&rach_win_handle, sizeof(rach_win_handle));
     int ret = dect_mac_phy_ctrl_start_rx(
         rach_carrier,
         listen_duration_modem_units,
         NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS,
-        phy_op_handle,
+        rach_win_handle,
         ctx->own_short_rd_id,
         PENDING_OP_FT_RACH_RX_WINDOW, rach_listen_start_time);
+
+
+// #if IS_ENABLED(CONFIG_ZTEST)
+// 	/* Re-arm the RACH RX window for the next beacon period so
+// 	* the FT can receive PT RACH requests and data traffic.
+// 	* The window spans one beacon period; the beacon timer handler
+// 	* cancels it when the next beacon needs to be sent. */
+// 	uint32_t rach_period_ms = ctx->config.ft_cluster_beacon_period_ms;
+// 	if (rach_period_ms < 10) { rach_period_ms = 100; }
+// 	uint32_t rach_win_ticks = modem_us_to_ticks(
+// 		(uint64_t)rach_period_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+// 	uint32_t rach_win_handle;
+// 	dect_mac_rand_get((uint8_t *)&rach_win_handle, sizeof(rach_win_handle));
+// 	(void)dect_mac_phy_ctrl_start_rx(
+// 		ctx->role_ctx.ft.operating_carrier, 
+//  	rach_win_ticks,
+// 		NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, 
+// 		rach_win_handle,
+// 		ctx->own_short_rd_id, 
+// 		PENDING_OP_FT_RACH_RX_WINDOW, 
+// 		0);
+// 	/* Also trigger the IE-based RACH listen if parameters are configured */
+// #endif
+
 
 	LOG_DBG("[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d ", ctx->pending_op_type);
 
@@ -1714,22 +1751,33 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
             LOG_DBG("[FT_SM_STATE] After clear (BEACON): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));
 
             if (ctx->state == MAC_STATE_FT_BEACONING) {
-                /* Re-arm the RACH RX window for the next beacon period so
-                 * the FT can receive PT RACH requests and data traffic.
-                 * The window spans one beacon period; the beacon timer handler
-                 * cancels it when the next beacon needs to be sent. */
-                uint32_t rach_period_ms = ctx->config.ft_cluster_beacon_period_ms;
-                if (rach_period_ms < 10) { rach_period_ms = 100; }
-                uint32_t rach_win_ticks = modem_us_to_ticks(
-                    (uint64_t)rach_period_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
-                uint32_t rach_win_handle;
-                dect_mac_rand_get((uint8_t *)&rach_win_handle, sizeof(rach_win_handle));
-                (void)dect_mac_phy_ctrl_start_rx(
-                    ctx->role_ctx.ft.operating_carrier, rach_win_ticks,
-                    NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, rach_win_handle,
-                    ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW, 0);
-                /* Also trigger the IE-based RACH listen if parameters are configured */
-                ft_schedule_rach_listen_action();
+				#if IS_ENABLED(CONFIG_ZTEST)
+					/* Re-arm the RACH RX window for the next beacon period so
+					* the FT can receive PT RACH requests and data traffic.
+					* The window spans one beacon period; the beacon timer handler
+					* cancels it when the next beacon needs to be sent. */
+					uint32_t rach_period_ms = ctx->config.ft_cluster_beacon_period_ms;
+					if (rach_period_ms < 10) { rach_period_ms = 100; }
+					uint32_t rach_win_ticks = modem_us_to_ticks(
+						(uint64_t)rach_period_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+					uint32_t rach_win_handle;
+					dect_mac_rand_get((uint8_t *)&rach_win_handle, sizeof(rach_win_handle));
+
+					LOG_DBG("FT_RACH_LSN: rach_win_ticks = %u, rach_win_handle = %u", rach_win_ticks, rach_win_handle);
+					LOG_DBG("FT_RACH_LSN: operating_carrier = %u", ctx->role_ctx.ft.operating_carrier);
+					LOG_DBG("FT_RACH_LSN: own_short_rd_id = %u", ctx->own_short_rd_id);
+					LOG_DBG("FT_RACH_LSN: PENDING_OP_FT_RACH_RX_WINDOW = %u", PENDING_OP_FT_RACH_RX_WINDOW);
+					LOG_DBG("FT_RACH_LSN: 0 = %u", 0);
+
+					(void)dect_mac_phy_ctrl_start_rx(
+						ctx->role_ctx.ft.operating_carrier, rach_win_ticks,
+						NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, rach_win_handle,
+						ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW, 0);
+					/* Also trigger the IE-based RACH listen if parameters are configured */
+				#endif
+				/* Always trigger the IE-based RACH listen if parameters are configured */
+				ft_schedule_rach_listen_action();
+
             }
             break;
         case PENDING_OP_FT_RACH_RX_WINDOW:
@@ -2716,7 +2764,8 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 		res_alloc_fields_to_send.length_val_res2 = 4 - 1; /* Increase from 2 to 4 to fit test packets */
 		res_alloc_fields_to_send.repetition_value = CONFIG_DECT_MAC_FT_DEFAULT_SCHEDULE_REPEAT_FRAMES;
 		res_alloc_fields_to_send.validity_value = CONFIG_DECT_MAC_FT_DEFAULT_SCHEDULE_VALIDITY_FRAMES;
-		res_alloc_fields_to_send.sfn_val = (ctx->role_ctx.ft.sfn + CONFIG_DECT_MAC_FT_SCHEDULE_START_SFN_OFFSET) & 0xFF;
+		uint32_t absolute_init_sfn = ctx->role_ctx.ft.sfn + CONFIG_DECT_MAC_FT_SCHEDULE_START_SFN_OFFSET;
+		res_alloc_fields_to_send.sfn_val = (uint8_t)(absolute_init_sfn & 0xFF);
 
 		/* --- UPDATE INTERNAL FT SCHEDULE --- */
 		dect_mac_schedule_t *ft_peer_sched = &ctx->role_ctx.ft.peer_schedules[peer_slot_idx];
@@ -2744,13 +2793,13 @@ static void ft_process_association_request_pdu(const uint8_t *mac_sdu_area_data,
 		ft_peer_sched->repeat_type = res_alloc_fields_to_send.repeat_val;
 		ft_peer_sched->repetition_value = res_alloc_fields_to_send.repetition_value;
 		ft_peer_sched->validity_value = res_alloc_fields_to_send.validity_value;
-		ft_peer_sched->sfn_of_initial_occurrence = res_alloc_fields_to_send.sfn_val;
+		ft_peer_sched->sfn_of_initial_occurrence = absolute_init_sfn;
 		ft_peer_sched->schedule_init_modem_time = ctx->last_known_modem_time;
 
 		/* Calculate next occurrence */
 		uint16_t primary_ss = (ft_peer_sched->dl_duration_subslots > 0) ? ft_peer_sched->dl_start_subslot : ft_peer_sched->ul_start_subslot;
 		ft_peer_sched->next_occurrence_modem_time = calculate_target_modem_time(
-			ctx, ctx->ft_sfn0_modem_time_anchor, 0, res_alloc_fields_to_send.sfn_val,
+			ctx, ctx->ft_sfn0_modem_time_anchor, 0, absolute_init_sfn,
 			primary_ss, ctx->own_phy_params.mu, ctx->own_phy_params.beta);
 		
 		update_next_occurrence(ctx, ft_peer_sched, ctx->last_known_modem_time, ctx->own_phy_params.mu);

@@ -416,7 +416,7 @@ ZTEST_F(mac_integration, test_rach_timeout_and_retry)
 	zassert_equal(g_mac_ctx_pt.state, MAC_STATE_PT_ASSOCIATING);
 
 	/* Allow simulation to run so TX completes and state transitions to PT_WAIT_ASSOC_RESP */
-	run_simulation_until(100, NULL);
+	run_simulation_until(2000, NULL);
 	zassert_equal(g_mac_ctx_pt.state, MAC_STATE_PT_WAIT_ASSOC_RESP, "State did not transition to WAIT_ASSOC_RESP");
 
 	pt_rach_response_window_timer_expired_action();
@@ -424,7 +424,7 @@ ZTEST_F(mac_integration, test_rach_timeout_and_retry)
 	zassert_equal(g_mac_ctx_pt.role_ctx.pt.current_assoc_retries, 2);
 
 	/* Again, allow TX to complete */
-	run_simulation_until(100, NULL);
+	run_simulation_until(2000, NULL);
 	zassert_equal(g_mac_ctx_pt.state, MAC_STATE_PT_WAIT_ASSOC_RESP);
 
 	pt_rach_response_window_timer_expired_action();

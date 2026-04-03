@@ -247,6 +247,9 @@ uint64_t mock_phy_get_next_event_time(mock_phy_context_t *const phy_contexts[],
 			    // 	j, ctx->timeline[j].active ?"Active":"Inactive",j, ctx->timeline[j].end_time_us);
 			}            
 
+            /* For discrete-event simulation, we only care about future events. 
+             * end_time_us == current_time means the event is happening now or just finished.
+             */
             if (ctx->timeline[j].active && ctx->timeline[j].end_time_us > current_time) {
                 next_event_time = MIN(next_event_time, ctx->timeline[j].end_time_us);
             }
@@ -421,10 +424,10 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
                 
                 struct nrf_modem_dect_phy_event rssi_evt = {
                     .id = NRF_MODEM_DECT_PHY_EVT_RSSI,
-                    .time = modem_us_to_ticks(op->end_time_us, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ),
+                    .time = op->end_time_us,
                     .rssi = { 
                         .handle = op->handle, 
-                        .meas_start_time = modem_us_to_ticks(op->start_time_us, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ), 
+                        .meas_start_time = op->start_time_us, 
                         .carrier = op->carrier,
                         .meas_len = MOCK_RSSI_MAX_SAMPLES,
                         .meas = g_mock_rssi_buffer 
@@ -435,7 +438,7 @@ void mock_phy_process_events(mock_phy_context_t *ctx, uint64_t current_time_us)
             
             struct nrf_modem_dect_phy_event complete_evt = {
                 .id = NRF_MODEM_DECT_PHY_EVT_COMPLETED,
-                .time = modem_us_to_ticks(op->end_time_us, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ),
+                .time = op->end_time_us,
                 .op_complete = {.handle = op->handle, .err = NRF_MODEM_DECT_PHY_SUCCESS}
             };
             mock_phy_send_event(&complete_evt);
@@ -488,11 +491,14 @@ int nrf_modem_dect_phy_tx(const struct nrf_modem_dect_phy_tx_params *params)
     }
 
     uint64_t start_time_us = (params->start_time == 0) ?
-                  MAX(k_ticks_to_us_floor64(k_uptime_ticks()), get_timeline_end_time(g_active_phy_ctx)) :
-                  modem_ticks_to_us(params->start_time, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+                  (MAX(k_ticks_to_us_floor64(k_uptime_ticks()), get_timeline_end_time(g_active_phy_ctx)) + 1000) :
+                  params->start_time;
 
-    /* Simplified duration based on payload size for simulation */
-    uint64_t duration_us = modem_ticks_to_us(params->data_size * 8 * 10, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+    /* Simplified duration estimation for simulation: 
+     * Use 0 for instantaneous operations in logic tests. This restores the behavior 
+     * expected by the unit test suite and avoids temporal race conditions.
+     */
+    uint64_t duration_us = 0;
     // if (duration_us < 100) duration_us = 100; /* Minimum duration */
 
     g_active_phy_ctx->timeline[slot] = (mock_scheduled_operation_t){
@@ -563,11 +569,11 @@ int nrf_modem_dect_phy_rx(const struct nrf_modem_dect_phy_rx_params *params)
     }
 
     uint64_t start_time_us = (params->start_time == 0) ?
-                  MAX(k_ticks_to_us_floor64(k_uptime_ticks()), get_timeline_end_time(g_active_phy_ctx)) :
-                  modem_ticks_to_us(params->start_time, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+                  (MAX(k_ticks_to_us_floor64(k_uptime_ticks()), get_timeline_end_time(g_active_phy_ctx)) + 1000) :
+                  params->start_time;
 
     uint64_t end_time_us = (params->duration == 0) ? UINT64_MAX :
-                  (start_time_us + modem_ticks_to_us(params->duration, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ));
+                  (start_time_us + params->duration);
 
     g_active_phy_ctx->timeline[slot] = (mock_scheduled_operation_t){
         .active = true,
@@ -615,12 +621,11 @@ int nrf_modem_dect_phy_rssi(const struct nrf_modem_dect_phy_rssi_params *params)
         (params->start_time == 0) ?
 				     MAX(k_ticks_to_us_floor64(k_uptime_ticks()),
 					 get_timeline_end_time(g_active_phy_ctx)) :
-				     modem_ticks_to_us(params->start_time, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+				     params->start_time;
 
     printk("[MOCK_PHY_RSSI] Calculating start time...\n");
 
-    uint64_t duration_us =
-	    modem_ticks_to_us(params->duration, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+    uint64_t duration_us = params->duration;
 
     printk("[MOCK_PHY_RSSI] RSSI Scheduled. Handle: %u, Start: %llu, End: %llu, Duration: %llu us\n",
 	   params->handle, start_time_us, start_time_us + duration_us, duration_us);
@@ -715,7 +720,7 @@ int nrf_modem_dect_phy_time_get(void)
 {
     struct nrf_modem_dect_phy_event event = {
         .id = NRF_MODEM_DECT_PHY_EVT_TIME,
-        .time = modem_us_to_ticks(k_ticks_to_us_floor64(k_uptime_ticks()), NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ),
+        .time = k_ticks_to_us_floor64(k_uptime_ticks()),
         .time_get = {.err = NRF_MODEM_DECT_PHY_SUCCESS}
     };
     mock_phy_send_event(&event);

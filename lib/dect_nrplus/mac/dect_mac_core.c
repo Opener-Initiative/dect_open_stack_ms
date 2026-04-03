@@ -334,8 +334,15 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
     LOG_DBG("[CORE_INIT_DBG] Entered dect_mac_core_init.");
     dect_mac_context_t *ctx = dect_mac_get_active_context(); // Gets pointer to g_mac_ctx
     LOG_DBG("[CORE_INIT_DBG] 1. Context retrieved.");
+    
+    // Save PHY latency values populated asynchronously by the modem INIT event
+    dect_phy_latency_values_t saved_latency = ctx->phy_latency;
+    
     memset(ctx, 0, sizeof(dect_mac_context_t));
     LOG_DBG("[CORE_INIT_DBG] 2. Context zeroed.");
+    
+    // Restore PHY latency values
+    ctx->phy_latency = saved_latency;
 
 	/* Note: Spinlocks (ctx->lock, ctx->harq_lock) are already zeroed by memset above, 
 	 * which is a valid initial state (unlocked, no owner) for Zephyr spinlocks.
@@ -414,7 +421,7 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
 
 
     // Placeholder PHY latencies (will be updated from PHY via dect_mac_phy_if.c)
-    memset(&ctx->phy_latency, 0, sizeof(dect_phy_latency_values_t));
+    // memset(&ctx->phy_latency, 0, sizeof(dect_phy_latency_values_t));
 
 
     // Initialize common RACH context and timers
@@ -470,7 +477,8 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
         ctx->role_ctx.ft.advertised_rach_params.advertised_beacon_ie_fields.num_subslots_or_slots = 4;   // Example: 4 subslots for RACH
         ctx->role_ctx.ft.advertised_rach_params.advertised_beacon_ie_fields.max_rach_pdu_len_units = 7; /* N-1 coded -> 8 units */
         ctx->role_ctx.ft.advertised_rach_params.advertised_beacon_ie_fields.repetition_code = 0;       // Example: Repeat every frame (code 0 for 1)
-        ctx->role_ctx.ft.advertised_rach_params.advertised_beacon_ie_fields.validity_frames = 200;     // Example: Valid for 200 frames (~2s)
+        ctx->role_ctx.ft.advertised_rach_params.advertised_beacon_ie_fields.validity_frames = 200;     // Example: Valid for 200 frames (~2s)		
+        // ctx->role_ctx.ft.advertised_rach_params.advertised_beacon_ie_fields.validity_frames = 0xFF;   // Unlimited: FT perpetually owns its RACH resource
         ctx->role_ctx.ft.advertised_rach_params.advertised_beacon_ie_fields.sfn_validity_present = true;
         ctx->role_ctx.ft.advertised_rach_params.advertised_beacon_ie_fields.channel_field_present = true; // Advertise RACH channel
         ctx->role_ctx.ft.advertised_rach_params.advertised_beacon_ie_fields.channel_abs_num = ctx->role_ctx.ft.operating_carrier;

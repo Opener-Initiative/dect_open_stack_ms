@@ -12,6 +12,7 @@
 #include <mac/dect_mac_core.h>      // For get_mac_context()
 #include <mac/dect_mac_context.h>   // For dect_phy_latency_values_t, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ
 #include <mac/dect_mac_main_dispatcher.h>
+#include <mac/dect_mac_timeline_utils.h>
 
 
 
@@ -157,7 +158,11 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 	}
 
 	msg_to_queue.ctx = event_ctx;
+#if IS_ENABLED(CONFIG_BOARD_NATIVE_SIM) || IS_ENABLED(CONFIG_ZTEST)
+	msg_to_queue.modem_time_of_event = modem_us_to_ticks(event->time, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+#else
 	msg_to_queue.modem_time_of_event = event->time;
+#endif
 
 	bool should_queue_msg = true;
 	int err;
@@ -207,6 +212,9 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 	case NRF_MODEM_DECT_PHY_EVT_RSSI:
 		msg_to_queue.type = MAC_EVENT_PHY_RSSI_RESULT;
 		memcpy(&msg_to_queue.data.rssi, &event->rssi, sizeof(event->rssi));
+#if IS_ENABLED(CONFIG_BOARD_NATIVE_SIM) || IS_ENABLED(CONFIG_ZTEST)
+		msg_to_queue.data.rssi.meas_start_time = modem_us_to_ticks(event->rssi.meas_start_time, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+#endif
 		
 		/* Convert absolute carrier (ARFCN) back to logical channel number for MAC state machines */
 		msg_to_queue.data.rssi.carrier = dect_mac_arfcn_to_channel_num(event->rssi.carrier);

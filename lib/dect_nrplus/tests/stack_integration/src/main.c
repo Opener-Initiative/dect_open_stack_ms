@@ -614,7 +614,7 @@ ZTEST(stack_integration, test_3_ping_pong)
     do {
         ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
         if (ret == -EAGAIN) {
-            run_simulation_until(10000, NULL);
+            run_simulation_until(100000, NULL);
             attempts++;
         }
         if (attempts > 50) {
@@ -646,7 +646,7 @@ ZTEST(stack_integration, test_3_ping_pong)
                 "PT PHY did not receive PONG");
     
     attempts = 0;
-	int waiting = 10000;
+	int waiting = 100000;
     do {
         ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
         if (ret == -EAGAIN) {

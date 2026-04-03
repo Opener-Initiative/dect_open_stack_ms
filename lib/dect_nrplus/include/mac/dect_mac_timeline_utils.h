@@ -15,7 +15,6 @@ uint32_t get_subslot_duration_ticks_for_mu(uint8_t mu_code);
 uint8_t get_subslots_per_etsi_slot_for_mu(uint8_t mu_code);
 void update_next_occurrence(dect_mac_context_t *ctx, dect_mac_schedule_t *schedule,
 			    uint64_t current_modem_time, uint8_t link_mu_code);
-uint64_t calculate_target_modem_time(dect_mac_context_t *ctx, uint64_t sfn_zero_anchor_time, uint8_t sfn_of_anchor_relevance, uint8_t target_sfn_val, uint16_t target_subslot_idx, uint8_t link_mu_code, uint8_t link_beta_code);
 
 
 /**
@@ -30,10 +29,21 @@ uint64_t calculate_target_modem_time(dect_mac_context_t *ctx, uint64_t sfn_zero_
  * @param link_beta_code The beta_code (0-15) of the link/entity. (Currently unused by subslot duration, but good for completeness)
  * @return The calculated target modem time, or UINT64_MAX on error.
  */
-uint64_t calculate_target_modem_time(dect_mac_context_t *ctx, uint64_t sfn_zero_anchor_time,
-                                     uint8_t sfn_of_anchor_relevance, uint8_t target_sfn_val,
+uint64_t calculate_target_modem_time(dect_mac_context_t *ctx, int64_t sfn_zero_anchor_time,
+                                     uint32_t sfn_of_anchor_relevance, uint32_t target_sfn_val,
                                      uint16_t target_subslot_idx,
                                      uint8_t link_mu_code, uint8_t link_beta_code);
+
+/**
+ * @brief Expands an 8-bit truncated SFN (from an IE) to its 32-bit absolute value.
+ *
+ * It finds the nearest 32-bit SFN matching the 8 bits relative to current_sfn.
+ *
+ * @param current_sfn The last known 32-bit absolute SFN.
+ * @param truncated_sfn The 8-bit truncated SFN from a received packet.
+ * @return The 32-bit absolute SFN.
+ */
+uint32_t dect_mac_expand_sfn(uint32_t current_sfn, uint8_t truncated_sfn);
 
 
 /**
@@ -61,7 +71,7 @@ uint64_t modem_us_to_ticks(uint64_t us, uint32_t tick_rate_khz);
  */
 uint64_t dect_mac_estimate_modem_now(dect_mac_context_t *ctx);
 void dect_mac_timeline_sync_sfn(dect_mac_context_t *ctx);
-uint8_t dect_mac_get_current_sfn(dect_mac_context_t *ctx);
+uint32_t dect_mac_get_current_sfn(dect_mac_context_t *ctx);
 
 
 

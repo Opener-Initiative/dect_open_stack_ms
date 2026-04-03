@@ -215,7 +215,15 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 	bool use_network_id_filter = (op_type != PENDING_OP_PT_SCAN);
 
 	struct nrf_modem_dect_phy_rx_params rx_params = {
+#if IS_ENABLED(CONFIG_BOARD_NATIVE_SIM) || IS_ENABLED(CONFIG_ZTEST)
+		.start_time = modem_ticks_to_us(start_time_modem_ticks, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ),
+		/* Simulation treats duration as raw microseconds. Convert from Modem Ticks. */
+		.duration = (uint32_t)modem_ticks_to_us(duration_modem_units, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ),
+#else
 		.start_time = start_time_modem_ticks,
+		/* Hardware treats duration as subslots. Convert from Modem Ticks. */
+		.duration = duration_modem_units / get_subslot_duration_ticks_for_mu(ctx->own_phy_params.mu),
+#endif
 		.handle = phy_op_handle,
 		.network_id = ctx->network_id_32bit,
 		.mode = mode,
@@ -224,7 +232,6 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 		.link_id = NRF_MODEM_DECT_PHY_LINK_UNSPECIFIED,
 		.rssi_level = 0,
 		.carrier = arfcn,
-		.duration = duration_modem_units,
 		.filter = { .short_network_id = (uint8_t)(ctx->network_id_32bit & 0xFF),
 			    .is_short_network_id_used = use_network_id_filter ? 1 : 0,
 			    .receiver_identity = (expected_receiver_id) }
@@ -398,7 +405,11 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 	uint16_t arfcn = dect_mac_channel_num_to_arfcn(carrier);
 
 	struct nrf_modem_dect_phy_tx_params tx_params = {
+#if IS_ENABLED(CONFIG_BOARD_NATIVE_SIM) || IS_ENABLED(CONFIG_ZTEST)
+		.start_time = modem_ticks_to_us(phy_op_target_start_time, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ),
+#else
 		.start_time = phy_op_target_start_time,
+#endif
 		.handle = phy_op_handle,
 		.network_id = ctx->network_id_32bit,
 		.phy_type = is_beacon ? 0 : 1,
@@ -502,7 +513,13 @@ int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_subslo
         .start_time = 0, // Immediate start for scans initiated by MAC logic
         .handle = phy_op_handle,
         .carrier = arfcn,
-        .duration = duration_subslots,
+#if IS_ENABLED(CONFIG_BOARD_NATIVE_SIM) || IS_ENABLED(CONFIG_ZTEST)
+        /* Simulation treats duration as raw microseconds. Convert from Modem Ticks. */
+        .duration = (uint32_t)modem_ticks_to_us(duration_subslots, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ),
+#else
+        /* Hardware treats duration as subslots. Convert from Modem Ticks. */
+        .duration = duration_subslots / get_subslot_duration_ticks_for_mu(ctx->own_phy_params.mu),
+#endif
         .reporting_interval = reporting_interval
     };
     LOG_INF("PHY_CTRL_RSSI: Starting RSSI. Hdl:%u, C:%u (ARFCN:%u), Dur:%u subslots, RepInt:%d, OpT:%s",
@@ -677,22 +694,29 @@ void dect_mac_phy_ctrl_calculate_pcc_params(size_t mac_pdc_payload_len_bytes,
 		num_subslots_needed = TBS_MAX_SUB_SLOTS_J;
 	}
 
-	uint8_t subslots_per_slot = get_subslots_per_etsi_slot_for_mu(mu_code);
+	*out_packet_length_type_field = 0;
 
-	if (num_subslots_needed > 16) {
-		/* Large payload: Try to use Slot mode (Type 1) if possible.
-		 * Note: Currently limited by TBS tables spanning only 16 subslots total.
-		 */
-		uint8_t slots_needed = (num_subslots_needed + subslots_per_slot - 1) / subslots_per_slot;
-		if (slots_needed > 16) {
-			slots_needed = 16;
-			LOG_WRN("PCC_CALC: Payload exceeds 16-slot max capacity. Clamping.");
-		}
-		*out_packet_length_field = slots_needed;
-		*out_packet_length_type_field = 1; /* Slot mode */
+	if (num_subslots_needed > 0 && num_subslots_needed <= TBS_MAX_SUB_SLOTS_J) {
+		*out_packet_length_field = num_subslots_needed - 1;
 	} else {
-		*out_packet_length_field = num_subslots_needed;
-		*out_packet_length_type_field = 0; /* Subslot mode */
+		*out_packet_length_field = TBS_MAX_SUB_SLOTS_J - 1;
+
+	// uint8_t subslots_per_slot = get_subslots_per_etsi_slot_for_mu(mu_code);
+
+	// if (num_subslots_needed > 16) {
+	// 	/* Large payload: Try to use Slot mode (Type 1) if possible.
+	// 	 * Note: Currently limited by TBS tables spanning only 16 subslots total.
+	// 	 */
+	// 	uint8_t slots_needed = (num_subslots_needed + subslots_per_slot - 1) / subslots_per_slot;
+	// 	if (slots_needed > 16) {
+	// 		slots_needed = 16;
+	// 		LOG_WRN("PCC_CALC: Payload exceeds 16-slot max capacity. Clamping.");
+	// 	}
+	// 	*out_packet_length_field = slots_needed;
+	// 	*out_packet_length_type_field = 1; /* Slot mode */
+	// } else {
+	// 	*out_packet_length_field = num_subslots_needed;
+	// 	*out_packet_length_type_field = 0; /* Subslot mode */
 	}
 
 	LOG_DBG("PCC_CALC: Payload %zuB, mu_c %u, beta_c %u, MCS %u -> %u subslots (PCC len_f 0x%X, type %u)",

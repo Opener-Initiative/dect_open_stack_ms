@@ -347,18 +347,17 @@ ZTEST(stack_integration, test_full_stack_uplink)
 	uint8_t rx_buf[sizeof(payload)];
 	size_t rx_len = sizeof(rx_buf);
 
-    printk("*************************************/* 1. PT sends data via the CVG API */*******************************************************\n");
+    printk("/* 1. PT sends data via the CVG API */\n");
 	/* 1. PT sends data via the CVG API */
     dect_mac_test_set_active_context(&g_mac_ctx_pt);
 	mock_phy_set_active_context(&g_phy_ctx_pt);
-    printk("************************************Sending payload[] = 'Hello DECT NR+'********************************************************\n");
+    printk("Sending payload[] = 'Hello DECT NR+'\n");
 	dect_cvg_send(0x8003, g_mac_ctx_ft.own_long_rd_id, payload, sizeof(payload));
-    printk("********************************************************************************************\n");
 
-    printk("*************************************/* 2. Run simulation until the FT's mock PHY receives the packet */*******************************************************\n");
+	printk("/* 2. Run simulation until the FT's mock PHY receives the packet */\n");
 	/* 2. Run simulation until the FT's mock PHY receives the packet */
 	zassert_true(run_simulation_until(500000, ft_phy_received_packet), "FT PHY did not receive a packet");
-    printk("*************************************FT PHY received a packet*******************************************************\n");
+    printk("FT PHY received a packet\n");
 
 	/* 3. Manually process the received packet on the FT side to verify content */
 	dect_mac_test_set_active_context(&g_mac_ctx_ft);
@@ -367,14 +366,14 @@ ZTEST(stack_integration, test_full_stack_uplink)
     int ret = 0;
 
     run_simulation_until(2500000, NULL); /* Allow MAC/DLC/CVG threads to process */
-    printk("****************************************Starting dect_cvg_receive****************************************************\n");
+    printk("Starting dect_cvg_receive\n");
 // 	ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
 // printk("****************************************Running dect_cvg_receive  %d ****************************************************\n", ret);
 
 // 	run_simulation_until(1000000, NULL); /* Allow MAC/DLC/CVG threads to process */
 // printk("****************************************Starting dect_cvg_receive****************************************************\n");
 	ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
-printk("****************************************Running dect_cvg_receive  %d ****************************************************\n", ret);   
+printk("Running dect_cvg_receive  %d \n", ret);   
 	zassert_ok(ret, "FT failed to receive packet from its CVG layer");
 	zassert_equal(rx_len, sizeof(payload), "Received payload has wrong length");
 	zassert_mem_equal(rx_buf, payload, sizeof(payload), "Received payload is corrupt");

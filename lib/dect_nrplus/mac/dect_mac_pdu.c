@@ -76,7 +76,7 @@ static int write_bits(uint8_t *buf, size_t buf_max_len_bytes, int current_bit_of
 // Advances *bit_offset_ptr by num_bits. Returns the read value (right-aligned).
 // remaining_bits_ptr is decremented by num_bits. Returns 0 and logs error if not enough bits.
 static uint32_t read_bits_adv(const uint8_t *buf, int *bit_offset_ptr, int *remaining_bits_ptr, uint8_t num_bits) {
-	// LOG_DBG("PDU_RD_BITS: bits remaining (%d) to read %u bits at offset %d\n", *remaining_bits_ptr, num_bits, *bit_offset_ptr);
+	// LOG_DBG("PDU_RD_BITS: bits remaining (%d) to read %u bits at offset %d", *remaining_bits_ptr, num_bits, *bit_offset_ptr);
     if (num_bits == 0 || num_bits > 32) {
 		LOG_ERR("PDU_RD_BITS: Invalid num_bits %u", num_bits);
         if (remaining_bits_ptr) *remaining_bits_ptr = 0;
@@ -115,7 +115,7 @@ int build_mac_mux_header(uint8_t *buf, size_t buf_len,
 		return -EINVAL;
 	}
 
-	LOG_DBG("[PDU_BUILD_MUX] Building MUX header for IE Type: %u (0x%02X), Payload Len: %u\n",
+	LOG_DBG("[PDU_BUILD_MUX] Building MUX header for IE Type: %u (0x%02X), Payload Len: %u",
 	       ie_type_value, ie_type_value, ie_payload_len);
 
     uint8_t mac_ext_bits;
@@ -198,7 +198,7 @@ int parse_mac_mux_header(const uint8_t *buf, size_t len,
                          uint8_t *out_ie_type_value, uint16_t *out_ie_payload_len,
                          const uint8_t **out_ie_payload_ptr)
 {
-    LOG_DBG("MUX_PARSE: Starting parse_mac_mux_header... \n");
+    LOG_DBG("MUX_PARSE: Starting parse_mac_mux_header... ");
     // Ensure it handles all mac_ext_bits cases (00, 01, 10, 11) correctly for length and IE type.
     if (!buf || len == 0 || !out_ie_type_value || !out_ie_payload_len || !out_ie_payload_ptr) {
         return -EINVAL;
@@ -211,21 +211,21 @@ int parse_mac_mux_header(const uint8_t *buf, size_t len,
         if (len < parsed_header_len) return -EMSGSIZE;
         *out_ie_type_value = buf[0] & 0x1F;
         *out_ie_payload_len = (buf[0] >> 5) & 0x01;
-        LOG_DBG("MUX_PARSE: Short IE - type:%u payload_len:%u\n", 
+        LOG_DBG("MUX_PARSE: Short IE - type:%u payload_len:%u", 
                *out_ie_type_value, *out_ie_payload_len);
     } else if (mac_ext_bits == 0b01) { // 8-bit length
         parsed_header_len = 2;
         if (len < parsed_header_len) return -EMSGSIZE;
         *out_ie_type_value = buf[0] & 0x3F;
         *out_ie_payload_len = buf[1];
-        LOG_DBG("MUX_PARSE: 8-bit length IE - type:%u payload_len:%u\n", 
+        LOG_DBG("MUX_PARSE: 8-bit length IE - type:%u payload_len:%u", 
                *out_ie_type_value, *out_ie_payload_len);
     } else if (mac_ext_bits == 0b10) { // 16-bit length
         parsed_header_len = 3;
         if (len < parsed_header_len) return -EMSGSIZE;
         *out_ie_type_value = buf[0] & 0x3F;
         *out_ie_payload_len = sys_get_be16(&buf[1]);
-        LOG_DBG("MUX_PARSE: 16-bit length IE - type:%u payload_len:%u\n", 
+        LOG_DBG("MUX_PARSE: 16-bit length IE - type:%u payload_len:%u", 
                *out_ie_type_value, *out_ie_payload_len);
     } else { // mac_ext_bits == 0b00, No length field
         parsed_header_len = 1;
@@ -238,7 +238,7 @@ int parse_mac_mux_header(const uint8_t *buf, size_t len,
             // If it's not a known fixed-length IE, it fills the rest of the buffer.
             *out_ie_payload_len = len - parsed_header_len;
         }
-        LOG_DBG("MUX_PARSE: No length field IE - type:%u payload_len:%u\n", 
+        LOG_DBG("MUX_PARSE: No length field IE - type:%u payload_len:%u", 
                *out_ie_type_value, *out_ie_payload_len);
     }
 
@@ -249,7 +249,7 @@ int parse_mac_mux_header(const uint8_t *buf, size_t len,
     }
 
     *out_ie_payload_ptr = buf + parsed_header_len;
-    LOG_DBG("MUX_PARSE: Ending parse_mac_mux_header... parsed_header_len:%d\n", parsed_header_len);
+    LOG_DBG("MUX_PARSE: Ending parse_mac_mux_header... parsed_header_len:%d", parsed_header_len);
     return parsed_header_len;
 }
 
@@ -258,7 +258,7 @@ int parse_mac_mux_header(const uint8_t *buf, size_t len,
 int serialize_cluster_beacon_ie_payload(uint8_t *buf, size_t buf_max_len,
                                                const dect_mac_cluster_beacon_ie_fields_t *cb_fields)
 {
-	LOG_DBG("CB_SERIALISER: Starting...\n");
+	LOG_DBG("CB_SERIALISER: Starting...");
     if (!buf || !cb_fields) {
 		LOG_ERR("CB_SERIALISER: NULL input pointers.");
         return -EINVAL;
@@ -268,7 +268,7 @@ int serialize_cluster_beacon_ie_payload(uint8_t *buf, size_t buf_max_len,
     int bit_offset = 0;
     int ret;
 
-	LOG_DBG("--- Serializing Cluster Beacon IE ---\n");
+	LOG_DBG("--- Serializing Cluster Beacon IE ---");
 
     // --- Octet 0 ---
     ret = write_bits(buf, buf_max_len, bit_offset, cb_fields->sfn, 8);
@@ -292,7 +292,7 @@ int serialize_cluster_beacon_ie_payload(uint8_t *buf, size_t buf_max_len,
 		return ret;
 	} 
     bit_offset = ret;
-	LOG_DBG("  - Wrote Flags Octet: 0x%02X (bit_offset: %d)\n", octet1, bit_offset);
+	LOG_DBG("  - Wrote Flags Octet: 0x%02X (bit_offset: %d)", octet1, bit_offset);
 
     // --- Octet 2 ---
     uint8_t octet2 = 0;
@@ -304,7 +304,7 @@ int serialize_cluster_beacon_ie_payload(uint8_t *buf, size_t buf_max_len,
 		return ret;
 	} 
     bit_offset = ret;
-	LOG_DBG("  - Wrote Periods Octet: 0x%02X (net: %u, clus: %u) (bit_offset: %d)  ..\n", octet2,
+	LOG_DBG("  - Wrote Periods Octet: 0x%02X (net: %u, clus: %u) (bit_offset: %d)  ..", octet2,
 		cb_fields->network_beacon_period_code, cb_fields->cluster_beacon_period_code,
 		bit_offset);
 
@@ -319,7 +319,7 @@ int serialize_cluster_beacon_ie_payload(uint8_t *buf, size_t buf_max_len,
 		return ret;
 	} 
     bit_offset = ret;
-	LOG_DBG("  - Wrote Quality Octet: 0x%02X (bit_offset: %d)\n", octet3, bit_offset);
+	LOG_DBG("  - Wrote Quality Octet: 0x%02X (bit_offset: %d)", octet3, bit_offset);
 
     // --- Optional Fields ---
     if (cb_fields->tx_power_present) {
@@ -361,7 +361,7 @@ int serialize_cluster_beacon_ie_payload(uint8_t *buf, size_t buf_max_len,
         bit_offset = ret;
     }
 
-	LOG_DBG("CB_SERIALISER: Finished...\n");
+	LOG_DBG("CB_SERIALISER: Finished...");
     // Return total length in bytes, rounded up
     return (bit_offset + 7) / 8;
 }
@@ -383,11 +383,11 @@ int parse_cluster_beacon_ie_payload(const uint8_t *ie_payload, uint16_t ie_paylo
     int bit_offset = 0;
     int remaining_bits = ie_payload_len * 8;
 
-	LOG_DBG("--- Parsing Cluster Beacon IE (len %u bytes) ---\n", ie_payload_len);
+	LOG_DBG("--- Parsing Cluster Beacon IE (len %u bytes) ---", ie_payload_len);
 
     // --- Octet 0: SFN ---
     out_cb_fields->sfn = read_bits_adv(ie_payload, &bit_offset, &remaining_bits, 8);
-	LOG_DBG("  - Parsed SFN: 0x%02X (bit_offset: %d)\n", out_cb_fields->sfn, bit_offset);
+	LOG_DBG("  - Parsed SFN: 0x%02X (bit_offset: %d)", out_cb_fields->sfn, bit_offset);
 
     // --- Octet 1: Control Flags ---
     uint8_t octet1 = read_bits_adv(ie_payload, &bit_offset, &remaining_bits, 8);
@@ -397,8 +397,8 @@ int parse_cluster_beacon_ie_payload(const uint8_t *ie_payload, uint16_t ie_paylo
     out_cb_fields->next_channel_present = (octet1 >> 4) & 0x01;
     out_cb_fields->time_to_next_present = (octet1 >> 3) & 0x01;
 
-	LOG_DBG("  - Parsed Flags Octet: 0x%02X (bit_offset: %d)\n", octet1, bit_offset);
-	LOG_DBG("    -> tx_pwr:%d, pwr_const:%d, fo:%d, next_ch:%d, ttn:%d\n",
+	LOG_DBG("  - Parsed Flags Octet: 0x%02X (bit_offset: %d)", octet1, bit_offset);
+	LOG_DBG("    -> tx_pwr:%d, pwr_const:%d, fo:%d, next_ch:%d, ttn:%d",
 		out_cb_fields->tx_power_present, out_cb_fields->power_constraints_active,
 		out_cb_fields->frame_offset_present, out_cb_fields->next_channel_present,
 		out_cb_fields->time_to_next_present);
@@ -407,8 +407,8 @@ int parse_cluster_beacon_ie_payload(const uint8_t *ie_payload, uint16_t ie_paylo
     uint8_t octet2 = read_bits_adv(ie_payload, &bit_offset, &remaining_bits, 8);
     out_cb_fields->network_beacon_period_code = (octet2 >> 4) & 0x0F;
     out_cb_fields->cluster_beacon_period_code = octet2 & 0x0F;
-	LOG_DBG("  - Parsed Periods Octet: 0x%02X (bit_offset: %d)\n", octet2, bit_offset);
-	LOG_DBG("    -> net_period_code: %u, clus_period_code: %u\n",
+	LOG_DBG("  - Parsed Periods Octet: 0x%02X (bit_offset: %d)", octet2, bit_offset);
+	LOG_DBG("    -> net_period_code: %u, clus_period_code: %u",
 		out_cb_fields->network_beacon_period_code,
 		out_cb_fields->cluster_beacon_period_code);
 
@@ -417,8 +417,8 @@ int parse_cluster_beacon_ie_payload(const uint8_t *ie_payload, uint16_t ie_paylo
     out_cb_fields->count_to_trigger_code = (octet3 >> 5) & 0x07;
     out_cb_fields->rel_quality_code = (octet3 >> 2) & 0x07;
     out_cb_fields->min_quality_code = octet3 & 0x03;
-	LOG_DBG("  - Parsed Quality Octet: 0x%02X (bit_offset: %d)\n", octet3, bit_offset);
-	LOG_DBG("    -> count_trig: %u, rel_qual: %u, min_qual: %u\n",
+	LOG_DBG("  - Parsed Quality Octet: 0x%02X (bit_offset: %d)", octet3, bit_offset);
+	LOG_DBG("    -> count_trig: %u, rel_qual: %u, min_qual: %u",
 		out_cb_fields->count_to_trigger_code, out_cb_fields->rel_quality_code,
 		out_cb_fields->min_quality_code);
 
@@ -427,7 +427,7 @@ int parse_cluster_beacon_ie_payload(const uint8_t *ie_payload, uint16_t ie_paylo
         if (remaining_bits < 8) return -EMSGSIZE;
         out_cb_fields->clusters_max_tx_power_code = 
 				read_bits_adv(ie_payload, &bit_offset, &remaining_bits, 8);
-		LOG_DBG("  - Parsed Max TX Power: 0x%02X (bit_offset: %d)\n",
+		LOG_DBG("  - Parsed Max TX Power: 0x%02X (bit_offset: %d)",
 			out_cb_fields->clusters_max_tx_power_code, bit_offset);
     }
 
@@ -441,7 +441,7 @@ int parse_cluster_beacon_ie_payload(const uint8_t *ie_payload, uint16_t ie_paylo
         if (remaining_bits < fo_len_bits) return -EMSGSIZE;
         out_cb_fields->frame_offset_value = 
 				read_bits_adv(ie_payload, &bit_offset, &remaining_bits, fo_len_bits);
-		LOG_DBG("  - Parsed Frame Offset: %u (bit_offset: %d)\n",
+		LOG_DBG("  - Parsed Frame Offset: %u (bit_offset: %d)",
 			out_cb_fields->frame_offset_value, bit_offset);
     }
 
@@ -449,7 +449,7 @@ int parse_cluster_beacon_ie_payload(const uint8_t *ie_payload, uint16_t ie_paylo
         if (remaining_bits < 16) return -EMSGSIZE;
         out_cb_fields->next_cluster_channel_val = 
 				read_bits_adv(ie_payload, &bit_offset, &remaining_bits, 16);
-		LOG_DBG("  - Parsed Next Channel: %u (bit_offset: %d)\n",
+		LOG_DBG("  - Parsed Next Channel: %u (bit_offset: %d)",
 			out_cb_fields->next_cluster_channel_val, bit_offset);
     }
 
@@ -457,7 +457,7 @@ int parse_cluster_beacon_ie_payload(const uint8_t *ie_payload, uint16_t ie_paylo
         if (remaining_bits < 32) return -EMSGSIZE;
         out_cb_fields->time_to_next_us = 
 				read_bits_adv(ie_payload, &bit_offset, &remaining_bits, 32);
-		LOG_DBG("  - Parsed Time To Next: %u us (bit_offset: %d)\n",
+		LOG_DBG("  - Parsed Time To Next: %u us (bit_offset: %d)",
 			out_cb_fields->time_to_next_us, bit_offset);
     }
 
@@ -479,8 +479,8 @@ int serialize_rach_info_ie_payload(uint8_t *buf, size_t buf_max_len,
                                           const dect_mac_rach_info_ie_fields_t *rach_fields)
 {
 	if (!buf || !rach_fields) {
-		LOG_DBG("\n--- RACH SERIALIZE DEBUG ---\n");
-		LOG_DBG("  - Input start_ss=%u, len_val=%u, max_rach_len=%u, cw_min=%u, cw_max=%u\n",
+		LOG_DBG("--- RACH SERIALIZE DEBUG ---");
+		LOG_DBG("  - Input start_ss=%u, len_val=%u, max_rach_len=%u, cw_min=%u, cw_max=%u",
 		       rach_fields->start_subslot_index, rach_fields->num_subslots_or_slots,
 		       rach_fields->max_rach_pdu_len_units, rach_fields->cwmin_sig_code,
 		       rach_fields->cwmax_sig_code);		
@@ -537,11 +537,11 @@ int serialize_rach_info_ie_payload(uint8_t *buf, size_t buf_max_len,
 	if (ret < 0) { LOG_ERR("RACH_SER: Write MaxRACHLen failed: %d", ret); return ret; }
 	bit_offset = ret;
 
-	LOG_DBG("  - After writing bitfields, bit_offset = %d\n", bit_offset);
+	LOG_DBG("  - After writing bitfields, bit_offset = %d", bit_offset);
 	LOG_DBG("  - Buffer content: ");
 	LOG_HEXDUMP_DBG(buf, (bit_offset + 7) / 8, "RACH_SER: Buffer content");
 	// for (int i = 0; i < (bit_offset + 7) / 8; i++) { printk("%02x ", buf[i]); }
-	// printk("\n");
+	// printk("");
 
 	uint8_t cw_rep_octet = ((rach_fields->cwmin_sig_code & 0x07) << 5) |
 			     ((rach_fields->cwmax_sig_code & 0x07) << 2) |
@@ -574,10 +574,10 @@ int serialize_rach_info_ie_payload(uint8_t *buf, size_t buf_max_len,
 
 	if (rach_fields->channel_field_present) {
 		if (remaining_byte_buf_len < 2) { LOG_ERR("RACH_SER: No space for Channel."); return -ENOMEM; }
-		LOG_DBG("Input channel_abs_num = %u (0x%X)\n",
+		LOG_DBG("Input channel_abs_num = %u (0x%X)",
 		       rach_fields->channel_abs_num, rach_fields->channel_abs_num);
 		uint16_t chan_field_on_air = (rach_fields->channel_abs_num & 0x1FFF) << 3;
-		LOG_DBG("Truncated and shifted on-air value = 0x%04X\n",
+		LOG_DBG("Truncated and shifted on-air value = 0x%04X",
 		       chan_field_on_air);
 		sys_put_be16(chan_field_on_air, current_byte_ptr);
 		current_byte_ptr += 2;
@@ -629,11 +629,11 @@ int parse_rach_info_ie_payload(const uint8_t *ie_payload, uint16_t ie_payload_le
 	int remaining_bits_from_len = ie_payload_len * 8;
 	int *remaining_bits = &remaining_bits_from_len;
 
-	LOG_DBG("\n--- RACH PARSE DEBUG ---\n");
+	LOG_DBG("--- RACH PARSE DEBUG ---");
 	LOG_DBG("Input Payload (len %u): ", ie_payload_len);
 	LOG_HEXDUMP_DBG(ie_payload, ie_payload_len, "RACH_PARSE: Input Payload");
 	// for(int i=0; i<ie_payload_len; i++) { printk("%02x ", ie_payload[i]); }
-	// printk("\n");
+	// printk("");
 
 	if (*remaining_bits < 8) {
 		return -EMSGSIZE;
@@ -647,7 +647,7 @@ int parse_rach_info_ie_payload(const uint8_t *ie_payload, uint16_t ie_payload_le
 	out_rach_fields->max_len_type_is_slots = (flags_octet0 >> 2) & 0x01;
 	out_rach_fields->dect_delay_for_response = (flags_octet0 >> 1) & 0x01;
 
-	LOG_DBG("Parsed Flags: sfn_pres=%d, chan_pres=%d, chan2_pres=%d, max_len_slots=%d, dect_delay=%d\n",
+	LOG_DBG("Parsed Flags: sfn_pres=%d, chan_pres=%d, chan2_pres=%d, max_len_slots=%d, dect_delay=%d",
 		out_rach_fields->sfn_validity_present, out_rach_fields->channel_field_present,
 		out_rach_fields->channel2_field_present, out_rach_fields->max_len_type_is_slots,
 		out_rach_fields->dect_delay_for_response);
@@ -667,11 +667,11 @@ int parse_rach_info_ie_payload(const uint8_t *ie_payload, uint16_t ie_payload_le
 	out_rach_fields->num_subslots_or_slots =
 		read_bits_adv(ie_payload, &bit_offset, remaining_bits, 7);
 
-	LOG_DBG("Parsed Timing: start_ss=%u (read %u bits), len_type_slots=%d, len_val=%u\n",
+	LOG_DBG("Parsed Timing: start_ss=%u (read %u bits), len_type_slots=%d, len_val=%u",
 		out_rach_fields->start_subslot_index, start_subslot_num_bits,
 		out_rach_fields->length_type_is_slots, out_rach_fields->num_subslots_or_slots);
 
-	LOG_DBG("Parsed RACH Params: max_rach_len=%u, cw_min=%u, cw_max=%u, rep_code=%u\n",
+	LOG_DBG("Parsed RACH Params: max_rach_len=%u, cw_min=%u, cw_max=%u, rep_code=%u",
 		out_rach_fields->max_rach_pdu_len_units, out_rach_fields->cwmin_sig_code,
 		out_rach_fields->cwmax_sig_code, out_rach_fields->repetition_code);
 
@@ -682,7 +682,7 @@ int parse_rach_info_ie_payload(const uint8_t *ie_payload, uint16_t ie_payload_le
 
 	out_rach_fields->max_rach_pdu_len_units = (max_rach_len_octet >> 1) & 0x7F;
 
-	LOG_DBG("  - Parsed RACH Params: max_rach_len_octet=0x%02X, max_rach_pdu_len_units=%u\n",
+	LOG_DBG("  - Parsed RACH Params: max_rach_len_octet=0x%02X, max_rach_pdu_len_units=%u",
 		max_rach_len_octet, out_rach_fields->max_rach_pdu_len_units);	
 
 	if (*remaining_bits < 8) {
@@ -694,7 +694,7 @@ int parse_rach_info_ie_payload(const uint8_t *ie_payload, uint16_t ie_payload_le
 	out_rach_fields->cwmax_sig_code = (cw_rep_octet >> 2) & 0x07;
 	out_rach_fields->repetition_code = cw_rep_octet & 0x03;
 
-	LOG_DBG("  - Parsed Timing: start_ss=%u (read %u bits), len_type_slots=%d, len_val=%u\n",
+	LOG_DBG("  - Parsed Timing: start_ss=%u (read %u bits), len_type_slots=%d, len_val=%u",
 		out_rach_fields->start_subslot_index, start_subslot_num_bits,
 		out_rach_fields->length_type_is_slots, out_rach_fields->num_subslots_or_slots);
 
@@ -704,7 +704,7 @@ int parse_rach_info_ie_payload(const uint8_t *ie_payload, uint16_t ie_payload_le
 	out_rach_fields->response_window_subslots_val_minus_1 =
 		read_bits_adv(ie_payload, &bit_offset, remaining_bits, 8);
 
-	LOG_DBG("Parsed Resp Window: %u\n", out_rach_fields->response_window_subslots_val_minus_1);
+	LOG_DBG("Parsed Resp Window: %u", out_rach_fields->response_window_subslots_val_minus_1);
 
 	if (bit_offset % 8 != 0) {
 		int padding_to_read = 8 - (bit_offset % 8);
@@ -717,10 +717,10 @@ int parse_rach_info_ie_payload(const uint8_t *ie_payload, uint16_t ie_payload_le
 		read_bits_adv(ie_payload, &bit_offset, remaining_bits, (uint8_t)padding_to_read);
 	}
 
-	LOG_DBG("RACH_PARSE_DBG: After bitfield parsing and padding:\n");
-	LOG_DBG("  - bit_offset: %d\n", bit_offset);
-	LOG_DBG("  - byte_offset: %d\n", bit_offset / 8);
-	LOG_DBG("  - remaining_bits: %d\n", *remaining_bits);
+	LOG_DBG("RACH_PARSE_DBG: After bitfield parsing and padding:");
+	LOG_DBG("  - bit_offset: %d", bit_offset);
+	LOG_DBG("  - byte_offset: %d", bit_offset / 8);
+	LOG_DBG("  - remaining_bits: %d", *remaining_bits);
 
 	
 	if (out_rach_fields->sfn_validity_present) {
@@ -732,7 +732,7 @@ int parse_rach_info_ie_payload(const uint8_t *ie_payload, uint16_t ie_payload_le
 		out_rach_fields->validity_frames =
 			read_bits_adv(ie_payload, &bit_offset, remaining_bits, 8);
 
-		LOG_DBG("Parsed SFN/Validity: sfn=%u, validity=%u\n",
+		LOG_DBG("Parsed SFN/Validity: sfn=%u, validity=%u",
 			out_rach_fields->sfn_value, out_rach_fields->validity_frames);			
 	}
 
@@ -745,12 +745,12 @@ int parse_rach_info_ie_payload(const uint8_t *ie_payload, uint16_t ie_payload_le
 			read_bits_adv(ie_payload, &bit_offset, remaining_bits, 16);
 		out_rach_fields->channel_abs_num = (chan_field_on_air >> 3) & 0x1FFF;
 
-		LOG_DBG("RACH_PARSE_DBG: Read on-air value = 0x%04X\n", chan_field_on_air);
-		LOG_DBG("RACH_PARSE_DBG: Calculated channel_abs_num = %u (0x%X)\n",
+		LOG_DBG("RACH_PARSE_DBG: Read on-air value = 0x%04X", chan_field_on_air);
+		LOG_DBG("RACH_PARSE_DBG: Calculated channel_abs_num = %u (0x%X)",
 		       out_rach_fields->channel_abs_num,
 		       out_rach_fields->channel_abs_num);
 
-		LOG_DBG("Parsed Channel: on_air_val=0x%04X, freq_num=%u\n",
+		LOG_DBG("Parsed Channel: on_air_val=0x%04X, freq_num=%u",
 			chan_field_on_air, out_rach_fields->channel_abs_num);
 	}
 
@@ -957,10 +957,10 @@ int parse_assoc_req_ie_payload(const uint8_t *ie_payload, uint16_t ie_payload_le
     int *remaining_bits = &remaining_bits_from_len;
 
 
-	LOG_DBG("\n--- RACH PARSE DEBUG ---\n");
+	LOG_DBG("--- RACH PARSE DEBUG ---");
 	LOG_HEXDUMP_DBG(ie_payload, ie_payload_len, "RACH_PARSE: Input Payload");
 	// for(int i=0; i<ie_payload_len; i++) { printk("%02x ", ie_payload[i]); }
-	// printk("\n");
+	// printk("");
 
     // Octet 0: Flags and Basic Info
     if (*remaining_bits < 8) return -EMSGSIZE;
@@ -1964,7 +1964,7 @@ int build_assoc_resp_sdu_area_content(uint8_t *target_sdu_area_buf, size_t targe
                                       const dect_mac_rd_capability_ie_t *ft_cap_fields,
                                       const dect_mac_resource_alloc_ie_fields_t *res_alloc_fields)
 {
-	// LOG_DBG("build_assoc_resp_sdu_area_content called... \n");
+	// LOG_DBG("build_assoc_resp_sdu_area_content called... ");
 	if (!target_sdu_area_buf || !resp_fields) {
 		LOG_ERR("ASSOC_RESP_AREA: NULL target_sdu_area_buf or resp_fields.");
 		return -EINVAL;
@@ -1993,7 +1993,7 @@ int build_assoc_resp_sdu_area_content(uint8_t *target_sdu_area_buf, size_t targe
 		return ie_payload_len_bytes;
 	}
 
-	LOG_DBG("[PDU_BUILD] Building MUX header for AssocResp IE with IE Type: %d\n",
+	LOG_DBG("[PDU_BUILD] Building MUX header for AssocResp IE with IE Type: %d",
 	       IE_TYPE_ASSOC_RESP);
 
 	mux_hdr_len_bytes = build_mac_mux_header(target_sdu_area_buf + current_write_offset_in_buf,

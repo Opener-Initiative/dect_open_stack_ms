@@ -39,8 +39,7 @@ struct mac_sdu;
 #define MAX_PEERS_PER_FT CONFIG_DECT_MAC_FT_MAX_ASSOCIATED_PTS
 #define MAX_MOBILITY_CANDIDATES 5
 #define MAX_SUBSLOTS_IN_FRAME_NOMINAL 48 // For 10ms frame, 5 symbols/subslot, symbol dur ~41.67us => subslot ~208.3us
-#define FRAME_DURATION_MS_NOMINAL 10
-#define FRAME_DURATION_TICKS ((uint32_t)FRAME_DURATION_MS_NOMINAL * NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ)
+
 #define SUB_SLOTS_PER_ETSI_SLOT 24  // An ETSI slot is 24 subslots. A frame has 2 slots.
 
 #define NOMINAL_SLOT_DURATION_MS 10 // Assuming 1 slot = 1 frame for some calculations
@@ -53,6 +52,9 @@ struct mac_sdu;
                                     // 1 slot = 24 subslots = 5000 us = 5 ms.
                                     // 1 frame = 2 slots = 48 subslots = 10 ms.
 
+#define FRAME_DURATION_MS_NOMINAL 10
+// #define FRAME_DURATION_MS_NOMINAL (25 * NOMINAL_SLOT_DURATION_MS)  // 250 ms
+#define FRAME_DURATION_TICKS ((uint32_t)FRAME_DURATION_MS_NOMINAL * NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ)
 
 
 #define SCAN_MEAS_DURATION_SLOTS_CONFIG 2 // e.g. 2 ETSI slots = 48 subslots = 10ms for background scan measurement
@@ -329,7 +331,7 @@ typedef struct {
     uint8_t validity_value;         // Actual value from IE (0xFF for permanent)
     uint32_t channel;
     uint64_t next_occurrence_modem_time;
-    uint8_t sfn_of_initial_occurrence; // SFN from ResAlloc IE or SFN when non-SFN schedule activated
+    uint32_t sfn_of_initial_occurrence; // SFN from ResAlloc IE or SFN when non-SFN schedule activated
     uint64_t schedule_init_modem_time; // Modem time when schedule was parsed/activated
     // Flags to know if start_subslot fields are 8 or 9 bits (based on mu of the link)
     bool res1_is_9bit_subslot; // True if dl_start_subslot implies 9 bits
@@ -430,7 +432,6 @@ typedef struct {
     struct k_timer paging_cycle_timer;
     struct k_timer auth_timeout_timer; /* Timeout for auth handshake (challenge/success) */
     dect_ft_rach_params_t current_ft_rach_params; // Parsed from associated/target FT's beacon
-    uint8_t current_assoc_retries;
     dect_mac_schedule_t dl_schedule; // Schedule for downlink data from FT
     dect_mac_schedule_t ul_schedule; // Schedule for uplink data to FT
     dect_mac_schedule_t group_schedule; // Inactive schedule pattern received for group assignment
@@ -440,11 +441,11 @@ typedef struct {
 	struct k_timer reject_timer;
 	bool release_pending;
 
-	/* Statistics */
+	uint8_t current_assoc_retries;
 	uint32_t beacon_rx_count;
 	uint16_t assoc_attempt_count;
 	uint16_t rach_tx_count;
-	uint8_t current_ft_sfn;
+	uint32_t current_ft_sfn;
 } pt_context_t;
 
 
@@ -523,8 +524,8 @@ typedef struct {
     dect_mac_schedule_t peer_schedules[MAX_PEERS_PER_FT];
     dect_mac_peer_tx_queue_set_t peer_tx_data_queues[MAX_PEERS_PER_FT];
 
-    uint8_t sfn;
-    uint8_t sfn_for_last_beacon_tx;
+    uint32_t sfn;
+    uint32_t sfn_for_last_beacon_tx;
     uint32_t operating_carrier;
     struct k_timer beacon_timer;
     dect_ft_rach_params_t advertised_rach_params;
@@ -606,8 +607,8 @@ typedef struct dect_mac_context {
 
     uint64_t last_known_modem_time;
     uint64_t last_event_system_uptime_ticks; /* Zephyr system uptime ticks when last_known_modem_time was updated */
-    uint64_t ft_sfn0_modem_time_anchor;
-    uint8_t  current_sfn_at_anchor_update;
+    int64_t ft_sfn0_modem_time_anchor;
+    uint32_t current_sfn_at_anchor_update;
     uint64_t last_phy_op_end_time; /* Modem time when the last scheduled PHY op will end */    
     /* Cache for in-flight PCCs waiting for their corresponding PDCs. */
     pcc_transaction_t pcc_transaction_cache[MAX_PENDING_PCC_TRANSACTIONS];

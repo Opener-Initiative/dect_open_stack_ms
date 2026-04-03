@@ -485,7 +485,7 @@ ZTEST(advanced_mac_tests, test_reconfiguration_flow)
     process_all_mac_events();
     /* 5. Wait for PT to finish its TX operation */
     printk("\n\n[TEST] 5. Wait for PT to finish its TX operation \n");
-    /* This is critical: We cannot start the PT RX operation until the previous TX is fully complete and the pending op is cleared. */
+    /* Since simulation duration is only 1us, this will happen almost immediately. */
     success = run_simulation_until(1000000, pt_is_idle);
     zassert_true(success, "PT did not complete TX operation (Pending Op not cleared)");
 

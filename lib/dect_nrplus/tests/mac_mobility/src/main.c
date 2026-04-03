@@ -530,7 +530,8 @@ ZTEST(dect_mac_mobility, test_pt_handover)
 	run_simulation_until(5000, NULL); 
 
 	mock_rx_packet_t strong_beacon = {0};
-	strong_beacon.reception_time_us = k_ticks_to_us_floor64(k_uptime_ticks()) + 150;
+	/* CRITICAL FIX: Increase offset to 1000us (1ms) to ensure PT is in RX state when beacon arrives */
+	strong_beacon.reception_time_us = k_ticks_to_us_floor64(k_uptime_ticks()) + 1000;
 	/* Inject on FT1's channel so PT can hear it while associated */
 	strong_beacon.carrier = g_mac_ctx_ft1.role_ctx.ft.operating_carrier;
 	strong_beacon.pcc_data.phy_type = 0;

@@ -361,12 +361,14 @@ endif # DECT_MAC_SECURITY_ENABLE
 
     config DECT_MAC_FT_CLUSTER_BEACON_MS
         int "FT Cluster Beacon Interval (ms)"
-        default 4000
+        default 1000 if ZTEST # Reduced for potentially faster scheduling
+        default 8000
         help
           Interval for FT Cluster Beacon (10,50,100,500,1k,1.5k,2k,4k,8k,16k,32k ms).
     config DECT_MAC_FT_NETWORK_BEACON_MS
         int "FT Network Beacon Interval (ms)"
-        default 4000
+        default 1000 if ZTEST # Reduced for potentially faster scheduling
+        default 8000
         help
           Interval for FT Network Beacon (50,100,500,1k,1.5k,2k,4k ms).
     config DECT_MAC_FT_MAX_ASSOCIATED_PTS

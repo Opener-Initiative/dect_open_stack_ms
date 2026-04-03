@@ -609,7 +609,7 @@ ZTEST(dect_mac_ass_extra, test_1_pt_ft_association_rejected_ft_full)
 
     /* 8. Run simulation a bit longer to ensure PT processes the rejection */
     printk("\n\n[TEST] 8. Run simulation a bit longer to ensure PT processes the rejection \n");
-    run_simulation_until(200000, NULL);
+    run_simulation_until(800000, NULL);
 
     /* 9. Final assertion: PT should have gone back to scanning */
     printk("\n\n[TEST] 9. Final assertion: PT should have gone back to scanning \n");
