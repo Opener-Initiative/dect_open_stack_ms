@@ -160,26 +160,8 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
         
         uint64_t next_phy_event_time = mock_phy_get_next_event_time(all_phys, NUM_PTS + NUM_FTS);
         
-        uint64_t next_timer_ticks = K_TICKS_FOREVER;
-        uint64_t remaining;
-        
-        for (int i=0; i<NUM_PTS; i++) {
-            if (k_timer_status_get(&g_mac_ctx_pt[i].role_ctx.pt.keep_alive_timer) != 0) {
-                remaining = k_timer_remaining_get(&g_mac_ctx_pt[i].role_ctx.pt.keep_alive_timer);
-                if (remaining > 0) next_timer_ticks = MIN(next_timer_ticks, remaining);
-            }
-        }
-        
-        for (int i=0; i<NUM_FTS; i++) {
-            if (k_timer_status_get(&g_mac_ctx_ft[i].role_ctx.ft.beacon_timer) != 0) {
-                remaining = k_timer_remaining_get(&g_mac_ctx_ft[i].role_ctx.ft.beacon_timer);
-                if (remaining > 0) next_timer_ticks = MIN(next_timer_ticks, remaining);
-            }
-        }
-        
-        uint64_t next_timer_expiry_us = (next_timer_ticks == K_TICKS_FOREVER) ?
-            UINT64_MAX :
-            k_ticks_to_us_floor64(k_uptime_ticks()) + k_ticks_to_us_floor64(next_timer_ticks);
+        /* Step 2: Set a simulation heartbeat (max 5ms jump) to handle hidden timers (DLC/CVG) */
+        uint64_t next_timer_expiry_us = now_us + 5000;
         
         uint64_t next_event_time = MIN(next_phy_event_time, next_timer_expiry_us);
         uint64_t time_to_advance_us;
@@ -326,10 +308,17 @@ static void dect_mac_assoc_before(void *fixture)
     while (k_msgq_get(&mac_event_msgq, &msg, K_NO_WAIT) == 0) { }
 
     for (int i=0; i<NUM_FTS; i++) {
+        /* Configure FT timing BEFORE init so it is reflected in advertised RACH IEs */
+        g_mac_ctx_ft[i].config.ft_cluster_beacon_period_ms = 1000;
+        g_mac_ctx_ft[i].config.keep_alive_period_ms = 1000;
+        g_mac_ctx_ft[i].config.rach_response_window_ms = 200;
+
+        /* Initialize MAC cores */
         dect_mac_test_set_active_context(&g_mac_ctx_ft[i]);
         mock_phy_set_active_context(&g_phy_ctx_ft[i]);
-        err = dect_mac_core_init(MAC_ROLE_FT, 0x11223300 + i);
-        zassert_ok(err, "FT dect_mac_core_init failed");
+        err = dect_mac_core_init(MAC_ROLE_FT, 0x11223344 + i);
+        zassert_ok(err, "FT%d dect_mac_core_init failed", i);
+
         /* Optional: give each FT a different operating channel to avoid immediate collisions, though ETSI handles collisions. */
         // g_mac_ctx_ft[i].role_ctx.ft.operating_carrier = 2 + i; 
 	    g_mac_ctx_ft[i].network_id_32bit = 0xAA000000;

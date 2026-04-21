@@ -13,7 +13,7 @@
 #include <zephyr/net_buf.h>
 
 #ifndef CONFIG_DECT_MAC_SDU_MAX_SIZE
-#define CONFIG_DECT_MAC_SDU_MAX_SIZE 1636
+#define CONFIG_DECT_MAC_SDU_MAX_SIZE 2048
 #endif
 
 /** @brief Defines the logical role of the MAC instance. */

@@ -37,9 +37,9 @@ LOG_MODULE_REGISTER(dect_mac_dispatcher, CONFIG_DECT_MAC_DISPATCHER_LOG_LEVEL);
  * Size should be sufficient for the expected event rate.
  */
 #if IS_ENABLED(CONFIG_ZTEST) && IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)
-K_MSGQ_DEFINE(mac_event_msgq, sizeof(struct dect_mac_event_msg), 32, 4); // 32 messages, 4-byte aligned
+K_MSGQ_DEFINE(mac_event_msgq, sizeof(struct dect_mac_event_msg), 128, 4); // 128 messages for tests
 #else
-K_MSGQ_DEFINE(mac_event_msgq, sizeof(struct dect_mac_event_msg), 16, 4); // 16 messages, 4-byte aligned
+K_MSGQ_DEFINE(mac_event_msgq, sizeof(struct dect_mac_event_msg), 16, 4); // 16 messages for hardware
 #endif
 
 // Declare the callback pointer as external.
@@ -111,7 +111,7 @@ void dect_mac_change_state(dect_mac_state_t new_state) {
 		dect_mac_public_state_t old_public_state = dect_mac_state_t_to_public(ctx->state);
 		dect_mac_public_state_t new_public_state = dect_mac_state_t_to_public(new_state);
 
-		LOG_DBG("[DISPATCH] Changing MAC State: %s -> %s (Role: %s)\n", dect_mac_state_to_str(ctx->state),
+		LOG_INF("[STATE] %s -> %s (Role: %s)", dect_mac_state_to_str(ctx->state),
 			dect_mac_state_to_str(new_state), (ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
 
 		/* Perform cleanup based on the state we are LEAVING */
@@ -310,7 +310,7 @@ void dect_mac_event_dispatch(const struct dect_mac_event_msg *msg)
                     dect_mac_data_path_handle_op_complete(completed_type, &msg->data.op_complete);
                     dispatch_to_sm = false; /* Data path handles this, not the SM */
                 } else {
-                    LOG_INF("OP_COMPLETE for control plane op %s. Forwarding to SM.",
+                    LOG_DBG("OP_COMPLETE for control plane op %s. Forwarding to SM.",
                         dect_pending_op_to_str(completed_type));
                 }
             }
@@ -337,7 +337,7 @@ void dect_mac_event_dispatch(const struct dect_mac_event_msg *msg)
                     msg->data.pdc_crc_err.transaction_id);
             break;
         case MAC_EVENT_PHY_RSSI_RESULT:
-            LOG_INF("RSSI Report Rcvd (H:%u, Carr:%u, Count:%u). Forwarding to SM.",
+            LOG_DBG("RSSI Report Rcvd (H:%u, Carr:%u, Count:%u). Forwarding to SM.",
                     msg->data.rssi.handle, msg->data.rssi.carrier, msg->data.rssi.meas_len);
             break;
 

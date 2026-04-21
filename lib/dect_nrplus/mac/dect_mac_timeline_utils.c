@@ -18,7 +18,7 @@
 
 #include <mac/dect_mac_timeline_utils.h>
 
-LOG_MODULE_REGISTER(dect_mac_timeline, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(dect_mac_timeline, CONFIG_DECT_MAC_TIMELINE_LOG_LEVEL);
 
 /**
  * @brief Converts a duration in microseconds to modem time ticks.
@@ -104,7 +104,7 @@ uint32_t get_subslot_duration_ticks_for_mu(uint8_t mu_code)
         LOG_ERR("PHY_TIMING: Calculated symbol duration is 0 for mu_code %u.", mu_code);
         return 0;
     }
-    return actual_symbol_duration_ticks * 5;
+    return actual_symbol_duration_ticks * 10;
 }
 
 

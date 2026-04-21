@@ -3,7 +3,8 @@
  */
 
 /* lib/dect_nrplus/tests/utils/test_harness_helpers.c */
-// Overview: A new source file implementing the shared test utilities.
+// Overview: Shared test utilities for DECT NR+ simulation tests. 
+//           Contains node registration and PDU capture analysis helpers.
 #include <zephyr/kernel.h>
 #include "test_harness_helpers.h"
 
@@ -11,87 +12,73 @@
 #include <mac/dect_mac_sm.h>
 #include <mac/dect_mac_pdu.h>
 #include <zephyr/sys/byteorder.h>
+#include <mac/dect_mac_context.h>
+#include <mac/dect_mac_core.h>
+#include <mac/dect_mac_main_dispatcher.h>
+#include <mac/dect_mac.h>
+#include <mocks/mock_nrf_modem_dect_phy.h>
 
-/* --- Test Capture Buffer (defined in each test's main.c) --- */
+/* --- Registry for simulation nodes --- */
+#define MAX_SIM_NODES 32
+static struct {
+	dect_mac_context_t *mac;
+	mock_phy_context_t *phy;
+} g_sim_nodes[MAX_SIM_NODES];
+static int g_num_sim_nodes = 0;
+
+void dect_sim_register_node(void *mac, void *phy)
+{
+	if (g_num_sim_nodes < MAX_SIM_NODES) {
+		g_sim_nodes[g_num_sim_nodes].mac = (dect_mac_context_t *)mac;
+		g_sim_nodes[g_num_sim_nodes].phy = (mock_phy_context_t *)phy;
+		g_num_sim_nodes++;
+	}
+}
+
+void dect_sim_reset(void)
+{
+	g_num_sim_nodes = 0;
+}
+
+/* --- Capture Helpers --- */
 extern uint8_t g_last_tx_pdu_capture[];
 extern uint16_t g_last_tx_pdu_len_capture;
 
-
 bool tx_capture_is_from_long_id(uint32_t expected_tx_long_id)
 {
-    printk("\n=== PACKET DEBUG ===\n");
-    printk("Expected TX Long ID: 0x%08X\n", expected_tx_long_id);
-    printk("Captured PDU length: %u bytes\n", g_last_tx_pdu_len_capture);
-    
-    if (g_last_tx_pdu_len_capture == 0) {
-        return false;
-    }
-    
-    if (g_last_tx_pdu_len_capture < sizeof(dect_mac_header_type_octet_t)) {
-        printk("ERROR: PDU too short for header type detection (%u bytes)\n", g_last_tx_pdu_len_capture);
-        return false;
-    }
+	if (g_last_tx_pdu_len_capture == 0) {
+		return false;
+	}
 
-    // Read the header type
-    dect_mac_header_type_octet_t hdr_type;
-    memcpy(&hdr_type, g_last_tx_pdu_capture, sizeof(hdr_type));
-    
-    printk("Header type: 0x%02X\n", *(uint8_t *)&hdr_type);
+	if (g_last_tx_pdu_len_capture < sizeof(dect_mac_header_type_octet_t)) {
+		return false;
+	}
 
-    // Handle different header types
-    switch (hdr_type.mac_header_type) {
-    case MAC_COMMON_HEADER_TYPE_BEACON: {
-        printk("Packet type: BEACON\n");
-        const dect_mac_beacon_header_t *beacon_hdr =
-            (const dect_mac_beacon_header_t *)(g_last_tx_pdu_capture +
-                              sizeof(dect_mac_header_type_octet_t));
-        
-        // Debug beacon header
-        printk("Beacon header bytes: ");
-        for (int i = 0; i < sizeof(dect_mac_beacon_header_t); i++) {
-            printk("%02X ", ((uint8_t *)beacon_hdr)[i]);
-        }
-        printk("\n");
-        
-        uint32_t transmitter_id = sys_be32_to_cpu(beacon_hdr->transmitter_long_rd_id_be);
-        printk("Beacon transmitter ID: 0x%08X\n", transmitter_id);
-        printk("Match: %s\n", (transmitter_id == expected_tx_long_id) ? "YES" : "NO");
-        
-        return (transmitter_id == expected_tx_long_id);
-    }
-    
-    case MAC_COMMON_HEADER_TYPE_UNICAST: {
-        printk("Packet type: UNICAST\n");
-        const dect_mac_unicast_header_t *unicast_hdr =
-            (const dect_mac_unicast_header_t *)(g_last_tx_pdu_capture +
-                               sizeof(dect_mac_header_type_octet_t));
-        
-        // Debug unicast header
-        printk("Unicast header bytes: ");
-        for (int i = 0; i < sizeof(dect_mac_unicast_header_t); i++) {
-            printk("%02X ", ((uint8_t *)unicast_hdr)[i]);
-        }
-        printk("\n");
-        
-        uint32_t transmitter_id = sys_be32_to_cpu(unicast_hdr->transmitter_long_rd_id_be);
-        printk("Unicast transmitter ID: 0x%08X\n", transmitter_id);
-        printk("Match: %s\n", (transmitter_id == expected_tx_long_id) ? "YES" : "NO");
-        
-        return (transmitter_id == expected_tx_long_id);
-    }
-    
-    case MAC_COMMON_HEADER_TYPE_DATA_PDU: {
-        printk("Packet type: DATA PDU\n");
-        // Handle data PDU if needed
-        return false;
-    }
-    
-    default:
-        printk("Unknown header type: 0x%02X\n", hdr_type.mac_header_type);
-        return false;
-    }
+	dect_mac_header_type_octet_t hdr_type;
+	memcpy(&hdr_type, g_last_tx_pdu_capture, sizeof(hdr_type));
+
+	uint32_t transmitter_id = 0;
+	switch (hdr_type.mac_header_type) {
+	case MAC_COMMON_HEADER_TYPE_BEACON: {
+		const dect_mac_beacon_header_t *beacon_hdr =
+			(const dect_mac_beacon_header_t *)(g_last_tx_pdu_capture +
+							  sizeof(dect_mac_header_type_octet_t));
+		transmitter_id = sys_be32_to_cpu(beacon_hdr->transmitter_long_rd_id_be);
+		break;
+	}
+	case MAC_COMMON_HEADER_TYPE_UNICAST: {
+		const dect_mac_unicast_header_t *unicast_hdr =
+			(const dect_mac_unicast_header_t *)(g_last_tx_pdu_capture +
+							   sizeof(dect_mac_header_type_octet_t));
+		transmitter_id = sys_be32_to_cpu(unicast_hdr->transmitter_long_rd_id_be);
+		break;
+	}
+	default:
+		return false;
+	}
+
+	return (transmitter_id == expected_tx_long_id);
 }
-
 
 const uint8_t *get_ie_payload_from_pdu(const uint8_t *pdu, uint16_t pdu_len,
 					      uint8_t target_ie_type, uint16_t *payload_len)
@@ -153,49 +140,7 @@ const uint8_t *get_ie_payload_from_pdu(const uint8_t *pdu, uint16_t pdu_len,
 	return NULL;
 }
 
-/**
- * @brief A safe, test-only MAC state change callback that only logs the new state.
- */
 void test_mac_state_change_cb(dect_mac_public_state_t new_state)
 {
 	printk("[TEST_CALLBACK] MAC Public State changed to: %d\n", new_state);
 }
-
-// const uint8_t *get_ie_payload_from_pdu(const uint8_t *pdu_data, uint16_t pdu_len,
-// 				       uint8_t target_ie_type, uint16_t *out_ie_len)
-// {
-// 	if (!pdu_data || pdu_len < (sizeof(dect_mac_header_type_octet_t) + sizeof(dect_mac_unicast_header_t))) {
-// 		return NULL;
-// 	}
-
-// 	const uint8_t *sdu_area_start = pdu_data + sizeof(dect_mac_header_type_octet_t) + sizeof(dect_mac_unicast_header_t);
-// 	size_t sdu_area_len = pdu_len - (sizeof(dect_mac_header_type_octet_t) + sizeof(dect_mac_unicast_header_t));
-
-// 	const uint8_t *p = sdu_area_start;
-// 	size_t remaining = sdu_area_len;
-
-// 	while (remaining > 0) {
-// 		uint8_t ie_type;
-// 		uint16_t ie_len;
-// 		const uint8_t *ie_payload;
-// 		int mux_len = parse_mac_mux_header(p, remaining, &ie_type, &ie_len, &ie_payload);
-
-// 		if (mux_len <= 0 || (remaining < (size_t)mux_len + ie_len)) {
-// 			break;
-// 		}
-
-// 		if (ie_type == target_ie_type) {
-// 			if (out_ie_len) {
-// 				*out_ie_len = ie_len;
-// 			}
-// 			return ie_payload;
-// 		}
-
-// 		size_t consumed = mux_len + ie_len;
-// 		if (consumed == 0) break;
-// 		p += consumed;
-// 		remaining -= consumed;
-// 	}
-
-// 	return NULL;
-// }

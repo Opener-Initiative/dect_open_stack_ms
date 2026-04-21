@@ -103,7 +103,7 @@ uint32_t get_tbs_for_schedule(uint8_t num_subslots, uint8_t mcs_code, uint8_t mu
 
 	uint32_t tbs_bits = selected_tbs_table[mcs_code][num_subslots - 1];
 
-    LOG_DBG("TBS_GET: [mcs_code]%d[num_subslots - 1]%d - Returning tbs_bits/8:%d \n", mcs_code, num_subslots - 1, tbs_bits/8);
+    LOG_INF("TBS_GET: [mcs_code]%d[num_subslots - 1]%d - Returning tbs_bits/8:%d \n", mcs_code, num_subslots - 1, tbs_bits/8);
 	return tbs_bits / 8;
 }
 
@@ -159,7 +159,7 @@ bool does_sdu_fit_schedule(dect_mac_context_t *ctx, mac_sdu_t *sdu,
 				       : schedule->dl_duration_subslots;
 
 	uint8_t mcs_code = ctx->config.default_data_mcs_code;
-	uint8_t mu_code = 2;
+	uint8_t mu_code = 1;
 	uint8_t beta_code = 0;
 
 	if (peer_ctx && peer_ctx->peer_phy_params_known) {
@@ -173,7 +173,7 @@ bool does_sdu_fit_schedule(dect_mac_context_t *ctx, mac_sdu_t *sdu,
 
 	uint32_t available_bytes = get_tbs_for_schedule(num_subslots, mcs_code, mu_code, beta_code);
 
-    LOG_DBG("[FIT_CHECK_DBG] Final Check: total_pdu_size (%zu) vs available_bytes (%u)\n", total_pdu_size, available_bytes);
+    LOG_INF("[FIT_CHECK_DBG] Final Check: total_pdu_size (%zu) vs available_bytes (%u)\n", total_pdu_size, available_bytes);
 
 	if (total_pdu_size > available_bytes) {
 		LOG_WRN("FIT_CHECK: SDU (len %u, total ~%zu) does NOT fit in schedule (slots %u, mcs %u, tbs %u bytes)",

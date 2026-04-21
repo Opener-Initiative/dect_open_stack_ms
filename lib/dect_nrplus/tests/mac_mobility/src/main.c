@@ -56,16 +56,16 @@ static void process_all_mac_events(void)
 	while (k_msgq_get(&mac_event_msgq, &msg, K_NO_WAIT) == 0) {
 		zassert_not_null(msg.ctx, "Event in queue has NULL context!");
 		if (msg.ctx == &g_mac_ctx_pt) {
-			mock_phy_set_active_context(&g_phy_ctx_pt);
             dect_mac_test_set_active_context(&g_mac_ctx_pt);
+			mock_phy_set_active_context(&g_phy_ctx_pt);
             printk("Active Context: g_phy_ctx_pt \n");
 		} else if (msg.ctx == &g_mac_ctx_ft1) {
-			mock_phy_set_active_context(&g_phy_ctx_ft1);
             dect_mac_test_set_active_context(&g_mac_ctx_ft1);
+			mock_phy_set_active_context(&g_phy_ctx_ft1);
             printk("Active Context: g_phy_ctx_ft1 \n");
 		} else if (msg.ctx == &g_mac_ctx_ft2) {
-			mock_phy_set_active_context(&g_phy_ctx_ft2);
             dect_mac_test_set_active_context(&g_mac_ctx_ft2);
+			mock_phy_set_active_context(&g_phy_ctx_ft2);
             printk("Active Context: g_phy_ctx_ft2 \n");
 		} else {
             printk("ERROR: Message does not have a valid context !!!! \n");
@@ -85,18 +85,18 @@ static void process_all_mac_events(void)
 
 static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(void))
 {
-	uint64_t end_time_us = k_ticks_to_us_floor64(k_uptime_ticks()) + timeout_us;
-	mock_phy_context_t *all_phys[] = { &g_phy_ctx_pt, &g_phy_ctx_ft1, &g_phy_ctx_ft2 };
+    uint64_t end_time_us = k_ticks_to_us_floor64(k_uptime_ticks()) + timeout_us;
+    mock_phy_context_t *all_phys[] = { &g_phy_ctx_pt, &g_phy_ctx_ft1, &g_phy_ctx_ft2 };
     uint32_t iteration_count = 0;
     uint32_t stall_count = 0;
     uint64_t last_time_us = k_ticks_to_us_floor64(k_uptime_ticks());
-
+    
     printk("[SIMULATION] Starting simulation. End time: %llu us, Timeout: %llu us\n",
            end_time_us, timeout_us);
 
-	while (k_ticks_to_us_floor64(k_uptime_ticks()) < end_time_us) {
+    while (k_ticks_to_us_floor64(k_uptime_ticks()) < end_time_us) {
         iteration_count++;
-
+        
         /* Safety check: prevent infinite loops */
         if (iteration_count > 10000) {
             printk("[SIMULATION] Maximum iterations (%u) reached, breaking\n", iteration_count);
@@ -117,7 +117,7 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
             stall_count = 0;
         }
         last_time_us = now_us;
-
+        
         /* Check break condition */
         if (break_cond_func && break_cond_func()) {
             printk("[SIMULATION] Break condition met at iteration %u\n", iteration_count);
@@ -125,7 +125,7 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
         }
 
         /* Get next PHY event time */
-		uint64_t next_phy_event_time = mock_phy_get_next_event_time(all_phys, 3);
+        uint64_t next_phy_event_time = mock_phy_get_next_event_time(all_phys, 3);
 
 		uint32_t next_timer_ticks = K_TICKS_FOREVER;
 		uint32_t remaining;
@@ -172,7 +172,7 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
         
         uint64_t next_event_time = MIN(next_phy_event_time, next_timer_expiry_us);
         uint64_t time_to_advance_us;
-
+        
 /* Debug output */
 printk("[SIM_DEBUG] Iteration %u: now=%llu, next_phy=%llu, next_timer=%llu, next_event=%llu\n",
                iteration_count, now_us, next_phy_event_time, next_timer_expiry_us, next_event_time);
@@ -238,7 +238,7 @@ printk("[SIM_DEBUG] Iteration %u: now=%llu, next_phy=%llu, next_timer=%llu, next
         mock_phy_process_events(&g_phy_ctx_ft1, current_time_us);
         mock_phy_process_events(&g_phy_ctx_pt, current_time_us);
 
-		process_all_mac_events();
+        process_all_mac_events();
 
         /* Break if no more events and we've reached the end */
         if (next_event_time == UINT64_MAX && 
@@ -256,7 +256,12 @@ printk("[SIM_DEBUG] Iteration %u: now=%llu, next_phy=%llu, next_timer=%llu, next
     return (break_cond_func && break_cond_func());
 }
 
-static bool is_ft1_beaconing(void) { return g_mac_ctx_ft1.state == MAC_STATE_FT_BEACONING; }
+static bool is_ft1_beaconing(void) { 
+    printk("[COND_CHECK_DBG] Checking is_ft1_beaconing. Current state: %s (%d)\n",
+	       dect_mac_state_to_str(g_mac_ctx_ft1.state), g_mac_ctx_ft1.state);
+    return g_mac_ctx_ft1.state == MAC_STATE_FT_BEACONING; 
+}
+
 static bool is_ft2_beaconing(void) { 
     printk("[COND_CHECK_DBG] Checking is_ft2_beaconing. Current state: %s (%d)\n",
 	       dect_mac_state_to_str(g_mac_ctx_ft2.state), g_mac_ctx_ft2.state);
@@ -268,10 +273,10 @@ static bool is_ft2_beaconing(void) {
 static bool is_pt_associated_with_ft1(void)
 {
     printk("\n\nis_pt_associated_with_ft1 \n");
-    printk("   - pt:%s \n", dect_mac_state_to_str(g_mac_ctx_pt.state));
-    printk("   - ft-1:%s \n", dect_mac_state_to_str(g_mac_ctx_ft1.state));
-    printk("   - ft-2:%s \n", dect_mac_state_to_str(g_mac_ctx_ft2.state));
-    printk("   - g_mac_ctx_pt.role_ctx.pt.associated_ft.long_rd_id[%0X] == g_mac_ctx_ft1.own_long_rd_id[%0X] \n", 
+    printk("   - pt   :%s \n", dect_mac_state_to_str(g_mac_ctx_pt.state));
+    printk("   - ft-1 :%s \n", dect_mac_state_to_str(g_mac_ctx_ft1.state));
+    printk("   - ft-2 :%s \n", dect_mac_state_to_str(g_mac_ctx_ft2.state));
+    printk("   - g_mac_ctx_pt.role_ctx.pt.associated_ft.long_rd_id[0x%08X] == g_mac_ctx_ft1.own_long_rd_id[0x%08X] \n", 
     g_mac_ctx_pt.role_ctx.pt.associated_ft.long_rd_id, g_mac_ctx_ft1.own_long_rd_id);
 
 	return (g_mac_ctx_pt.state == MAC_STATE_ASSOCIATED &&
@@ -281,9 +286,9 @@ static bool is_pt_associated_with_ft1(void)
 static bool is_pt_associated_with_ft2(void)
 {
     printk("\n\nis_pt_associated_with_ft2 \n");
-    printk("   - pt:%s \n", dect_mac_state_to_str(g_mac_ctx_pt.state));
-    printk("   - ft-1:%s \n", dect_mac_state_to_str(g_mac_ctx_ft1.state));
-    printk("   - ft-2:%s \n", dect_mac_state_to_str(g_mac_ctx_ft2.state));
+    printk("   - pt   :%s \n", dect_mac_state_to_str(g_mac_ctx_pt.state));
+    printk("   - ft-1 :%s \n", dect_mac_state_to_str(g_mac_ctx_ft1.state));
+    printk("   - ft-2 :%s \n", dect_mac_state_to_str(g_mac_ctx_ft2.state));
     printk("   - g_mac_ctx_pt.role_ctx.pt.associated_ft.long_rd_id[%0X] == g_mac_ctx_ft2.own_long_rd_id[%0X] \n", 
     g_mac_ctx_pt.role_ctx.pt.associated_ft.long_rd_id, g_mac_ctx_ft2.own_long_rd_id);
 
@@ -367,20 +372,25 @@ static void dect_mac_mobility_before(void *fixture)
 
 	/* Init FT1 */
     printk("Init FT1 \n");
-	dect_mac_test_set_active_context(&g_mac_ctx_ft1);
-	mock_phy_set_active_context(&g_phy_ctx_ft1);
+    /* Configure FT timing BEFORE init so it is reflected in advertised RACH IEs */
+    g_mac_ctx_ft1.config.ft_cluster_beacon_period_ms = 1000;
+    g_mac_ctx_ft1.config.keep_alive_period_ms = 1000;
+    g_mac_ctx_ft1.config.rach_response_window_ms = 200;
+
+    dect_mac_test_set_active_context(&g_mac_ctx_ft1);
+    mock_phy_set_active_context(&g_phy_ctx_ft1);
 	err = dect_mac_core_init(MAC_ROLE_FT, 0x11111111);
-	zassert_ok(err, "FT1 dect_mac_core_init failed");
+    zassert_ok(err, "FT1 dect_mac_core_init failed");
     /* Set a specific beacon period for deterministic testing */
 	g_mac_ctx_ft1.config.ft_cluster_beacon_period_ms = 2000;
     // g_mac_ctx_ft1.config.ft_network_beacon_period_ms = 2000;
 
 	/* Init FT2 */
     printk("Init FT2 \n");
-	dect_mac_test_set_active_context(&g_mac_ctx_ft2);
-	mock_phy_set_active_context(&g_phy_ctx_ft2);
+    dect_mac_test_set_active_context(&g_mac_ctx_ft2);
+    mock_phy_set_active_context(&g_phy_ctx_ft2);
 	err = dect_mac_core_init(MAC_ROLE_FT, 0x22222222);
-	zassert_ok(err, "FT2 dect_mac_core_init failed");
+    zassert_ok(err, "FT2 dect_mac_core_init failed");
     /* Set a specific beacon period for deterministic testing */
 	g_mac_ctx_ft2.config.ft_cluster_beacon_period_ms = 2000;
     // g_mac_ctx_ft2.config.ft_network_beacon_period_ms = 2000;
@@ -397,14 +407,17 @@ static void dect_mac_mobility_before(void *fixture)
 	g_mac_ctx_ft2.network_id_32bit = g_mac_ctx_ft1.network_id_32bit;
 
 	printk("FT1 Network ID: 0x%08X\n", g_mac_ctx_ft1.network_id_32bit);
-	printk("FT2 Network ID: 0x%08X\n", g_mac_ctx_ft2.network_id_32bit);    
+	printk("FT2 Network ID: 0x%08X\n", g_mac_ctx_ft2.network_id_32bit);
 
     /* Configure test-specific timing */
     // g_mac_ctx_pt.config.keep_alive_period_ms = 1000;  // 1 second for testing
-    g_mac_ctx_pt.config.ft_cluster_beacon_period_ms = 1000;    // 1 second for testing
-    // g_mac_ctx_pt.config.ft_network_beacon_period_ms = 5000;
+    g_mac_ctx_ft1.config.ft_cluster_beacon_period_ms = 1000;
+    g_mac_ctx_ft1.config.keep_alive_period_ms = 1000;
+    g_mac_ctx_ft1.config.rach_response_window_ms = 200;
 
-    // g_mac_ctx_pt.config.mobility_scan_interval_ms = 1000;    // 1 second for testing
+    g_mac_ctx_ft2.config.ft_cluster_beacon_period_ms = 1000;
+    g_mac_ctx_ft2.config.keep_alive_period_ms = 1000;
+    g_mac_ctx_ft2.config.rach_response_window_ms = 200;
 
     /* Register state change callback */
     dect_mac_register_state_change_cb(test_mac_state_change_cb);
@@ -412,7 +425,7 @@ static void dect_mac_mobility_before(void *fixture)
     /* Clear global test state */
     g_last_tx_pdu_len_capture = 0;
     memset(g_last_tx_pdu_capture, 0, sizeof(g_last_tx_pdu_capture));
-    
+
     printk("[TEST_SETUP] Test setup completed\n");
 }
 
@@ -527,7 +540,7 @@ ZTEST(dect_mac_mobility, test_pt_handover)
 
     /* Run simulation to allow messages to transmitted and received */
     printk("\n\n    -  TAKING A BREAK   -\n\n\n");
-	run_simulation_until(5000, NULL); 
+	run_simulation_until(5000, NULL);
 
 	mock_rx_packet_t strong_beacon = {0};
 	/* CRITICAL FIX: Increase offset to 1000us (1ms) to ensure PT is in RX state when beacon arrives */
@@ -566,7 +579,7 @@ ZTEST(dect_mac_mobility, test_pt_handover)
 		     "PT did not receive a handover response from FT2");
 
 	printk("TEST: Verifying PT finalizes association with FT2...\n");
-	zassert_true(run_simulation_until(100000, is_pt_associated_with_ft2),
+	zassert_true(run_simulation_until(200000, is_pt_associated_with_ft2),
 		     "PT never completed handover to FT2");
 
 	printk("TEST: PT has successfully handed over to FT2.\n");

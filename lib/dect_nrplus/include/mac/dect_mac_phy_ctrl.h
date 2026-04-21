@@ -107,7 +107,7 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
  * @retval Other negative error codes from `nrf_modem_dect_phy_tx`.
  */
 int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
-					 const uint8_t *full_mac_pdu_to_send,
+					 uint8_t *full_mac_pdu_to_send,
 					 uint16_t full_mac_pdu_len,
 					 uint16_t target_receiver_short_id, bool is_beacon,
 					 uint32_t phy_op_handle, pending_op_type_t op_type,

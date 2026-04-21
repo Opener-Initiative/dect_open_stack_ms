@@ -12,7 +12,7 @@
 #include <psa/crypto.h>
 #endif
 
-LOG_MODULE_REGISTER(dect_mac_random, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(dect_mac_random, CONFIG_DECT_MAC_RANDOM_LOG_LEVEL);
 
 void dect_mac_rand_get(uint8_t *buf, size_t len)
 {

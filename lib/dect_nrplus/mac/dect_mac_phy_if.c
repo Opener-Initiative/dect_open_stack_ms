@@ -121,7 +121,7 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 
         const uint8_t *data = event->pdc.data;
         size_t len = 8; /* Adjust this based on your needs */
-		LOG_HEXDUMP_INF(data, len, "[MOCK_PHY] RX_QUEUE:PDC Payload Hexdump: ");
+		LOG_HEXDUMP_INF(data, len, "[PHY_IF] RX_QUEUE:PDC Payload Hexdump: ");
 
 		break;
 	case NRF_MODEM_DECT_PHY_EVT_PDC_ERROR:
@@ -167,7 +167,7 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 	bool should_queue_msg = true;
 	int err;
 
-	LOG_INF("Rcvd event from modem: type=%d", event->id);
+	LOG_DBG("Rcvd event from modem: type=%d", event->id);
 
 	switch (event->id) {
 	case NRF_MODEM_DECT_PHY_EVT_COMPLETED:
@@ -178,13 +178,13 @@ static void phy_event_handler_callback(const struct nrf_modem_dect_phy_event *ev
 	case NRF_MODEM_DECT_PHY_EVT_PCC:
 		msg_to_queue.type = MAC_EVENT_PHY_PCC;
 		memcpy(&msg_to_queue.data.pcc, &event->pcc, sizeof(event->pcc));
-		LOG_DBG("Rcvd PCC: Hdl:%u, TID:%u", event->pcc.handle, event->pcc.transaction_id);
+		LOG_INF("Rcvd PCC: Hdl:%u, TID:%u", event->pcc.handle, event->pcc.transaction_id);
 		break;
 
 	case NRF_MODEM_DECT_PHY_EVT_PDC:
 		msg_to_queue.type = MAC_EVENT_PHY_PDC;
 		memcpy(&msg_to_queue.data.pdc, &event->pdc, sizeof(event->pdc));
-		LOG_DBG("Rcvd PDC: Hdl:%u, TID:%u, Size:%zu",
+		LOG_INF("Rcvd PDC: Hdl:%u, TID:%u, Size:%zu",
 		       event->pdc.handle, event->pdc.transaction_id, event->pdc.len);
 		break;
 		// /* Early filtering for Unicast packets not addressed to us */

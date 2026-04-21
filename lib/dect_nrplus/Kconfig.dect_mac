@@ -494,7 +494,7 @@ endmenu # FT Mobility Parameters
 config DECT_MAC_SCHEDULING_MARGIN_US
     int "MAC Processing Scheduling Margin (us)"
     default 3000 if ZTEST
-    default 50000
+    default 3000
     help
       Additional time margin in microseconds added to the PHY scheduling
       start time to account for MAC processing delays, serial logging,

@@ -96,7 +96,7 @@ menu "DECT NR+ Stack Logging Levels"
 
 		config DECT_MAC_DATA_PATH_LOG_LEVEL
 			int "Log level for MAC Data Path"
-			default 3
+			default 2
 			range 0 4
 			help
 			  Log level for the DECT MAC Data Path module.
@@ -117,35 +117,49 @@ menu "DECT NR+ Stack Logging Levels"
 
 		config DECT_MAC_NVS_LOG_LEVEL
 			int "Log level for MAC NVS"
-			default 3
+			default 2
 			range 0 4
 			help
 			  Log level for the DECT MAC NVS module.
 
 		config DECT_MAC_PDU_LOG_LEVEL
 			int "Log level for MAC PDU (De)serializers"
-			default 3
+			default 2
 			range 0 4
 			help
 			  Log level for the DECT MAC PDU module.
 
 		config DECT_MAC_PHY_CTRL_LOG_LEVEL
 			int "Log level for MAC PHY Control"
-			default 3
+			default 2
 			range 0 4
 			help
 			  Log level for the DECT MAC PHY Control module.
 
 		config DECT_MAC_PHY_IF_LOG_LEVEL
 			int "Log level for MAC PHY Interface"
-			default 3
+			default 2
 			range 0 4
 			help
 			  Log level for the DECT MAC PHY Interface module.
 
+		config DECT_MAC_TIMELINE_LOG_LEVEL
+			int "Log level for MAC Timeline Utilities"
+			default 2
+			range 0 4
+			help
+			  Log level for the DECT MAC Timeline and tick conversion module.
+
+		config DECT_MAC_RANDOM_LOG_LEVEL
+			int "Log level for MAC Randomness/Crypto Helpers"
+			default 2
+			range 0 4
+			help
+			  Log level for the DECT MAC Randomness module.
+
 		config DECT_MAC_SECURITY_LOG_LEVEL
 			int "Log level for MAC Security"
-			default 3
+			default 2
 			range 0 4
 			help
 			  Log level for the DECT MAC Security module.

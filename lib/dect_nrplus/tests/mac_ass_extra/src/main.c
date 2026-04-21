@@ -169,10 +169,10 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
         
         /* Check PT keep-alive timer only if it's running */
         remaining = k_timer_remaining_ticks(&g_mac_ctx_pt.role_ctx.pt.keep_alive_timer);
-        if (remaining > 0) {
-            next_timer_ticks = MIN(next_timer_ticks, remaining);
+            if (remaining > 0) {
+                next_timer_ticks = MIN(next_timer_ticks, remaining);
             printk("[SIMULATION] PT keep-alive timer running, expires in %u ticks\n", (uint32_t)remaining);
-        }
+            }
         
         /* Check PT mobility timer only if it's running */
         remaining = k_timer_remaining_ticks(&g_mac_ctx_pt.role_ctx.pt.mobility_scan_timer);
@@ -183,9 +183,30 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
         
         /* Check FT beacon timer only if it's running */
         remaining = k_timer_remaining_ticks(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
+            if (remaining > 0) {
+                next_timer_ticks = MIN(next_timer_ticks, remaining);
+            printk("[SIMULATION] FT beacon timer running, expires in %u ticks\n", (uint32_t)remaining);
+        }
+
+        /* Check PT RACH response window timer only if it's running */
+        remaining = k_timer_remaining_ticks(&g_mac_ctx_pt.rach_context.rach_response_window_timer);
         if (remaining > 0) {
             next_timer_ticks = MIN(next_timer_ticks, remaining);
-            printk("[SIMULATION] FT beacon timer running, expires in %u ticks\n", (uint32_t)remaining);
+            printk("[SIMULATION] PT RACH response timer running, expires in %u ticks\n", (uint32_t)remaining);
+        }
+
+        /* Check PT RACH backoff timer only if it's running */
+        remaining = k_timer_remaining_ticks(&g_mac_ctx_pt.rach_context.rach_backoff_timer);
+        if (remaining > 0) {
+            next_timer_ticks = MIN(next_timer_ticks, remaining);
+            printk("[SIMULATION] PT RACH backoff timer running, expires in %u ticks\n", (uint32_t)remaining);
+            }
+
+        /* Check PT beacon listen timer only if it's running */
+        remaining = k_timer_remaining_ticks(&g_mac_ctx_pt.role_ctx.pt.beacon_listen_timer);
+        if (remaining > 0) {
+            next_timer_ticks = MIN(next_timer_ticks, remaining);
+            printk("[SIMULATION] PT beacon listen timer running, expires in %u ticks\n", (uint32_t)remaining);
         }
         
         uint64_t next_timer_expiry_us = (next_timer_ticks == K_TICKS_FOREVER) ?
@@ -451,6 +472,11 @@ static void dect_mac_ass_extra_before(void *fixture)
         printk("[TEST_SETUP] Drained %d events from MAC event queue\n", drained);
     }
     
+    /* Configure FT timing BEFORE init so it is reflected in advertised RACH IEs */
+    g_mac_ctx_ft.config.ft_cluster_beacon_period_ms = 1000;
+    g_mac_ctx_ft.config.keep_alive_period_ms = 1000;
+    g_mac_ctx_ft.config.rach_response_window_ms = 200;
+
     /* Initialize MAC cores */
     dect_mac_test_set_active_context(&g_mac_ctx_ft);
     mock_phy_set_active_context(&g_phy_ctx_ft);
@@ -756,7 +782,7 @@ ZTEST(dect_mac_ass_extra, test_2_pt_association_release)
 
     /* Run simulation to allow messages to transmitted and received */
     printk("\n\n    -  TAKING A BREAK   -\n\n\n");
-	run_simulation_until(100000, NULL);             
+	run_simulation_until(100000, NULL);
 }
 
 ZTEST_SUITE(dect_mac_ass_extra, 

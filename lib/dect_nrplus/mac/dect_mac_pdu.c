@@ -1444,6 +1444,7 @@ int parse_assoc_resp_ie_payload(const uint8_t *ie_payload, uint16_t ie_payload_l
     // Octet 0: Flags and Basic Info
     if (*remaining_bits < 8) return -EMSGSIZE;
     uint8_t octet0 = read_bits_adv(ie_payload, &bit_offset, remaining_bits, 8);
+	LOG_INF("[PARSE_ASSOC_RESP] octet0=0x%02X, ack_nack bit=%d\n", octet0, (octet0 >> 7) & 0x01);
     out_resp_fields->ack_nack                 = (octet0 >> 7) & 0x01;
     out_resp_fields->harq_mod_present         = (octet0 >> 6) & 0x01;
     out_resp_fields->number_of_flows_accepted = (octet0 >> 3) & 0x07;

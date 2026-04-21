@@ -57,8 +57,9 @@ uint16_t dect_mac_channel_num_to_arfcn(uint16_t channel_num)
 }
 
 
-static union nrf_modem_dect_phy_hdr g_phy_pcc_tx_constructor_buf;
-static uint8_t g_phy_pdc_tx_constructor_buf_ctrl[MAX_MAC_PDU_SIZE_FOR_PCC_CALC];
+/* Global constructor buffers removed. PCC constructor is now in dect_mac_context_t.
+ * PDC payload is handled via zero-copy from source buffers.
+ */
 
 
 void dect_mac_phy_ctrl_build_pcc_header(union nrf_modem_dect_phy_hdr *pcc_hdr,
@@ -222,7 +223,8 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 #else
 		.start_time = start_time_modem_ticks,
 		/* Hardware treats duration as subslots. Convert from Modem Ticks. */
-		.duration = duration_modem_units / get_subslot_duration_ticks_for_mu(ctx->own_phy_params.mu),
+		// .duration = duration_modem_units / get_subslot_duration_ticks_for_mu(ctx->own_phy_params.mu),
+		.duration = duration_modem_units,
 #endif
 		.handle = phy_op_handle,
 		.network_id = ctx->network_id_32bit,
@@ -237,7 +239,7 @@ int dect_mac_phy_ctrl_start_rx(uint32_t carrier, uint32_t duration_modem_units,
 			    .receiver_identity = (expected_receiver_id) }
 	};
 
-	LOG_DBG("PHY_CTRL_RX: Sending RX. Hdl: %u, C:%u (ARFCN:%u), Mode:%d, Dur:%u TU, RxID_Filter:0x%04X, OpT:%s, StartTime(ticks):%llu",
+	LOG_INF("PHY_CTRL_RX: Sending RX. Hdl: %u, C:%u (ARFCN:%u), Mode:%d, Dur:%u TU, RxID_Filter:0x%04X, OpT:%s, StartTime(ticks):%llu",
 		phy_op_handle, carrier, arfcn, mode, duration_modem_units, expected_receiver_id,
 		dect_pending_op_to_str(op_type), start_time_modem_ticks);
 
@@ -327,9 +329,9 @@ int dect_mac_phy_ctrl_assemble_final_pdu(
 	LOG_DBG("  -> SDU Area len: %zu", mac_sdu_area_len);
 	LOG_DBG("  -> Final PDU len: %zu", current_offset);
 
-	LOG_INF("Final PDU len: %zu", current_offset);
+	LOG_DBG("Final PDU len: %zu", current_offset);
 	// LOG_DBG("  -> Final PDU hexdump (first 48 bytes): ");
-	LOG_HEXDUMP_INF(target_final_mac_pdu_buf, current_offset, "Final PDU Hexdump:");
+	LOG_HEXDUMP_DBG(target_final_mac_pdu_buf, current_offset, "Final PDU Hexdump:");
 	// for (int i=0; i<current_offset && i < 48; i++) { printk("%02x ", target_final_mac_pdu_buf[i]); }
 	// printk("");
 
@@ -338,7 +340,7 @@ int dect_mac_phy_ctrl_assemble_final_pdu(
 }
 
 int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
-					 const uint8_t *full_mac_pdu_to_send,
+					 uint8_t *full_mac_pdu_to_send,
 					 uint16_t full_mac_pdu_len,
 					 uint16_t target_receiver_short_id, bool is_beacon,
 					 uint32_t phy_op_handle, pending_op_type_t op_type,
@@ -381,26 +383,32 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 	// LOG_INF("[TX] Full MAC PDU len %u", full_mac_pdu_len);
 	// LOG_HEXDUMP_INF(full_mac_pdu_to_send, full_mac_pdu_len, "Payload:");
 
-	/* The PDC payload IS the full MAC PDU. Copy it to the constructor buffer. */
-	if (full_mac_pdu_len > sizeof(g_phy_pdc_tx_constructor_buf_ctrl)) {
-		LOG_ERR("[TX] Full MAC PDU for PHY TX too large (%u > %zu)",
-			full_mac_pdu_len, sizeof(g_phy_pdc_tx_constructor_buf_ctrl));
-		if (ctx->pending_op_handle == phy_op_handle) {
-			ctx->pending_op_type = PENDING_OP_NONE;
-			ctx->pending_op_handle = 0;
-		}
-		return -ENOMEM;
-	}
-	if (full_mac_pdu_len > 0) {
-		memcpy(g_phy_pdc_tx_constructor_buf_ctrl, full_mac_pdu_to_send,
-		       full_mac_pdu_len);
-	}
-
-	memset(&g_phy_pcc_tx_constructor_buf, 0, sizeof(g_phy_pcc_tx_constructor_buf));
-
-	dect_mac_phy_ctrl_build_pcc_header(&g_phy_pcc_tx_constructor_buf, ctx,
+	/* Use the isolated PCC constructor buffer in the active context */
+	memset(&ctx->pcc_tx_constructor_buf, 0, sizeof(ctx->pcc_tx_constructor_buf));
+	dect_mac_phy_ctrl_build_pcc_header(&ctx->pcc_tx_constructor_buf, ctx,
 					   full_mac_pdu_len, target_receiver_short_id, is_beacon, mu_code,
 					   feedback, op_type);
+
+	/* ETSI MAC rules: pad PDC payload with 0x00 to exactly match the expected TBS length.
+	 * The Nordic modem PHY requires the payload to match TBS size (less CRC).
+	 */
+	uint16_t tbs_bytes = dect_mac_phy_ctrl_get_packet_length_bytes(
+		&ctx->pcc_tx_constructor_buf,
+		is_beacon ? 0 : 1,
+		mu_code,
+		ctx->own_phy_params.beta);
+
+	/* Zero-copy padding: modify the source buffer directly if there is space.
+	 * SDU buffers are allocated with CONFIG_DECT_MAC_PDU_MAX_SIZE capacity.
+	 */
+	if (tbs_bytes > full_mac_pdu_len && tbs_bytes <= CONFIG_DECT_MAC_PDU_MAX_SIZE) {
+		memset(full_mac_pdu_to_send + full_mac_pdu_len, 0,
+		       tbs_bytes - full_mac_pdu_len);
+		LOG_DBG("[TX] Zero-copy padding: %u -> %u bytes to match TBS", full_mac_pdu_len, tbs_bytes);
+		full_mac_pdu_len = tbs_bytes;
+	} else if (tbs_bytes > 0 && full_mac_pdu_len > tbs_bytes) {
+		LOG_WRN("[TX] Warning: MAC PDU %u bytes exceeds TBS limit %u", full_mac_pdu_len, tbs_bytes);
+	}
 
 	uint16_t arfcn = dect_mac_channel_num_to_arfcn(carrier);
 
@@ -416,9 +424,9 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 		.lbt_rssi_threshold_max = use_lbt ? ctx->config.rssi_threshold_min_dbm : 0,
 		.carrier = arfcn,
 		.lbt_period = use_lbt ? NRF_MODEM_DECT_LBT_PERIOD_MIN : 0,
-		.phy_header = &g_phy_pcc_tx_constructor_buf,
+		.phy_header = &ctx->pcc_tx_constructor_buf,
 		.bs_cqi = NRF_MODEM_DECT_PHY_BS_CQI_NOT_USED,
-		.data = (full_mac_pdu_len > 0) ? g_phy_pdc_tx_constructor_buf_ctrl : NULL,
+		.data = (full_mac_pdu_len > 0) ? full_mac_pdu_to_send : NULL,
 		.data_size = full_mac_pdu_len		
 	};
 
@@ -437,7 +445,7 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 		// printk("");
 
 		LOG_INF("[TX] PDC Payload (MAC PDU, len %u)", tx_params.data_size);
-		LOG_HEXDUMP_INF(tx_params.data, tx_params.data_size, "PDC Payload:");
+		LOG_HEXDUMP_DBG(tx_params.data, tx_params.data_size, "PDC Payload:");
 		// printk("  - PDC Payload (MAC PDU, len %u):", tx_params.data_size);
 		// for (int i = 0; i < tx_params.data_size; i++) {
 		// 	printk("%02x ", tx_params.data[i]);
@@ -454,11 +462,11 @@ int dect_mac_phy_ctrl_start_tx_assembled(uint32_t carrier,
 		dect_mac_phy_if_register_op_handle(phy_op_handle, ctx);
 
 		uint8_t pcc_pkt_len_field = is_beacon
-						  ? g_phy_pcc_tx_constructor_buf.hdr_type_1.packet_length
-						  : g_phy_pcc_tx_constructor_buf.hdr_type_2.packet_length;
+						  ? ctx->pcc_tx_constructor_buf.hdr_type_1.packet_length
+						  : ctx->pcc_tx_constructor_buf.hdr_type_2.packet_length;
 		uint8_t pcc_pkt_len_type = is_beacon
-						 ? g_phy_pcc_tx_constructor_buf.hdr_type_1.packet_length_type
-						 : g_phy_pcc_tx_constructor_buf.hdr_type_2.packet_length_type;
+						 ? ctx->pcc_tx_constructor_buf.hdr_type_1.packet_length_type
+						 : ctx->pcc_tx_constructor_buf.hdr_type_2.packet_length_type;
 
 		LOG_DBG("  - PCC PktLenField: %u, PktLenType: %u", pcc_pkt_len_field, pcc_pkt_len_type);
 		uint32_t num_units = pcc_pkt_len_field + 1;
@@ -490,7 +498,7 @@ int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_subslo
                                       enum nrf_modem_dect_phy_rssi_interval reporting_interval,
                                       uint32_t phy_op_handle, pending_op_type_t op_type) {
 
-	// LOG_DBG("[PHY_CTRL_RSSI_DBG] Entering dect_mac_phy_ctrl_start_rssi_scan...");
+	LOG_DBG("[PHY_CTRL_RSSI_DBG] Entering dect_mac_phy_ctrl_start_rssi_scan...");
 
     dect_mac_context_t *ctx = dect_mac_get_active_context();
     if (ctx->pending_op_type != PENDING_OP_NONE && ctx->pending_op_handle != phy_op_handle) {
@@ -515,10 +523,12 @@ int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_subslo
         .carrier = arfcn,
 #if IS_ENABLED(CONFIG_BOARD_NATIVE_SIM) || IS_ENABLED(CONFIG_ZTEST)
         /* Simulation treats duration as raw microseconds. Convert from Modem Ticks. */
-        .duration = (uint32_t)modem_ticks_to_us(duration_subslots, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ),
+        // .duration = (uint32_t)modem_ticks_to_us(duration_subslots, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ),
+		.duration = duration_subslots,
 #else
         /* Hardware treats duration as subslots. Convert from Modem Ticks. */
-        .duration = duration_subslots / get_subslot_duration_ticks_for_mu(ctx->own_phy_params.mu),
+        // .duration = duration_subslots / get_subslot_duration_ticks_for_mu(ctx->own_phy_params.mu),
+		.duration = duration_subslots,
 #endif
         .reporting_interval = reporting_interval
     };
@@ -538,6 +548,7 @@ int dect_mac_phy_ctrl_start_rssi_scan(uint32_t carrier, uint32_t duration_subslo
              ctx->pending_op_handle = 0;
         }
     }
+	LOG_INF("PHY_CTRL_RSSI: Exiting dect_mac_phy_ctrl_start_rssi_scan...");
     return ret;
 }
 
@@ -719,7 +730,7 @@ void dect_mac_phy_ctrl_calculate_pcc_params(size_t mac_pdc_payload_len_bytes,
 	// 	*out_packet_length_type_field = 0; /* Subslot mode */
 	}
 
-	LOG_DBG("PCC_CALC: Payload %zuB, mu_c %u, beta_c %u, MCS %u -> %u subslots (PCC len_f 0x%X, type %u)",
+	LOG_INF("PCC_CALC: Payload %zuB, mu_c %u, beta_c %u, MCS %u -> %u subslots (PCC len_f 0x%X, type %u)",
 		mac_pdc_payload_len_bytes, mu_code, beta_code, selected_mcs, num_subslots_needed,
 		*out_packet_length_field, *out_packet_length_type_field);
 }

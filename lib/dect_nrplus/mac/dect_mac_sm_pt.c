@@ -201,7 +201,7 @@ bool pt_get_next_tx_opportunity(uint64_t *out_start_time, uint16_t *out_carrier,
 		*out_start_time = sched->next_occurrence_modem_time;
 		*out_carrier = sched->channel;
 		*out_schedule = *sched;
-		LOG_DBG("  - out_start_time:%llu ticks ", sched->next_occurrence_modem_time);
+		LOG_INF("  - out_start_time:%llu ticks ", sched->next_occurrence_modem_time);
 		return true;
 	}
 	LOG_ERR("next_tx_opportunity: Return FALSE (earliest %llu ticks, next_occ %llu ticks)", 
@@ -483,20 +483,6 @@ static void pt_handle_phy_pdc_pt(const struct nrf_modem_dect_phy_pdc_event *pdc_
 	int pcc_slot = -1;
 
 
-	/* First, extract the FT's Long ID from the MAC header to check against the reject timer */
-	if (pdc_event->len < (sizeof(dect_mac_header_type_octet_t) + sizeof(dect_mac_beacon_header_t))) {
-		return; /* Not a valid beacon */
-	}
-	const dect_mac_beacon_header_t *beacon_hdr = (const dect_mac_beacon_header_t *)((uint8_t *)pdc_event->data + sizeof(dect_mac_header_type_octet_t));
-	uint32_t ft_long_id = sys_be32_to_cpu(beacon_hdr->transmitter_long_rd_id_be);
-
-	/* Check if we are in a reject backoff period for this FT */
-	if (ctx->role_ctx.pt.target_ft.long_rd_id == ft_long_id &&
-	    k_timer_remaining_get(&ctx->role_ctx.pt.reject_timer) > 0) {
-		LOG_DBG("PT_SCAN: Ignoring beacon from FT 0x%08X due to active reject timer.",
-			ft_long_id);
-		return;
-	}
 
 	/*
 	 * This is the point of synchronization. The PT adopts the FT's SFN and
@@ -516,6 +502,8 @@ static void pt_handle_phy_pdc_pt(const struct nrf_modem_dect_phy_pdc_event *pdc_
 				ctx->ft_sfn0_modem_time_anchor = event_modem_time - (cb_fields.sfn * FRAME_DURATION_TICKS);
 				ctx->current_sfn_at_anchor_update = cb_fields.sfn;
 				ctx->role_ctx.pt.current_ft_sfn = cb_fields.sfn;
+				/* Store raw beacon rx modem time for SFN-epoch-safe RACH scheduling */
+				ctx->role_ctx.pt.last_beacon_pcc_rx_modem_time = event_modem_time;
 				LOG_INF("Synchronized to FT. SFN is now %u, anchor time is %llu.",
 					ctx->role_ctx.pt.current_ft_sfn, ctx->ft_sfn0_modem_time_anchor);
 			}
@@ -800,8 +788,11 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 
        case PENDING_OP_PT_RACH_ASSOC_REQ:
 	   		LOG_DBG(" completed_op_type->PENDING_OP_PT_RACH_ASSOC_REQ ");
+	   		LOG_INF("PT_OP_DONE: RACH_ASSOC_REQ complete, Hdl %u, err %d (%s), state=%s",
+				event->handle, event->err, nrf_modem_dect_phy_err_to_str(event->err),
+				dect_mac_state_to_str(ctx->state));
             if (event->err == NRF_MODEM_DECT_PHY_SUCCESS) {
-                LOG_DBG(": Association Request TX successful (Hdl %u). Waiting for Response.", event->handle);
+                LOG_INF(": Association Request TX successful (Hdl %u). Waiting for Response.", event->handle);
 				// LOG_INF("Association Request TX successful (Hdl %u). Waiting for Response.", event->handle);
                 dect_mac_change_state(MAC_STATE_PT_WAIT_ASSOC_RESP);
 
@@ -827,6 +818,8 @@ static void pt_handle_phy_op_complete_internal(const struct nrf_modem_dect_phy_o
 				LOG_DBG(" case PENDING_OP_PT_RACH_ASSOC_REQ: Calling dect_mac_phy_ctrl_start_rx() ");
 				dect_mac_core_clear_pending_op();
 				
+				LOG_INF(" case PENDING_OP_PT_RACH_ASSOC_REQ: Calling dect_mac_phy_ctrl_start_rx() ");
+
                 int ret = dect_mac_phy_ctrl_start_rx(
                     ctx->role_ctx.pt.target_ft.operating_carrier,
                     rx_duration_modem_units,
@@ -1159,16 +1152,6 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 	memset(mac_pdc_payload_copy, 0, sizeof(mac_pdc_payload_copy));
 	uint16_t pdc_payload_len = pdc_event->len;
 
-	const uint8_t *data = pdc_event->data;
-	size_t len = 32; /* Adjust this based on your needs */
-
-	LOG_HEXDUMP_INF(data, len, "[RX] PDC Payload Hexdump:");
-	// LOG_DBG("[RX] PDC Payload Hexdump (first %zu bytes): ", len);
-	// for (size_t i = 0; i < len && i < pdc_payload_len; i++) {
-	// 	LOG_DBG("%02x ", data[i]);
-	// }
-	// LOG_DBG("");
-
 	if (pdc_payload_len > sizeof(mac_pdc_payload_copy)) {
 		LOG_ERR("PDC payload from PHY (%u bytes) too large for copy buffer (%zu). Discarding.",
 			pdc_payload_len, sizeof(mac_pdc_payload_copy));
@@ -1176,7 +1159,17 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 	}
 
 	memcpy(mac_pdc_payload_copy, pdc_event->data, pdc_payload_len);
+	LOG_HEXDUMP_INF(mac_pdc_payload_copy, pdc_payload_len, "[RX] PDC Payload Hexdump:");
 	// LOG_DBG(" First byte of received PDC payload: 0x%02X(%d)", mac_pdc_payload_copy[0], mac_pdc_payload_copy[0]);
+	
+	// const uint8_t *data = pdc_event->data;
+	// size_t len = 32; /* Adjust this based on your needs */
+
+	// LOG_DBG("[RX] PDC Payload Hexdump (first %zu bytes): ", len);
+	// for (size_t i = 0; i < len && i < pdc_payload_len; i++) {
+	// 	LOG_DBG("%02x ", data[i]);
+	// }
+	// LOG_DBG("");
 
 	dect_mac_header_type_octet_t mac_hdr_type_octet;
 	memcpy(&mac_hdr_type_octet, &mac_pdc_payload_copy[0], sizeof(dect_mac_header_type_octet_t));
@@ -1422,14 +1415,23 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 				ctx->role_ctx.pt.current_ft_sfn = cb_fields_parsed.sfn;
 				ctx->ft_sfn0_modem_time_anchor = (int64_t)pcc_reception_modem_time - ((int64_t)ctx->role_ctx.pt.current_ft_sfn * frame_duration_ticks);
 				ctx->current_sfn_at_anchor_update = ctx->role_ctx.pt.current_ft_sfn;
+				/* Store raw beacon rx time for epoch-safe RACH scheduling */
+				ctx->role_ctx.pt.last_beacon_pcc_rx_modem_time = pcc_reception_modem_time;
 
 				LOG_INF("Initial sync to FT 0x%08X. SFN is now %u, anchor time is %lld.",
 					ft_long_id, ctx->role_ctx.pt.current_ft_sfn, ctx->ft_sfn0_modem_time_anchor);
 
-				pt_process_identified_beacon_and_attempt_assoc(
-					ctx, &cb_fields_parsed, &rach_fields_parsed, ft_long_id,
-					ft_sender_short_id_from_pcc, assoc_pcc_event->rssi_2,
-					beacon_rx_carrier, pcc_reception_modem_time);
+				/* Check if this FT recently rejected us */
+				if (ctx->role_ctx.pt.rejected_ft_long_rd_id == ft_long_id &&
+				    k_timer_remaining_get(&ctx->role_ctx.pt.reject_timer) > 0) {
+					LOG_INF("PT_SCAN: Skipping association with FT 0x%08X due to active reject backoff timer.",
+						ft_long_id);
+				} else {
+					pt_process_identified_beacon_and_attempt_assoc(
+						ctx, &cb_fields_parsed, &rach_fields_parsed, ft_long_id,
+						ft_sender_short_id_from_pcc, assoc_pcc_event->rssi_2,
+						beacon_rx_carrier, pcc_reception_modem_time);
+				}
 
 			} else if (ctx->state == MAC_STATE_PT_ASSOCIATING || ctx->state == MAC_STATE_PT_WAIT_ASSOC_RESP) {
 				/* During association: Only sync if the beacon is from our TARGET FT */
@@ -1440,6 +1442,8 @@ static void pt_handle_phy_pdc_internal(const struct nrf_modem_dect_phy_pdc_event
 					ctx->ft_sfn0_modem_time_anchor = (int64_t)pcc_reception_modem_time - ((int64_t)absolute_sfn * frame_duration_ticks);
 					ctx->current_sfn_at_anchor_update = absolute_sfn;
 					ctx->role_ctx.pt.current_ft_sfn = absolute_sfn;
+					/* Store raw beacon rx time for epoch-safe RACH scheduling */
+					ctx->role_ctx.pt.last_beacon_pcc_rx_modem_time = pcc_reception_modem_time;
 					LOG_DBG("FT sync update. SFN %u (IE %u), Anchor %lld", 
 						ctx->role_ctx.pt.current_ft_sfn, cb_fields_parsed.sfn, ctx->ft_sfn0_modem_time_anchor);
 				}
@@ -1952,9 +1956,9 @@ static void pt_send_auth_initiate_action(void)
 		return;
 	}
 
-	LOG_INF("[PT_TX_EVIDENCE] Assembled Association Request PDU (len %u) for FT 0x%04X:",
+	LOG_DBG("[PT_TX_EVIDENCE] Assembled Association Request PDU (len %u) for FT 0x%04X:",
 	       pdu_len, ctx->role_ctx.pt.target_ft.short_rd_id);
-	LOG_HEXDUMP_INF(pdu_sdu->data, pdu_len, "[PT_TX_EVIDENCE] Assembled Association Request PDU");
+	LOG_HEXDUMP_DBG(pdu_sdu->data, pdu_len, "[PT_TX_EVIDENCE] Assembled Association Request PDU");
 	
 
 	uint32_t phy_op_handle;
@@ -2155,8 +2159,8 @@ static void pt_send_association_request_action(void)
                                          &pdu_len);
 
 
-		LOG_INF("Assembled Association Request PDU (len %u) before sending to PHY control:", pdu_len);
-		LOG_HEXDUMP_INF(pdu_sdu->data, pdu_len, "Assembled Association Request PDU");
+		LOG_DBG("Assembled Association Request PDU (len %u) before sending to PHY control:", pdu_len);
+		LOG_HEXDUMP_DBG(pdu_sdu->data, pdu_len, "Assembled Association Request PDU");
 
 	if (ret != 0) {
 		LOG_ERR("PT_SM_ASSOC_REQ: Failed to assemble Association Request PDU: %d. Restarting scan.", ret);
@@ -2199,50 +2203,87 @@ static void pt_send_association_request_action(void)
 	 * beyond our current time + minimum prep latency.  This mirrors the advance
 	 * loop in ft_schedule_rach_listen_action so both sides stay in sync.
 	 */
-	#if IS_ENABLED(CONFIG_ZTEST)
-	uint32_t target_sfn = ctx->role_ctx.pt.current_ft_sfn + 2;
-	#else
-	uint32_t target_sfn = ctx->role_ctx.pt.current_ft_sfn + 1;
-	#endif
+	// #if IS_ENABLED(CONFIG_ZTEST)
+	// uint32_t target_sfn = ctx->role_ctx.pt.current_ft_sfn + 2;
+	// #else
+	// uint32_t target_sfn = ctx->role_ctx.pt.current_ft_sfn + 1;
+	// #endif
 	uint16_t start_ss = ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields.start_subslot_index;
 	uint8_t rach_rep_interval = 1U << ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields.repetition_code;
 	if (rach_rep_interval == 0) rach_rep_interval = 1;
 
 	uint32_t min_prep_ticks = modem_us_to_ticks(
-		ctx->phy_latency.idle_to_active_rx_us + ctx->phy_latency.scheduled_operation_startup_us,
+		ctx->phy_latency.idle_to_active_rx_us + ctx->phy_latency.scheduled_operation_startup_us +
+		CONFIG_DECT_MAC_SCHEDULING_MARGIN_US,
 		NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+
+	/* Use an extrapolated 'now' based on Zephyr uptime to avoid relying on
+	 * stale last_known_modem_time.
+	 */
+	uint64_t estimated_now = dect_mac_estimate_modem_now(ctx);
+
+	uint32_t subslot_duration_ticks = get_subslot_duration_ticks_for_mu(ft_mu_for_rach_timing);
+	if (subslot_duration_ticks == 0) subslot_duration_ticks = get_subslot_duration_ticks_for_mu(0);
 
 	uint64_t rach_tx_time = 0;
 	uint8_t advance_guard = 0;
 
+	/*
+	 * EPOCH-SAFE RACH TIMING: Compute the target time directly from the
+	 * raw beacon PCC reception modem time, NOT from the SFN-derived anchor.
+	 *
+	 * The FT always opens RACH exactly 1 frame after its beacon frame start.
+	 * Since the PT's modem PCC event fires at the beacon frame start (subslot 0),
+	 * the first RACH opportunity is:
+	 *   rach_tx_time = beacon_rx_time + 1*frame_duration + start_ss*subslot_duration
+	 *
+	 * This eliminates the 8-bit SFN epoch ambiguity entirely. Without this fix,
+	 * a PT seeing truncated SFN 65 (= FT's absolute SFN 1601 mod 256) would
+	 * compute a RACH target 1536 frames (≈15.4s) too early.
+	 */
+	uint64_t beacon_rx_time = ctx->role_ctx.pt.last_beacon_pcc_rx_modem_time;
+	uint32_t target_sfn = ctx->role_ctx.pt.current_ft_sfn;
+
+	/* Start searching from SFN + 1. In simulation, we might want +2 for safety,
+	 * but the repetition loop will advance it anyway based on PrepTicks.
+	 */
 	if (ctx->ft_sfn0_modem_time_anchor != 0) {
 		rach_tx_time = calculate_target_modem_time(ctx,
-			ctx->ft_sfn0_modem_time_anchor,
-			0, /* anchor is for SFN 0 */
-			target_sfn, start_ss,
+			ctx->ft_sfn0_modem_time_anchor, 0, target_sfn, start_ss,
 			ft_mu_for_rach_timing, ctx->own_phy_params.beta);
 
-		/* Advance until we have enough lead time for the modem to prepare. */
-		while (ctx->last_known_modem_time > 0 &&
-		       rach_tx_time < (ctx->last_known_modem_time + min_prep_ticks) &&
+		/* Advance by repetition interval until we have enough lead time */
+		while (estimated_now > 0 &&
+		       rach_tx_time < (estimated_now + min_prep_ticks) &&
 		       advance_guard < 255) {
 			advance_guard++;
 			target_sfn += rach_rep_interval;
 			rach_tx_time = calculate_target_modem_time(ctx,
-				ctx->ft_sfn0_modem_time_anchor,
-				0, target_sfn, start_ss,
+				ctx->ft_sfn0_modem_time_anchor, 0, target_sfn, start_ss,
 				ft_mu_for_rach_timing, ctx->own_phy_params.beta);
-		}
-		if (advance_guard >= 255) {
-			LOG_ERR("PT_SM_ASSOC_REQ: Could not find a future RACH slot. Aborting.");
-			dect_mac_buffer_free(pdu_sdu);
-			dect_mac_sm_pt_start_operation();
-			return;
 		}
 	}
 
-	LOG_DBG("PT_SM_ASSOC_REQ: Scheduling RACH TX for SFN %u, SS %u. TargetStart:%llu",
-		target_sfn, start_ss, rach_tx_time);
+	LOG_INF("PT_RACH_TX: repetition_code %u (interval %u), starting at target SFN %u", 
+		ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields.repetition_code,
+		rach_rep_interval, target_sfn);
+
+
+	if (advance_guard >= 255) {
+		LOG_ERR("PT_SM_ASSOC_REQ: Could not find a future RACH slot. Aborting.");
+		dect_mac_buffer_free(pdu_sdu);
+		dect_mac_sm_pt_start_operation();
+		return;
+	}
+
+	/* Derive the logical SFN for logging only */
+	uint32_t target_sfn_log = (beacon_rx_time != 0 && FRAME_DURATION_TICKS > 0)
+		? (uint32_t)((rach_tx_time - beacon_rx_time) / FRAME_DURATION_TICKS)
+		: 0;
+
+	LOG_INF("PT_SM_ASSOC_REQ: RACH TX SFN+%u, SS %u, TargetStart:%llu | BeaconRx:%llu EstNow:%llu Guard:%u",
+		target_sfn_log, (unsigned)start_ss, (unsigned long long)rach_tx_time,
+		(unsigned long long)beacon_rx_time, (unsigned long long)estimated_now, (unsigned)advance_guard);
 
 
 	ret = dect_mac_phy_ctrl_start_tx_assembled(
@@ -2270,7 +2311,300 @@ static void pt_send_association_request_action(void)
 	}
 }
 
+// static void pt_send_association_request_action(void)
+// {
+// 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
+// 	LOG_DBG("Action started with context %p (Role: %s) State: %s",
+// 	       (void *)ctx, (ctx->role == MAC_ROLE_PT ? "PT" : "FT"), dect_mac_state_to_str(ctx->state));
+
+// 	if (!ctx->role_ctx.pt.target_ft.is_valid || !ctx->role_ctx.pt.target_ft.is_fully_identified) {
+// 		LOG_ERR("PT_SM_ASSOC_REQ: No valid or not fully identified target FT. Restarting scan.");
+// 		dect_mac_sm_pt_start_operation();
+// 		return;
+// 	}
+
+// 	// TODO: The correct channal needs to be collected from the beacon.
+// 	if (ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel == 0xFFFF) {
+// 			LOG_ERR("PT_SM_ASSOC_REQ: Updating Target FT RACH operating channel (0x%04X).", ctx->role_ctx.pt.target_ft.operating_carrier);
+// 			ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel = ctx->role_ctx.pt.target_ft.operating_carrier;
+// 	}
+	
+	
+// 	if (ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel == 0xFFFF) {
+// 		LOG_ERR("PT_SM_ASSOC_REQ: Target FT RACH operating channel invalid(0x%04X). Restarting scan.", ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel);
+// 		dect_mac_sm_pt_start_operation();
+// 		return;
+// 	}
+
+// 	uint8_t ft_max_rach_len_actual_units = ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields.max_rach_pdu_len_units + 1;
+// 	if (ft_max_rach_len_actual_units == 0 || ft_max_rach_len_actual_units > 128) { /* Max N-1 is 127 for 7 bits */
+// 		LOG_ERR("PT_SM_ASSOC_REQ: Target FT RACH max PDU length invalid (%u units). Cannot send. Restarting scan.", ft_max_rach_len_actual_units);
+// 		dect_mac_sm_pt_start_operation();
+// 		return;
+// 	}
+
+
+// #if IS_ENABLED(CONFIG_ZTEST)
+// // TODO: Fix as the field is not populatied correctly in some tests
+// 	// if (ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields.max_rach_pdu_len_units = 0 ){
+// 		// ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields.max_rach_pdu_len_units = 7;
+// 	if (ft_max_rach_len_actual_units < 2){
+// 		ft_max_rach_len_actual_units = 7;
+// 		LOG_ERR("PT_SM_ASSOC_REQ: Target FT RACH max PDU length invalid, ASSIGNED DEFAULT VALUE (%u units).", ft_max_rach_len_actual_units);
+// 	}
+// #endif
+
+// 	dect_mac_change_state(MAC_STATE_PT_ASSOCIATING);
+// 	ctx->role_ctx.pt.assoc_attempt_count++;
+
+// 	LOG_INF("PT_SM_ASSOC_REQ: Attempting Association Request to FT 0x%04X on RACH carrier %u (Attempt %u).",
+// 		ctx->role_ctx.pt.target_ft.short_rd_id,
+// 		ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel,
+// 		ctx->role_ctx.pt.current_assoc_retries + 1);
+
+// 	uint8_t sdu_area_buf[128];
+// 	dect_mac_assoc_req_ie_t assoc_req_fields;
+// 	memset(&assoc_req_fields, 0, sizeof(assoc_req_fields));
+// 	dect_mac_rd_capability_ie_t rd_cap_fields; /* PT's own capabilities */
+// 	memset(&rd_cap_fields, 0, sizeof(rd_cap_fields));
+
+// 	/* --- Populate Association Request IE Fields (dect_mac_assoc_req_ie_t) --- */
+// 	assoc_req_fields.setup_cause_val = ASSOC_CAUSE_INITIAL_ASSOCIATION;
+// 	assoc_req_fields.power_const_active = false;
+// 	assoc_req_fields.ft_mode_capable = IS_ENABLED(CONFIG_DECT_MAC_PT_CAN_BE_FT);
+
+// 	assoc_req_fields.number_of_flows_val = 0;
+
+// 	assoc_req_fields.harq_params_present = true;
+// 	assoc_req_fields.harq_processes_tx_val = CONFIG_DECT_MAC_PT_HARQ_TX_PROC_CODE & 0x07;
+// 	assoc_req_fields.max_harq_re_tx_delay_code = CONFIG_DECT_MAC_PT_HARQ_RETX_DELAY_PT_CODE & 0x1F;
+// 	assoc_req_fields.harq_processes_rx_val = CONFIG_DECT_MAC_PT_HARQ_RX_PROC_CODE & 0x07;
+// 	assoc_req_fields.max_harq_re_rx_delay_code = CONFIG_DECT_MAC_PT_HARQ_RERX_DELAY_PT_CODE & 0x1F;
+
+// 	// Use preprocessor directives to conditionally compile the code
+// 	// that depends on the conditional Kconfig options.
+// #if IS_ENABLED(CONFIG_DECT_MAC_PT_CAN_BE_FT)
+// 	assoc_req_fields.ft_mode_capable = true;
+// 		assoc_req_fields.ft_beacon_periods_octet_present = IS_ENABLED(CONFIG_DECT_MAC_PT_FT_MODE_SIGNAL_PERIODS);
+// 		if (assoc_req_fields.ft_beacon_periods_octet_present) {
+// 			assoc_req_fields.ft_network_beacon_period_code = CONFIG_DECT_MAC_PT_FT_MODE_NET_BEACON_PERIOD_CODE & 0x0F;
+// 			assoc_req_fields.ft_cluster_beacon_period_code = CONFIG_DECT_MAC_PT_FT_MODE_CLUS_BEACON_PERIOD_CODE & 0x0F;
+// 		}
+
+// 		assoc_req_fields.ft_next_channel_present = IS_ENABLED(CONFIG_DECT_MAC_PT_FT_MODE_NEXT_CHAN_PRESENT);
+// 		assoc_req_fields.ft_time_to_next_present = IS_ENABLED(CONFIG_DECT_MAC_PT_FT_MODE_TIME_TO_NEXT_PRESENT);
+// 		assoc_req_fields.ft_current_channel_present = false;
+
+// 		if (assoc_req_fields.ft_next_channel_present || assoc_req_fields.ft_time_to_next_present || assoc_req_fields.ft_current_channel_present) {
+// 			assoc_req_fields.ft_param_flags_octet_present = true;
+// 		} else {
+// 			assoc_req_fields.ft_param_flags_octet_present = false;
+// 		}
+
+// 		if (assoc_req_fields.ft_next_channel_present) {
+// 			assoc_req_fields.ft_next_cluster_channel_val = CONFIG_DECT_MAC_PT_FT_MODE_NEXT_CLUSTER_CHANNEL_VAL & 0x1FFF;
+// 		}
+// 		if (assoc_req_fields.ft_time_to_next_present) {
+// 			assoc_req_fields.ft_time_to_next_us_val = CONFIG_DECT_MAC_PT_FT_MODE_TIME_TO_NEXT_US_VAL;
+// 		}
+// #else
+// 		// This is the "PT-only" case.
+// 		assoc_req_fields.ft_mode_capable = false;
+// 		assoc_req_fields.ft_beacon_periods_octet_present = false;
+// 		assoc_req_fields.ft_param_flags_octet_present = false;
+// #endif
+
+// 	/* --- Populate PT's RD Capability IE Fields from common Kconfig values --- */
+// 	rd_cap_fields.release_version = CONFIG_DECT_MAC_CAP_RELEASE_VERSION;
+// 	rd_cap_fields.num_phy_capabilities = 1; /* We are sending one explicit set */
+
+// 	rd_cap_fields.supports_group_assignment = IS_ENABLED(CONFIG_DECT_MAC_CAP_SUPPORTS_GROUP_ASSIGNMENT);
+// 	rd_cap_fields.supports_paging = IS_ENABLED(CONFIG_DECT_MAC_CAP_SUPPORTS_PAGING);
+// 	rd_cap_fields.operating_modes_code = assoc_req_fields.ft_mode_capable
+// 						 ? DECT_MAC_OP_MODE_BOTH
+// 						 : DECT_MAC_OP_MODE_PT_ONLY;
+// 	rd_cap_fields.supports_mesh = IS_ENABLED(CONFIG_DECT_MAC_CAP_SUPPORTS_MESH);
+// 	rd_cap_fields.supports_sched_data = IS_ENABLED(CONFIG_DECT_MAC_CAP_SUPPORTS_SCHED_DATA);
+// 	rd_cap_fields.mac_security_modes_code = IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE)
+// 						    ? DECT_MAC_SECURITY_SUPPORT_MODE1
+// 						    : DECT_MAC_SECURITY_SUPPORT_NONE;
+
+// 	dect_mac_phy_capability_set_t *pt_phy_set0 = &rd_cap_fields.phy_variants[0];
+// 	pt_phy_set0->dlc_service_type_support_code = CONFIG_DECT_MAC_CAP_DLC_SERVICE_SUPPORT_CODE;
+// 	pt_phy_set0->rx_for_tx_diversity_code = CONFIG_DECT_MAC_CAP_RX_TX_DIVERSITY_CODE;
+// 	pt_phy_set0->mu_value = ctx->own_phy_params.mu;
+// 	pt_phy_set0->beta_value = ctx->own_phy_params.beta;
+// 	pt_phy_set0->max_nss_for_rx_code = CONFIG_DECT_MAC_CAP_MAX_NSS_RX_CODE;
+// 	pt_phy_set0->max_mcs_code = CONFIG_DECT_MAC_CAP_MAX_MCS_CODE;
+// 	pt_phy_set0->harq_soft_buffer_size_code = CONFIG_DECT_MAC_CAP_HARQ_BUFFER_CODE;
+// 	pt_phy_set0->num_harq_processes_code = CONFIG_DECT_MAC_CAP_NUM_HARQ_PROC_CODE;
+// 	pt_phy_set0->harq_feedback_delay_code = CONFIG_DECT_MAC_CAP_HARQ_FEEDBACK_DELAY_CODE;
+// 	pt_phy_set0->supports_dect_delay = IS_ENABLED(CONFIG_DECT_MAC_CAP_SUPPORTS_DECT_DELAY);
+// 	pt_phy_set0->supports_half_duplex = IS_ENABLED(CONFIG_DECT_MAC_CAP_SUPPORTS_HALF_DUPLEX);
+
+// 	/* --- Build SDU Area and MAC PDU --- */
+// 	int sdu_area_len = build_assoc_req_ies_area(sdu_area_buf, sizeof(sdu_area_buf),
+//                                                &assoc_req_fields, &rd_cap_fields);
+// 	if (sdu_area_len < 0) {
+// 		LOG_ERR("PT_SM_ASSOC_REQ: Failed to build Association Request SDU area: %d. Restarting scan.", sdu_area_len);
+// 		dect_mac_sm_pt_start_operation();
+// 		return;
+// 	}
+
+// 	uint8_t hdr_type_octet_byte = 0;
+// 	hdr_type_octet_byte |= (MAC_COMMON_HEADER_TYPE_UNICAST & 0x0F) << 0;
+// 	hdr_type_octet_byte |= (MAC_SECURITY_NONE & 0x03) << 4;
+	
+// 	dect_mac_unicast_header_t common_hdr;
+// 	increment_psn_and_hpc(ctx);
+// 	common_hdr.sequence_num_high_reset_rsv = SET_SEQ_NUM_HIGH_RESET_RSV((ctx->psn >> 8) & 0x0F, 1 /*reset*/);
+// 	common_hdr.sequence_num_low = ctx->psn & 0xFF;
+// 	common_hdr.transmitter_long_rd_id_be = sys_cpu_to_be32(ctx->own_long_rd_id);
+// 	common_hdr.receiver_long_rd_id_be = sys_cpu_to_be32(ctx->role_ctx.pt.target_ft.long_rd_id);
+
+// 	uint8_t *full_mac_pdu_for_phy_slab = NULL;
+// 	/* Use the public API to allocate the buffer */
+// 	mac_sdu_t *pdu_sdu = dect_mac_buffer_alloc(K_NO_WAIT);
+// 	if (!pdu_sdu) {
+// 		LOG_ERR("DATA_TX_INT: Failed to alloc full MAC PDU TX buffer");
+// 		return;
+// 	}
+// 	full_mac_pdu_for_phy_slab = pdu_sdu->data;
+// 	uint8_t * const full_mac_pdu_for_phy = full_mac_pdu_for_phy_slab;
+
+// 	uint16_t pdu_len;
+// 	int ret = dect_mac_phy_ctrl_assemble_final_pdu(full_mac_pdu_for_phy, CONFIG_DECT_MAC_PDU_MAX_SIZE,
+//                                          hdr_type_octet_byte, &common_hdr, sizeof(common_hdr),
+//                                          sdu_area_buf, (size_t)sdu_area_len,
+//                                          &pdu_len);
+
+
+// 		LOG_DBG("Assembled Association Request PDU (len %u) before sending to PHY control:", pdu_len);
+// 		LOG_HEXDUMP_DBG(pdu_sdu->data, pdu_len, "Assembled Association Request PDU");
+
+// 	if (ret != 0) {
+// 		LOG_ERR("PT_SM_ASSOC_REQ: Failed to assemble Association Request PDU: %d. Restarting scan.", ret);
+// 		dect_mac_buffer_free(pdu_sdu);
+// 		dect_mac_sm_pt_start_operation();
+// 		return;
+// 	}
+
+// 	/***************************************  UNUSED WARNING ***************************************/
+// 	uint8_t pcc_pkt_len_f, pcc_pkt_len_type_f; // , pcc_mcs_f_ignored
+// 	uint8_t rach_tx_mcs = 0;
+// 	uint8_t ft_mu_for_rach_timing = ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields.mu_value_for_ft_beacon;
+// 	if (ft_mu_for_rach_timing > 7) ft_mu_for_rach_timing = 0;
+// 	uint8_t ft_beta_for_rach_timing = 0;
+
+// 	dect_mac_phy_ctrl_calculate_pcc_params(pdu_len - sizeof(dect_mac_header_type_octet_t),
+//                                            ft_mu_for_rach_timing,
+//                                            ft_beta_for_rach_timing,
+//                                            &pcc_pkt_len_f, &rach_tx_mcs, &pcc_pkt_len_type_f);
+// 	uint32_t assoc_req_tx_duration_actual_units = pcc_pkt_len_f + 1;
+// 	if (pcc_pkt_len_type_f == 1) {
+// 		assoc_req_tx_duration_actual_units *= get_subslots_per_etsi_slot_for_mu(ft_mu_for_rach_timing);
+// 	}
+
+// 	if (assoc_req_tx_duration_actual_units > ft_max_rach_len_actual_units) {
+// 		LOG_ERR("PT_SM_ASSOC_REQ: Assembled AssocReq PDU needs %u units, but FT RACH max is %u. Cannot send. Restarting scan.",
+// 			assoc_req_tx_duration_actual_units, ft_max_rach_len_actual_units);
+// 		// k_mem_slab_free(&g_mac_sdu_slab, (void**)&full_mac_pdu_for_phy_slab);
+// 		dect_mac_buffer_free(pdu_sdu);
+// 		dect_mac_sm_pt_start_operation();
+// 		return;
+// 	}
+
+// 	uint32_t phy_op_handle;
+// 	dect_mac_rand_get((uint8_t *)&phy_op_handle, sizeof(phy_op_handle));
+
+// 	/* Find the next RACH opportunity that is sufficiently in the future.
+// 	 * Start from beacon_sfn + 1 (the first slot the FT listens on after its beacon)
+// 	 * and advance by the RACH repetition interval until the modem start time is
+// 	 * beyond our current time + minimum prep latency.  This mirrors the advance
+// 	 * loop in ft_schedule_rach_listen_action so both sides stay in sync.
+// 	 */
+// 	#if IS_ENABLED(CONFIG_ZTEST)
+// 	uint32_t target_sfn = ctx->role_ctx.pt.current_ft_sfn + 2;
+// 	#else
+// 	uint32_t target_sfn = ctx->role_ctx.pt.current_ft_sfn + 1;
+// 	#endif
+
+// 	uint16_t start_ss = ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields.start_subslot_index;
+// 	uint8_t rach_rep_interval = 1U << ctx->role_ctx.pt.current_ft_rach_params.advertised_beacon_ie_fields.repetition_code;
+// 	if (rach_rep_interval == 0) rach_rep_interval = 1;
+
+// 	uint32_t min_prep_ticks = modem_us_to_ticks(
+// 		ctx->phy_latency.idle_to_active_rx_us + ctx->phy_latency.scheduled_operation_startup_us +
+// 		CONFIG_DECT_MAC_SCHEDULING_MARGIN_US,
+// 		NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+
+// 	uint64_t rach_tx_time = 0;
+// 	uint8_t advance_guard = 0;
+
+// 	if (ctx->ft_sfn0_modem_time_anchor != 0) {
+// 		rach_tx_time = calculate_target_modem_time(ctx,
+// 			ctx->ft_sfn0_modem_time_anchor,
+// 			0, /* anchor is for SFN 0 */
+// 			target_sfn, start_ss,
+// 			ft_mu_for_rach_timing, ctx->own_phy_params.beta);
+
+// 		/* Advance until we have enough lead time for the modem to prepare. */
+// 		while (ctx->last_known_modem_time > 0 &&
+// 		       rach_tx_time < (ctx->last_known_modem_time + min_prep_ticks) &&
+// 		       advance_guard < 255) {
+// 			advance_guard++;
+// 			target_sfn += rach_rep_interval;
+// 			rach_tx_time = calculate_target_modem_time(ctx,
+// 				ctx->ft_sfn0_modem_time_anchor,
+// 				0, target_sfn, start_ss,
+// 				ft_mu_for_rach_timing, ctx->own_phy_params.beta);
+// 		}
+// 		if (advance_guard >= 255) {
+// 			LOG_ERR("PT_SM_ASSOC_REQ: Could not find a future RACH slot. Aborting.");
+// 			dect_mac_buffer_free(pdu_sdu);
+// 			dect_mac_sm_pt_start_operation();
+// 			return;
+// 		}
+// 	}
+
+// 	// /* Derive the logical SFN for logging only */
+// 	// uint32_t target_sfn_log = (beacon_rx_time != 0 && FRAME_DURATION_TICKS > 0)
+// 	// 	? (uint32_t)((rach_tx_time - beacon_rx_time) / FRAME_DURATION_TICKS)
+// 	// 	: 0;
+
+// 	// LOG_INF("PT_SM_ASSOC_REQ: RACH TX SFN+%u, SS %u, TargetStart:%llu | Guard:%u",
+// 	// 	target_sfn, (unsigned)start_ss, (unsigned long long)rach_tx_time,(unsigned)advance_guard);
+
+// 	LOG_INF("PT_SM_ASSOC_REQ: RACH TX SFN+%u, SS %u, TargetStart:%llu | BeaconRx:%llu EstNow:%llu Guard:%u",
+//         target_sfn, start_ss, rach_tx_time,
+//         ctx->role_ctx.pt.last_beacon_pcc_rx_modem_time,
+//         ctx->last_known_modem_time, advance_guard);
+
+// 	ret = dect_mac_phy_ctrl_start_tx_assembled(
+// 		ctx->role_ctx.pt.current_ft_rach_params.rach_operating_channel, full_mac_pdu_for_phy,
+// 		pdu_len, ctx->role_ctx.pt.target_ft.short_rd_id, false, phy_op_handle,
+// 		PENDING_OP_PT_RACH_ASSOC_REQ, true, rach_tx_time, ctx->role_ctx.pt.target_ft.peer_mu, NULL);
+
+// 	/* If the TX was successfully scheduled, the HARQ process now owns the buffer.
+// 	 * If it failed, we must free it here.
+// 	 */
+// 	if (ret != 0) {
+// 		LOG_ERR("PT_SM_ASSOC_REQ: Failed to schedule AssocReq TX: %d. Freeing buffer.", ret);
+// 		// dect_mac_buffer_free((mac_sdu_t *)full_mac_pdu_for_phy_slab);
+// 		dect_mac_buffer_free(pdu_sdu);
+// 		dect_mac_change_state(MAC_STATE_PT_RACH_BACKOFF);
+// 		uint32_t random_value;
+// 		dect_mac_rand_get((uint8_t *)&random_value, sizeof(random_value));
+// 		uint32_t backoff_ms = 20 + (random_value % 50);
+// 		k_timer_start(&ctx->rach_context.rach_backoff_timer, K_MSEC(backoff_ms), K_NO_WAIT);
+// 	} else {
+// 		LOG_INF("PT_SM_ASSOC_REQ: Association Request TX scheduled (Hdl %u) to FT 0x%04X.",
+// 			phy_op_handle, ctx->role_ctx.pt.target_ft.short_rd_id);
+// 		ctx->role_ctx.pt.rach_tx_count++;
+// 		/* The buffer is now owned by the HARQ process and will be freed on ACK/timeout. */
+// 	}
+// }
 
 
 static void pt_process_association_response_pdu(const uint8_t *mac_sdu_area_data,
@@ -2636,6 +2970,7 @@ static void pt_process_association_response_pdu(const uint8_t *mac_sdu_area_data
 		if (backoff_ms > 0) {
 			LOG_INF("Starting reject backoff timer for %u ms for FT 0x%08X",
 				backoff_ms, ctx->role_ctx.pt.target_ft.long_rd_id);
+			ctx->role_ctx.pt.rejected_ft_long_rd_id = ctx->role_ctx.pt.target_ft.long_rd_id;
 			k_timer_start(&ctx->role_ctx.pt.reject_timer, K_MSEC(backoff_ms), K_NO_WAIT);
 		}
 
@@ -2868,7 +3203,7 @@ static void pt_send_keep_alive_action(void)
 		return;
 	}
 
-	LOG_INF("PT_SM_KA: Sending Keep Alive to associated FT 0x%04X.",
+	LOG_DBG("PT_SM_KA: Sending Keep Alive to associated FT 0x%04X.",
 		ctx->role_ctx.pt.associated_ft.short_rd_id);
 
 	uint8_t sdu_area_buf[20];
@@ -3029,7 +3364,7 @@ static void pt_send_keep_alive_action(void)
 		LOG_ERR("PT_SM_KA: Failed to schedule Keep Alive TX: %d", ret);
 		dect_mac_buffer_free(pdu_sdu);
 	} else {
-		LOG_INF("PT_SM_KA: Keep Alive TX scheduled (Hdl %u).", phy_op_handle);
+		LOG_DBG("PT_SM_KA: Keep Alive TX scheduled (Hdl %u).", phy_op_handle);
 		/* The PHY control layer now owns the buffer, so we do not free it here.
 		 * It will be freed by the HARQ process upon ACK or final failure.
 		 * This fixes the memory leak.

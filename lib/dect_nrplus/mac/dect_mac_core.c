@@ -90,7 +90,7 @@ void dect_mac_reset_context(dect_mac_context_t *ctx)
 {
 	if (!ctx) return;
 
-	LOG_INF("Resetting MAC context (Role: %s)", 
+	LOG_DBG("Resetting MAC context (Role: %s)", 
 		(ctx->role == MAC_ROLE_PT ? "PT" : "FT"));
 
 	k_spinlock_key_t key = k_spin_lock(&ctx->lock);
@@ -111,6 +111,7 @@ void dect_mac_reset_context(dect_mac_context_t *ctx)
 		/* Reset PT contexts */
 		memset(&ctx->role_ctx.pt.target_ft, 0, sizeof(dect_mac_peer_info_t));
 		memset(&ctx->role_ctx.pt.associated_ft, 0, sizeof(dect_mac_peer_info_t));
+		ctx->role_ctx.pt.rejected_ft_long_rd_id = 0;
 		ctx->role_ctx.pt.current_assoc_retries = 0;
 
 		/* Reset statistics */
@@ -349,7 +350,6 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
 	 */
 
     ctx->role = role;
-    LOG_INF("No Long RD ID provisioned. Generating a random one. %d", provisioned_long_rd_id);
     if (provisioned_long_rd_id != 0 && provisioned_long_rd_id != 0xFFFFFFFFU) {
         ctx->own_long_rd_id = provisioned_long_rd_id;
     } else {
@@ -365,23 +365,32 @@ int dect_mac_core_init(dect_mac_role_t role, uint32_t provisioned_long_rd_id)
 		} while (ctx->own_long_rd_id == 0 || ctx->own_long_rd_id == 0xFFFFFFFFU);
     }
 
-    // Generate Short RD ID (random, not 0x0000 or 0xFFFF)
-	do {
-		dect_mac_rand_get((uint8_t *)&ctx->own_short_rd_id,
-				  sizeof(ctx->own_short_rd_id));
-	} while (ctx->own_short_rd_id == 0x0000 || ctx->own_short_rd_id == 0xFFFF);
+    // Generate Short RD ID (deterministic if long_id is provided, otherwise random)
+    if (provisioned_long_rd_id != 0 && provisioned_long_rd_id != 0xFFFFFFFFU) {
+        ctx->own_short_rd_id = (uint16_t)(provisioned_long_rd_id & 0xFFFF);
+        if (ctx->own_short_rd_id == 0x0000 || ctx->own_short_rd_id == 0xFFFF) {
+             ctx->own_short_rd_id = 0x3344; // Fallback to a safe non-zero value
+        }
+    } else {
+        do {
+            dect_mac_rand_get((uint8_t *)&ctx->own_short_rd_id,
+                      sizeof(ctx->own_short_rd_id));
+        } while (ctx->own_short_rd_id == 0x0000 || ctx->own_short_rd_id == 0xFFFF);
+    }
 
     // Derive Network ID (ETSI TS 103 636-4, 4.2.3.1)
-    // "first 24 MSB bits are used to identify a DECT-2020 network... The 8 LSB bits...are selected locally"
-    // "neither the 8 LSB bits are 0x00 nor the 24 MSB bits are 0x000000."
-    // Example: Use a fixed vendor part for MS24, LSB from Long RD ID.
-    uint32_t net_id_ms24_part = CONFIG_DECT_MAC_NETWORK_ID_MS24_PREFIX; // From Kconfig
-    if (net_id_ms24_part == 0x000000) net_id_ms24_part = 0x000001; // Ensure not all zeros
+    if (role == MAC_ROLE_FT) {
+        uint32_t net_id_ms24_part = CONFIG_DECT_MAC_NETWORK_ID_MS24_PREFIX;
+        if (net_id_ms24_part == 0x000000) net_id_ms24_part = 0x000001;
 
-    uint8_t  net_id_ls8_part = (uint8_t)(ctx->own_long_rd_id & 0xFF);
-    if (net_id_ls8_part == 0x00) net_id_ls8_part = 0x01; // Ensure not all zeros
+        uint8_t net_id_ls8_part = (uint8_t)(ctx->own_long_rd_id & 0xFF);
+        if (net_id_ls8_part == 0x00) net_id_ls8_part = 0x01;
 
-    ctx->network_id_32bit = (net_id_ms24_part << 8) | net_id_ls8_part;
+        ctx->network_id_32bit = (net_id_ms24_part << 8) | net_id_ls8_part;
+    } else {
+        /* PT starts with no network ID (will learn from beacon or be provisioned later) */
+        ctx->network_id_32bit = 0;
+    }
 
     LOG_INF("MAC Core Init: Role %s, LongID 0x%08X, ShortID 0x%04X, NetID 0x%08X",
             (role == MAC_ROLE_PT) ? "PT" : "FT",

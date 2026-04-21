@@ -96,13 +96,17 @@ void dect_mac_sm_ft_beacon_timer_expired_action(void) {
 
     if (ctx->pending_op_type == PENDING_OP_NONE ||
         ctx->pending_op_type == PENDING_OP_FT_RACH_RX_WINDOW) {
-        /* If a RACH listen window is open, cancel it — beacon TX has priority.
-         * The RX window will be re-armed immediately after the beacon completes. */
-        if (ctx->pending_op_type == PENDING_OP_FT_RACH_RX_WINDOW) {
-            LOG_INF("Beacon time — cancelling RACH RX window to send beacon.");
-            dect_mac_phy_ctrl_cancel_op(ctx->pending_op_handle);
-            dect_mac_core_clear_pending_op();
-        }
+        // /* If a RACH listen window is open, cancel it — beacon TX has priority.
+        //  * The RX window will be re-armed immediately after the beacon completes. */
+        // if (ctx->pending_op_type == PENDING_OP_FT_RACH_RX_WINDOW) {
+        //     LOG_INF("Beacon time — cancelling RACH RX window to send beacon.");
+        //     dect_mac_phy_ctrl_cancel_op(ctx->pending_op_handle);
+        //     dect_mac_core_clear_pending_op();
+        // }			
+        /* If a RACH listen window is open, it will be automatically handled/replaced 
+         * by the beacon TX if it truly overlaps. However, for legacy reasons and 
+         * explicit priority in simulation, we clear it here ONLY if we are actually 
+         * moving to beaconing. */
 		LOG_DBG(" sending beacon -> ft_send_beacon_action()");
         ft_send_beacon_action();
     } else {
@@ -110,7 +114,7 @@ void dect_mac_sm_ft_beacon_timer_expired_action(void) {
         LOG_WRN("Beacon time, but op %s pending. Skipping this beacon.",
                 dect_pending_op_to_str(ctx->pending_op_type));
         uint32_t short_delay_ms = ctx->config.ft_cluster_beacon_period_ms / 4;
-        if (short_delay_ms < 10) short_delay_ms = 10;
+        if (short_delay_ms < 20) short_delay_ms = 20;
         if (short_delay_ms == 0 && ctx->config.ft_cluster_beacon_period_ms > 0) {
             short_delay_ms = ctx->config.ft_cluster_beacon_period_ms;
         } else if (short_delay_ms == 0) {
@@ -932,6 +936,7 @@ static void ft_start_beaconing_actions(void) {
 		NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
 
 	dect_mac_rand_get((uint8_t *)&phy_rx_op_handle, sizeof(phy_rx_op_handle));
+	LOG_INF("Starting initial RX window for PT traffic beacon period:%d", rx_duration_modem_units);
 	int ret = dect_mac_phy_ctrl_start_rx(
 		ctx->role_ctx.ft.operating_carrier, rx_duration_modem_units,
 		NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, phy_rx_op_handle,
@@ -1291,8 +1296,7 @@ static void ft_add_group_res_alloc_to_beacon(dect_mac_context_t *ctx, uint8_t *b
  */
 static void ft_schedule_rach_listen_action(void) 
 {
-#if !IS_ENABLED(CONFIG_ZTEST)
-	LOG_DBG("STARTING...");
+	LOG_DBG("FT_RACH_LSN: STARTING...");
 
 	dect_mac_context_t *ctx = dect_mac_get_active_context();
 
@@ -1354,22 +1358,28 @@ static void ft_schedule_rach_listen_action(void)
         rach_resource_len_subslots *= subslots_per_etsi_slot_for_ft_mu;
     }
     if (rach_resource_len_subslots == 0) {
-        LOG_ERR("FT_RACH_LSN: Advertised RACH resource length is 0 subslots. Cannot listen.");
-		// /* Fallback for tests or simple configurations where no precise RACH resources are advertised.
-        //  * Start a continuous window spanning the full beacon period. */
-        // uint32_t fallback_ms = ctx->config.ft_cluster_beacon_period_ms;
-        // if (fallback_ms < 10) fallback_ms = 100;
-        // uint32_t fallback_ticks = modem_us_to_ticks((uint64_t)fallback_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
-        // uint32_t fallback_handle;
-        // dect_mac_rand_get((uint8_t *)&fallback_handle, sizeof(fallback_handle));
+		LOG_ERR("FT_RACH_LSN: Advertised RACH resource length is 0 subslots. Cannot listen.");
+        /* Fallback for tests or simple configurations where no precise RACH resources are advertised.
+         * We start a continuous window spanning the full beacon period to ensure association remains possible.
+         */
+        uint32_t fallback_ms = ctx->config.ft_cluster_beacon_period_ms;
+        if (fallback_ms < 10) fallback_ms = 100;
+        uint32_t fallback_ticks = modem_us_to_ticks((uint64_t)fallback_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
+        uint32_t fallback_handle;
+        dect_mac_rand_get((uint8_t *)&fallback_handle, sizeof(fallback_handle));
 
-        // LOG_DBG("FT_RACH_LSN: No precise RACH IE. Starting fallback continuous RX window (%u ms, Hdl %u).", 
-        //        fallback_ms, fallback_handle);
+        LOG_INF("FT_RACH_LSN: No precise RACH IE. Starting fallback continuous RX window (%u ms, Hdl %u) to allow association.", 
+               fallback_ms, fallback_handle);
 
-        // (void)dect_mac_phy_ctrl_start_rx(
-        //     ctx->role_ctx.ft.operating_carrier, fallback_ticks,
-        //     NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, fallback_handle,
-        //     ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW, 0);
+        /* TODO: Should the start time be imediate or delayed to the next SFN */
+		int ret = dect_mac_phy_ctrl_start_rx(
+            ctx->role_ctx.ft.operating_carrier, fallback_ticks,
+            NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, fallback_handle,
+            ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW, 0);
+        
+        if (ret != 0) {
+            LOG_ERR("FT_RACH_LSN: Failed to start fallback RX (err %d)", ret);
+        }
         return;
     }
 
@@ -1387,7 +1397,7 @@ static void ft_schedule_rach_listen_action(void)
             repetition_interval_frames = 1; 
         }
         
-        target_sfn_for_rach = ctx->role_ctx.ft.sfn; // Start search from current SFN
+        target_sfn_for_rach = ctx->role_ctx.ft.sfn + 1; // Start search from current SFN + 1
         uint16_t sfn_loop_guard = 0; // To prevent potential infinite loop with bad params
         while (sfn_loop_guard < 512) { // Allow searching a couple of epochs if needed
             int32_t frames_from_initial_adv = (int32_t)target_sfn_for_rach - (int32_t)sfn_of_initial_rach_advertisement;
@@ -1410,9 +1420,9 @@ static void ft_schedule_rach_listen_action(void)
             return;
         }
     } else { 
-        target_sfn_for_rach = ctx->role_ctx.ft.sfn; // Listen in current SFN
+        target_sfn_for_rach = ctx->role_ctx.ft.sfn + 1; // Listen in current SFN +1
         sfn_of_initial_rach_advertisement = ctx->role_ctx.ft.sfn_for_last_beacon_tx; 
-        LOG_DBG("FT_RACH_LSN: SFN not in RACH IE, targeting current SFN %u, repetition relative to beacon SFN %u",
+        LOG_DBG("FT_RACH_LSN: SFN not in RACH IE, targeting next SFN %u, repetition relative to beacon SFN %u",
                 target_sfn_for_rach, sfn_of_initial_rach_advertisement);				
     }
 
@@ -1438,7 +1448,9 @@ static void ft_schedule_rach_listen_action(void)
                                                                   ctx->own_phy_params.beta /* FT's own beta */);
     
     // Point 4: Duration
-    uint32_t listen_duration_subslots = rach_resource_len_subslots + 2; 
+	/* TODO: CHECK PADDING TO THE RACH RX DURATION*/
+	uint8_t rach_duration_padding = 10;
+    uint32_t listen_duration_subslots = rach_resource_len_subslots + rach_duration_padding; 
     uint32_t listen_duration_modem_units = listen_duration_subslots * ft_subslot_duration_ticks;
 
 	LOG_DBG("FT_RACH_LSN: listen_duration_subslots = %u, listen_duration_modem_units = %u", listen_duration_subslots, listen_duration_modem_units);
@@ -1457,7 +1469,8 @@ static void ft_schedule_rach_listen_action(void)
 
     // Point 6: "Too Soon" Handling
     uint32_t min_prep_time_ticks = modem_us_to_ticks(ctx->phy_latency.idle_to_active_rx_us +
-                                                     ctx->phy_latency.scheduled_operation_startup_us,
+                                                     ctx->phy_latency.scheduled_operation_startup_us +
+                                                     CONFIG_DECT_MAC_SCHEDULING_MARGIN_US,
                                                      NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
     uint8_t initial_target_sfn_for_log = target_sfn_for_rach;
     uint8_t advance_loop_guard = 0; // Prevent potential infinite loop in "too soon"
@@ -1501,18 +1514,14 @@ static void ft_schedule_rach_listen_action(void)
     }
 
 	LOG_DBG("JUST BEFORE CALLING THE PHY CTRL START RX ");
-    LOG_INF("FT_RACH_LSN: Scheduling RX on RACH C%u for SFN %u (initial target was SFN %u), StartSS %u (len %u actual units, %u subslots). RXDur:%u TU, TargetStart:%llu",
+    LOG_INF("FT_RACH_LSN: Scheduling RX on RACH C%u for SFN %u (initial target was SFN %u), StartSS %u (len %u actual units, %u subslots). RXDur:%u TU, Window:[%llu .. %llu] Anchor:%llu",
             rach_carrier, target_sfn_for_rach, initial_target_sfn_for_log,
             rach_adv_fields->start_subslot_index,
             rach_resource_len_actual_units, rach_resource_len_subslots,
-            listen_duration_modem_units, rach_listen_start_time);
+            listen_duration_modem_units,
+            rach_listen_start_time, rach_listen_start_time + listen_duration_modem_units,
+            ctx->ft_sfn0_modem_time_anchor);
 
-#if IS_ENABLED(CONFIG_ZTEST)
-	LOG_DBG("FT_RACH_LSN: ft_subslot_duration_ticks = %u", ft_subslot_duration_ticks);
-	LOG_DBG("FT_RACH_LSN: rach_adv_fields->start_subslot_index = %u", rach_adv_fields->start_subslot_index);
-	LOG_DBG("FT_RACH_LSN: rach_listen_start_time = %llu", rach_listen_start_time);
-	LOG_DBG("FT_RACH_LSN: ctx->last_known_modem_time = %llu", ctx->last_known_modem_time);
-#endif
 	uint32_t rach_win_handle;
 	dect_mac_rand_get((uint8_t *)&rach_win_handle, sizeof(rach_win_handle));
     int ret = dect_mac_phy_ctrl_start_rx(
@@ -1523,36 +1532,11 @@ static void ft_schedule_rach_listen_action(void)
         ctx->own_short_rd_id,
         PENDING_OP_FT_RACH_RX_WINDOW, rach_listen_start_time);
 
-
-// #if IS_ENABLED(CONFIG_ZTEST)
-// 	/* Re-arm the RACH RX window for the next beacon period so
-// 	* the FT can receive PT RACH requests and data traffic.
-// 	* The window spans one beacon period; the beacon timer handler
-// 	* cancels it when the next beacon needs to be sent. */
-// 	uint32_t rach_period_ms = ctx->config.ft_cluster_beacon_period_ms;
-// 	if (rach_period_ms < 10) { rach_period_ms = 100; }
-// 	uint32_t rach_win_ticks = modem_us_to_ticks(
-// 		(uint64_t)rach_period_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
-// 	uint32_t rach_win_handle;
-// 	dect_mac_rand_get((uint8_t *)&rach_win_handle, sizeof(rach_win_handle));
-// 	(void)dect_mac_phy_ctrl_start_rx(
-// 		ctx->role_ctx.ft.operating_carrier, 
-//  	rach_win_ticks,
-// 		NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, 
-// 		rach_win_handle,
-// 		ctx->own_short_rd_id, 
-// 		PENDING_OP_FT_RACH_RX_WINDOW, 
-// 		0);
-// 	/* Also trigger the IE-based RACH listen if parameters are configured */
-// #endif
-
-
 	LOG_DBG("[FT_PM] after the call to dect_mac_phy_ctrl_start_rx: ctx->pending_op_type:%d ", ctx->pending_op_type);
 
     if (ret != 0) {
         LOG_ERR("Failed to schedule RACH RX window (SFN %u): %d", target_sfn_for_rach, ret);
     }
-#endif /* #if IS_ENABLED(CONFIG_DECT_MAC_SECURITY_ENABLE) */
 }
 
 static void ft_link_supervision_timeout_handler(struct k_timer *timer_id) {
@@ -1635,18 +1619,18 @@ static int ft_find_and_init_peer_slot(uint32_t pt_long_id, uint16_t pt_short_id,
 
 static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_complete_event *event, pending_op_type_t completed_op_type) {
     dect_mac_context_t *ctx = dect_mac_get_active_context();
-	LOG_INF(" Handling OP_COMPLETE for op_type: %s", dect_pending_op_to_str(completed_op_type));
+	LOG_DBG(" Handling OP_COMPLETE for op_type: %s", dect_pending_op_to_str(completed_op_type));
 
     switch (completed_op_type) {
         case PENDING_OP_FT_INITIAL_SCAN:
 		// LOG_DBG("--- FT DCS OP_COMPLETE DEBUG ---");
 
-		// LOG_DBG("  - Current Scan Index (before inc): %u",
-		//        ctx->role_ctx.ft.dcs_current_channel_scan_index);
-		// LOG_DBG("  - Total Valid Channels to Scan: %u",
-		//        ctx->role_ctx.ft.dcs_num_valid_candidate_channels);		
-		// LOG_DBG("  > In PENDING_OP_FT_INITIAL_SCAN case. Scan index before inc: %u",
-		//        ctx->role_ctx.ft.dcs_current_channel_scan_index);		
+		LOG_DBG("  - Current Scan Index (before inc): %u",
+		       ctx->role_ctx.ft.dcs_current_channel_scan_index);
+		LOG_DBG("  - Total Valid Channels to Scan: %u",
+		       ctx->role_ctx.ft.dcs_num_valid_candidate_channels);		
+		LOG_DBG("  > In PENDING_OP_FT_INITIAL_SCAN case. Scan index before inc: %u",
+		       ctx->role_ctx.ft.dcs_current_channel_scan_index);		
 		
             if (ctx->role_ctx.ft.dcs_current_channel_scan_index < ctx->role_ctx.ft.dcs_num_valid_candidate_channels) {
                  LOG_INF("DCS Scan for channel %u (idx %u of %u) completed (err %d).",
@@ -1709,9 +1693,9 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
                     NRF_MODEM_DECT_PHY_RSSI_INTERVAL_24_SLOTS,
                     phy_op_handle, PENDING_OP_FT_INITIAL_SCAN);
                 if (ret != 0) {
-					LOG_ERR("  - LOGIC: Scheduling next scan FAILED with code %d.", ret);
-					LOG_ERR("  > FAILED to start next scan. Triggering carrier selection.");
-                    LOG_ERR("Failed to start next DCS scan (C%u): %d. Proceeding with selection based on current results.", next_scan_carrier, ret);
+					LOG_INF("  - LOGIC: Scheduling next scan FAILED with code %d.", ret);
+					LOG_INF("  > FAILED to start next scan. Triggering carrier selection.");
+                    LOG_INF("Failed to start next DCS scan (C%u): %d. Proceeding with selection based on current results.", next_scan_carrier, ret);
                     ctx->role_ctx.ft.dcs_scan_complete = true;
                     ft_select_operating_carrier_and_start_beaconing(NULL);
                 }
@@ -1739,65 +1723,29 @@ static void ft_handle_phy_op_complete_ft(const struct nrf_modem_dect_phy_op_comp
 
             LOG_DBG("[FT_SM_STATE] Before clear (BEACON): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));
 
-            // if (event->err == NRF_MODEM_DECT_PHY_SUCCESS) {
-            //     /* Establish the SFN 0 anchor based on the successful beacon TX.
-            //      * This ensures all subsequent beacons and RACH windows are perfectly aligned. */
-            //     ctx->ft_sfn0_modem_time_anchor = event->modem_time_of_event - 
-            //         ((uint64_t)ctx->role_ctx.ft.sfn_for_last_beacon_tx * FRAME_DURATION_TICKS);
-            //     ctx->current_sfn_at_anchor_update = 0;
-            // }
+            if (event->err == NRF_MODEM_DECT_PHY_SUCCESS) {
+                /* Establish the SFN 0 anchor based on the successful beacon TX.
+                 * This ensures all subsequent beacons and RACH windows are perfectly aligned. */
+                ctx->ft_sfn0_modem_time_anchor = ctx->last_known_modem_time - 
+                    ((uint64_t)ctx->role_ctx.ft.sfn_for_last_beacon_tx * FRAME_DURATION_TICKS);
+                ctx->current_sfn_at_anchor_update = 0;
+            }
 
             dect_mac_core_clear_pending_op();
             LOG_DBG("[FT_SM_STATE] After clear (BEACON): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));
 
             if (ctx->state == MAC_STATE_FT_BEACONING) {
-				#if IS_ENABLED(CONFIG_ZTEST)
-					/* Re-arm the RACH RX window for the next beacon period so
-					* the FT can receive PT RACH requests and data traffic.
-					* The window spans one beacon period; the beacon timer handler
-					* cancels it when the next beacon needs to be sent. */
-					uint32_t rach_period_ms = ctx->config.ft_cluster_beacon_period_ms;
-					if (rach_period_ms < 10) { rach_period_ms = 100; }
-					uint32_t rach_win_ticks = modem_us_to_ticks(
-						(uint64_t)rach_period_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
-					uint32_t rach_win_handle;
-					dect_mac_rand_get((uint8_t *)&rach_win_handle, sizeof(rach_win_handle));
-
-					LOG_DBG("FT_RACH_LSN: rach_win_ticks = %u, rach_win_handle = %u", rach_win_ticks, rach_win_handle);
-					LOG_DBG("FT_RACH_LSN: operating_carrier = %u", ctx->role_ctx.ft.operating_carrier);
-					LOG_DBG("FT_RACH_LSN: own_short_rd_id = %u", ctx->own_short_rd_id);
-					LOG_DBG("FT_RACH_LSN: PENDING_OP_FT_RACH_RX_WINDOW = %u", PENDING_OP_FT_RACH_RX_WINDOW);
-					LOG_DBG("FT_RACH_LSN: 0 = %u", 0);
-
-					(void)dect_mac_phy_ctrl_start_rx(
-						ctx->role_ctx.ft.operating_carrier, rach_win_ticks,
-						NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, rach_win_handle,
-						ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW, 0);
-					/* Also trigger the IE-based RACH listen if parameters are configured */
-				#endif
-				/* Always trigger the IE-based RACH listen if parameters are configured */
+				/* FT RACH listen is now exclusively handled by ft_schedule_rach_listen_action()
+				 * following the advertised IE parameters, even in simulation.
+				 */
+				/* Always trigger the IE-based RACH listen */
 				ft_schedule_rach_listen_action();
 
             }
             break;
         case PENDING_OP_FT_RACH_RX_WINDOW:
-            LOG_DBG("RACH RX window op completed (err %d). Re-arming for next period.", event->err);
-            LOG_DBG("[FT_SM_STATE] Before clear (RACH_RX): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));
+            LOG_DBG("RACH RX window op completed (err %d). Window closed.", event->err);
             dect_mac_core_clear_pending_op();
-            LOG_DBG("[FT_SM_STATE] After clear (RACH_RX): pending_op_type = %s", dect_pending_op_to_str(ctx->pending_op_type));
-            /* Re-arm the RX window for the next beacon period if still beaconing */
-            if (ctx->state == MAC_STATE_FT_BEACONING && ctx->pending_op_type == PENDING_OP_NONE) {
-                uint32_t rearm_period_ms = ctx->config.ft_cluster_beacon_period_ms;
-                if (rearm_period_ms < 10) { rearm_period_ms = 100; }
-                uint32_t rearm_duration_ticks = modem_us_to_ticks(
-                    (uint64_t)rearm_period_ms * 1000U, NRF_MODEM_DECT_MODEM_TIME_TICK_RATE_KHZ);
-                uint32_t rearm_handle;
-                dect_mac_rand_get((uint8_t *)&rearm_handle, sizeof(rearm_handle));
-                (void)dect_mac_phy_ctrl_start_rx(
-                    ctx->role_ctx.ft.operating_carrier, rearm_duration_ticks,
-                    NRF_MODEM_DECT_PHY_RX_MODE_CONTINUOUS, rearm_handle,
-                    ctx->own_short_rd_id, PENDING_OP_FT_RACH_RX_WINDOW, 0);
-            }
             break;
 
         case PENDING_OP_FT_ASSOC_RESP:
@@ -1948,8 +1896,8 @@ static void ft_handle_phy_rssi_ft(const struct nrf_modem_dect_phy_rssi_event *rs
                 }
             }
         }
-// LOG_INF("RSSI SUM Q71:%d , VALID SAMPLE Count:%d,  Avg RSSI:%d", rssi_sum_q71, valid_sample_count, ((rssi_sum_q71/2) / valid_sample_count));
-// LOG_INF("Busy Count:%d , Vaild Count:%d,  Busy:%d%%", busy_sample_count, valid_sample_count, (busy_sample_count / valid_sample_count) * 100);
+LOG_INF("RSSI SUM Q71:%d , VALID SAMPLE Count:%d,  Avg RSSI:%d", rssi_sum_q71, valid_sample_count, ((rssi_sum_q71/2) / valid_sample_count));
+LOG_INF("Busy Count:%d , Vaild Count:%d,  Busy:%d%%", busy_sample_count, valid_sample_count, (busy_sample_count / valid_sample_count) * 100);
         if (valid_sample_count > 0) {
             ctx->role_ctx.ft.dcs_candidate_rssi_avg[current_scan_idx] = rssi_sum_q71 / valid_sample_count;
             ctx->role_ctx.ft.dcs_candidate_busy_percent[current_scan_idx] = (busy_sample_count * 100) / valid_sample_count;
@@ -2524,7 +2472,7 @@ process_feedback_ft_pdc_secure_rx_path:; /* Label must have a statement */
 	} else if (mac_hdr_type_octet.mac_header_type == MAC_COMMON_HEADER_TYPE_DATA_PDU && pt_peer_ctx && pt_peer_ctx->is_valid) {
 		sender_long_id_final = pt_peer_ctx->long_rd_id;
 
-		LOG_DBG("[FT_DATA_PASS_UP_DBG] Passing SDU to data path (len %zu):", sdu_area_len_for_data_path);
+		LOG_INF("[FT_DATA_PASS_UP_DBG] Passing SDU to data path (len %zu):", sdu_area_len_for_data_path);
 		// LOG_HEXDUMP_DBG(sdu_area_for_data_path, sdu_area_len_for_data_path, "FT_DATA_PASS_UP_DBG: SDU");
 		for (int i=0; i<sdu_area_len_for_data_path && i < 64; i++) { LOG_DBG("%02x ", sdu_area_for_data_path[i]); }
 		LOG_DBG("");
@@ -2934,8 +2882,8 @@ static void ft_send_association_response_action(
 
 
 	uint16_t final_tx_pdu_len = pdu_len;
-	LOG_DBG("Assembled PDU (len %u) to be sent:", final_tx_pdu_len);
-	LOG_HEXDUMP_DBG(pdu_sdu->data, final_tx_pdu_len, "PDU");
+	LOG_INF("Assembled PDU (len %u) to be sent:", final_tx_pdu_len);
+	LOG_HEXDUMP_INF(pdu_sdu->data, final_tx_pdu_len, "PDU");
 	// for (int i = 0; i < final_tx_pdu_len; i++) {
 	// 	LOG_DBG("%02x ", pdu_sdu->data[i]);
 	// }
@@ -3311,6 +3259,7 @@ static void ft_send_reject_response_action(uint32_t pt_long_id, uint16_t pt_shor
 		LOG_ERR("FT_REJECT_SEND: PDU assembly failed: %d", ret);
 		dect_mac_buffer_free(pdu_sdu);
 	}
+	LOG_INF("FT_REJECT_SEND: Finished...");
 }
 /**/
 

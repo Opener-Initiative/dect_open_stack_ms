@@ -93,7 +93,6 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
             next_timer_expiry_us = MIN(next_timer_expiry_us, now_us + k_ticks_to_us_floor64(remaining_ticks));
         }
         /* Add checks for any other active timers here */
-        
         uint64_t next_event_time = MIN(next_phy_event_time, next_timer_expiry_us);
         
         printk("[SIM_TIME_ADV_DBG] now_us: %llu, next_phy_event_time: %llu, next_timer_expiry_us: %llu, next_event_time: %llu, ,end_time_us: %llu\n",
@@ -199,6 +198,8 @@ static void stack_integration_before(void *fixture)
     mock_phy_set_active_context(&g_phy_ctx_ft);
     err = dect_mac_core_init(MAC_ROLE_FT, 0x11223344);
     zassert_ok(err, "FT dect_mac_core_init failed");
+    g_mac_ctx_ft.config.ft_cluster_beacon_period_ms = 1000;
+    g_mac_ctx_ft.config.keep_alive_period_ms = 1000;
 
     g_mac_ctx_pt.network_id_32bit = g_mac_ctx_ft.network_id_32bit;
 

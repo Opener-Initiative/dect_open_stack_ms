@@ -53,7 +53,8 @@ static size_t g_num_all_phys = 0;
 static void init_rf_environment(void);
 static void mock_phy_send_event(const struct nrf_modem_dect_phy_event *event);
 static int find_free_timeline_slot(mock_phy_context_t *ctx);
-static uint64_t get_timeline_end_time(mock_phy_context_t *ctx);
+// static uint64_t get_timeline_end_time(mock_phy_context_t *ctx);
+static uint64_t get_timeline_end_time(mock_phy_context_t *ctx, uint64_t current_time_us);
 
 static uint16_t mock_arfcn_to_index(uint16_t arfcn)
 {
@@ -212,14 +213,14 @@ int mock_phy_queue_rx_packet(mock_phy_context_t *dest_ctx, const mock_rx_packet_
             dest_ctx->rx_queue[i] = *packet;
             dest_ctx->rx_queue[i].active = true;
 			
-			size_t len = 32; /* Adjust this based on your needs */
+			size_t len = 128; /* Adjust this based on your needs */
 			printk("[MOCK_PHY_QUEUE_RX] PHY_QUEUE_RX_PACKET Payload Hexdump (first %zu bytes): \t", len);
 			for (size_t j = 0; j < len && j < packet->pdc_len; j++) {
 				printk("%02x ", packet->pdc_payload[j]);
 			}
 			printk("\n");
 
-			printk("[MOCK_PHY_QUEUE_RX] PHY_QUEUE_RX_QUEUE Payload Hexdump (first %zu bytes): \t", len);			
+            printk("[MOCK_PHY_QUEUE_RX] PHY_QUEUE_RX_QUEUE Payload Hexdump (first %zu bytes): \t", len);			
 			for (size_t j = 0; j < len && j < packet->pdc_len; j++) {
 				printk("%02x ", dest_ctx->rx_queue[i].pdc_payload[j]);
 			}			
@@ -248,10 +249,14 @@ uint64_t mock_phy_get_next_event_time(mock_phy_context_t *const phy_contexts[],
 			}            
 
             /* For discrete-event simulation, we only care about future events. 
-             * end_time_us == current_time means the event is happening now or just finished.
              */
-            if (ctx->timeline[j].active && ctx->timeline[j].end_time_us > current_time) {
-                next_event_time = MIN(next_event_time, ctx->timeline[j].end_time_us);
+            if (ctx->timeline[j].active) {
+                if (ctx->timeline[j].start_time_us > current_time) {
+                    next_event_time = MIN(next_event_time, ctx->timeline[j].start_time_us);
+                }
+                if (ctx->timeline[j].end_time_us > current_time && ctx->timeline[j].end_time_us != UINT64_MAX) {
+                    next_event_time = MIN(next_event_time, ctx->timeline[j].end_time_us);
+                }
             }
         }
 
@@ -490,8 +495,9 @@ int nrf_modem_dect_phy_tx(const struct nrf_modem_dect_phy_tx_params *params)
         return -ENOMEM;
     }
 
+    uint64_t now_up_us = k_ticks_to_us_floor64(k_uptime_ticks());
     uint64_t start_time_us = (params->start_time == 0) ?
-                  (MAX(k_ticks_to_us_floor64(k_uptime_ticks()), get_timeline_end_time(g_active_phy_ctx)) + 1000) :
+                  (MAX(now_up_us, get_timeline_end_time(g_active_phy_ctx, now_up_us)) + 1000) :
                   params->start_time;
 
     /* Simplified duration estimation for simulation: 
@@ -534,7 +540,7 @@ int nrf_modem_dect_phy_tx(const struct nrf_modem_dect_phy_tx_params *params)
             
             mock_rx_packet_t rx_pkt = {
                 .active = true,
-                .reception_time_us = start_time_us + 100, /* 100us prop delay */
+                .reception_time_us = start_time_us + 1500, /* 1500us prop delay for simulation stability */
                 .duration_us = duration_us,               /* Stored for collision detection */
                 .carrier = params->carrier,
                 .pcc_data = {
@@ -568,8 +574,9 @@ int nrf_modem_dect_phy_rx(const struct nrf_modem_dect_phy_rx_params *params)
         return -ENOMEM;
     }
 
+    uint64_t now_up_us_rx = k_ticks_to_us_floor64(k_uptime_ticks());
     uint64_t start_time_us = (params->start_time == 0) ?
-                  (MAX(k_ticks_to_us_floor64(k_uptime_ticks()), get_timeline_end_time(g_active_phy_ctx)) + 1000) :
+                  (MAX(now_up_us_rx, get_timeline_end_time(g_active_phy_ctx, now_up_us_rx)) + 1000) :
                   params->start_time;
 
     uint64_t end_time_us = (params->duration == 0) ? UINT64_MAX :
@@ -617,10 +624,11 @@ int nrf_modem_dect_phy_rssi(const struct nrf_modem_dect_phy_rssi_params *params)
     }
     printk("[MOCK_PHY_RSSI] find_free_timeline_slot returned: %d\n", slot);
 
+    uint64_t now_up_us_rssi = k_ticks_to_us_floor64(k_uptime_ticks());
     uint64_t start_time_us = 
         (params->start_time == 0) ?
-				     MAX(k_ticks_to_us_floor64(k_uptime_ticks()),
-					 get_timeline_end_time(g_active_phy_ctx)) :
+				     MAX(now_up_us_rssi,
+					 get_timeline_end_time(g_active_phy_ctx, now_up_us_rssi)) :
 				     params->start_time;
 
     printk("[MOCK_PHY_RSSI] Calculating start time...\n");
@@ -759,14 +767,19 @@ static int find_free_timeline_slot(mock_phy_context_t *ctx)
     return -1;
 }
 
-static uint64_t get_timeline_end_time(mock_phy_context_t *ctx)
+static uint64_t get_timeline_end_time(mock_phy_context_t *ctx, uint64_t current_time_us)
 {
     uint64_t latest_end = 0;
     for (int i = 0; i < MOCK_TIMELINE_MAX_EVENTS; i++) {
         if (ctx->timeline[i].active && ctx->timeline[i].end_time_us != UINT64_MAX) {
-            latest_end = MAX(latest_end, ctx->timeline[i].end_time_us);
+            /* Only consider operations that overlap with 'now' or start very soon (within 1ms)
+             * This prevents future scheduled beacons from pushing ASAP operations out by hundreds of ms.
+             */
+            if (ctx->timeline[i].start_time_us <= current_time_us + 1000) {
+                latest_end = MAX(latest_end, ctx->timeline[i].end_time_us);
+            }
         }
     }
-    printk("    -  latest_end:%lluus \n", latest_end);
+    // printk("    -  latest_end:%lluus \n", latest_end);
     return latest_end;
 }

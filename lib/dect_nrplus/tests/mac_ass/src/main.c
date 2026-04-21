@@ -349,6 +349,9 @@ static void dect_mac_assoc_before(void *fixture)
     /* Configure test-specific timing */
     g_mac_ctx_pt.config.keep_alive_period_ms = 1000;  // 1 second for testing
     g_mac_ctx_pt.config.ft_cluster_beacon_period_ms = 1000;    // 1 second for testing
+
+    g_mac_ctx_ft.config.keep_alive_period_ms = 1000;
+    g_mac_ctx_ft.config.ft_cluster_beacon_period_ms = 1000;
     
     /* Register state change callback */
     dect_mac_register_state_change_cb(test_mac_state_change_cb);

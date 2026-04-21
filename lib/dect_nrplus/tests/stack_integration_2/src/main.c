@@ -31,6 +31,7 @@ static mock_phy_context_t g_phy_ctx_ft;
 /* Peer lists for the mock PHY simulation */
 static mock_phy_context_t *pt_peers[] = { &g_phy_ctx_ft };
 static mock_phy_context_t *ft_peers[] = { &g_phy_ctx_pt };
+
 static mock_phy_context_t *all_phys[] = { &g_phy_ctx_pt, &g_phy_ctx_ft };
 
 extern int dect_mac_test_inject_event_internal(struct dect_mac_context *ctx,
@@ -91,8 +92,7 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
             remaining_ticks = k_timer_remaining_get(&g_mac_ctx_ft.role_ctx.ft.beacon_timer);
             next_timer_expiry_us = MIN(next_timer_expiry_us, now_us + k_ticks_to_us_floor64(remaining_ticks));
         }
-        /* Add checks for any other active timers here */
-        
+        /* Add checks for any other active timers here */        
         uint64_t next_event_time = MIN(next_phy_event_time, next_timer_expiry_us);
         
         printk("[SIM_TIME_ADV_DBG] now_us: %llu, next_phy_event_time: %llu, next_timer_expiry_us: %llu, next_event_time: %llu, ,end_time_us: %llu\n",
@@ -102,7 +102,7 @@ static bool run_simulation_until(uint64_t timeout_us, bool (*break_cond_func)(vo
         uint64_t time_to_advance_us;
         if (next_event_time == UINT64_MAX || next_event_time > end_time_us) {
             /* No more events or next event is past our total timeout. Sleep for a default tick. */
-            time_to_advance_us = MIN(6912, end_time_us - now_us);
+            time_to_advance_us = MIN(5000, end_time_us - now_us);
         } else if (next_event_time > now_us) {
             /* Event is in the future. Sleep until that exact time. */
             time_to_advance_us = next_event_time - now_us;
@@ -193,12 +193,20 @@ static void stack_integration_before(void *fixture)
     err = dect_mac_core_init(MAC_ROLE_PT, 0xAABBCCDD);
     zassert_ok(err, "PT dect_mac_core_init failed");
 
+    /* Configure FT timing BEFORE init so it is reflected in advertised RACH IEs */
+    g_mac_ctx_ft.config.ft_cluster_beacon_period_ms = 2000;
+    g_mac_ctx_ft.config.keep_alive_period_ms = 1000;
+    g_mac_ctx_ft.config.rach_response_window_ms = 200;
+
+    /* Initialize MAC core as FT */
     dect_mac_test_set_active_context(&g_mac_ctx_ft);
     mock_phy_set_active_context(&g_phy_ctx_ft);
     err = dect_mac_core_init(MAC_ROLE_FT, 0x11223344);
     zassert_ok(err, "FT dect_mac_core_init failed");
 
     g_mac_ctx_pt.network_id_32bit = g_mac_ctx_ft.network_id_32bit;
+    g_mac_ctx_pt.config.rach_response_window_ms = 1000;
+    g_mac_ctx_pt.config.max_assoc_retries = 10;
 
 	dect_mac_test_set_active_context(&g_mac_ctx_pt);
 	mock_phy_set_active_context(&g_phy_ctx_pt);
@@ -468,6 +476,8 @@ ZTEST(stack_integration, test_4_large_packet)
     
     printk("\n=== TEST: Large Packet (within limits) ===\n");
     
+    // run_simulation_until(1000, NULL);
+
     /* Fill with pattern */
     for (int i = 0; i < sizeof(large_data); i++) {
         large_data[i] = i & 0xFF;
@@ -475,19 +485,24 @@ ZTEST(stack_integration, test_4_large_packet)
     }
     
     printk("Sending %zu byte packet (max allowed)\n", sizeof(large_data));
-    
+    dect_mac_test_set_active_context(&g_mac_ctx_pt);
+    mock_phy_set_active_context(&g_phy_ctx_pt);
+
     /* Send - this should work if within pool limits */
 	printk("[TEST] 1. Send - this should work if within pool limits\n");
     ret = dect_cvg_send(flow_id, g_mac_ctx_ft.own_long_rd_id, 
                         large_data, sizeof(large_data));
     zassert_ok(ret, "dect_cvg_send failed for max-sized packet");
     
-    /* Wait for transmission */
-	// printk("[TEST] 2. Wait for transmission\n");
-    // run_simulation_until(10000, ft_phy_received_packet);
+    /* Wait for FT PHY to receive */
+    printk("[TEST] 2. Waiting for FT to receive packet...\n");
+    zassert_true(run_simulation_until(500000, ft_phy_received_packet), 
+                "FT PHY did not receive PING");
     
     /* Receive and verify */
 	printk("[TEST] 3. Receive and verify\n");
+    dect_mac_test_set_active_context(&g_mac_ctx_ft);
+    mock_phy_set_active_context(&g_phy_ctx_ft);    
     ret = dect_cvg_receive(rx_buf, &rx_len, K_NO_WAIT);
     
     int attempts = 0;
@@ -499,7 +514,7 @@ ZTEST(stack_integration, test_4_large_packet)
             attempts++;
         }
         if (attempts > 50) {
-            zassert_true(false, "Timeout waiting for PT to receive PONG");
+            zassert_true(false, "Timeout waiting for PT to receive packet");
         }
     } while (ret == -EAGAIN);
 
@@ -579,17 +594,22 @@ ZTEST(stack_integration, test_6_multiple_packets)
     /* Send all packets from PT */
     printk("[TEST] 2. Send all packets from PT\n");
     dect_mac_test_set_active_context(&g_mac_ctx_pt);
+    mock_phy_set_active_context(&g_phy_ctx_pt);
     for (int i = 0; i < NUM_PACKETS; i++) {
         dect_cvg_send(flow_id, g_mac_ctx_ft.own_long_rd_id, 
                      tx_data[i], strlen(tx_data[i]) + 1);
     }
     
     /* Run simulation to allow all packets to be transmitted */
-    run_simulation_until(10000, NULL);
+    /* Wait for FT PHY to receive */
+    printk("[TEST] 2. Waiting for FT to receive packet...\n");
+    zassert_true(run_simulation_until(500000, ft_phy_received_packet), 
+                "FT PHY did not receive packets");
     
     /* Receive and verify all packets at FT */
     printk("[TEST] 3. Receive and verify all packets at FT\n");
     dect_mac_test_set_active_context(&g_mac_ctx_ft);
+    mock_phy_set_active_context(&g_phy_ctx_ft);
     
     printk("[TEST] 3.1. Run simulation to allow all packets to be received\n");
     run_simulation_until(10000, NULL);
@@ -657,14 +677,23 @@ ZTEST(stack_integration, test_7_segmentation)
         large_data[i] = i % 256;
     }
     
+    dect_mac_test_set_active_context(&g_mac_ctx_pt);
+    mock_phy_set_active_context(&g_phy_ctx_pt);
     /* This should work if DLC segmentation is working */
     ret = dect_cvg_send(flow_id, g_mac_ctx_ft.own_long_rd_id, 
                         large_data, sizeof(large_data));
     zassert_ok(ret, "[TEST test_segmentation] dect_cvg_send failed - segmentation may not be supported");
     
-    /* Wait longer for multiple segments */
-    run_simulation_until(10000, ft_phy_received_packet);
+    /* Wait for FT PHY to receive */
+    printk("[TEST] 2. Waiting for FT to receive packet...\n");
+    zassert_true(run_simulation_until(500000, ft_phy_received_packet), 
+                "FT PHY did not receive packets");
     
+    /* FT receives packets */
+    printk("[TEST] 3. FT attempting to receive packets...\n");
+    dect_mac_test_set_active_context(&g_mac_ctx_ft);
+    mock_phy_set_active_context(&g_phy_ctx_ft);
+
     /* Receive reassembled packet */
     int attempts = 0;
 	int waiting = 10000;
@@ -675,7 +704,7 @@ ZTEST(stack_integration, test_7_segmentation)
             attempts++;
         }
         if (attempts > 50) {
-            zassert_true(false, "Timeout waiting for PT to receive PONG");
+            zassert_true(false, "Timeout waiting for FT to receive packets");
         }
     } while (ret == -EAGAIN);
     zassert_equal(rx_len, sizeof(large_data), 

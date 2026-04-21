@@ -14,7 +14,7 @@
 
 #ifndef MAX_MAC_SDU_BUFFERS_CONFIG
     #if IS_ENABLED(CONFIG_ZTEST) && IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)
-    #define MAX_MAC_SDU_BUFFERS_CONFIG 64
+    #define MAX_MAC_SDU_BUFFERS_CONFIG 128
     #else
     #define MAX_MAC_SDU_BUFFERS_CONFIG 48
     #endif
@@ -439,6 +439,7 @@ typedef struct {
     // struct k_fifo handover_tx_holding_fifo; // OLD FIFO logic
     struct k_queue handover_tx_holding_queue;
 	struct k_timer reject_timer;
+	uint32_t rejected_ft_long_rd_id; /* Long RD ID of FT that last rejected us */
 	bool release_pending;
 
 	uint8_t current_assoc_retries;
@@ -446,6 +447,10 @@ typedef struct {
 	uint16_t assoc_attempt_count;
 	uint16_t rach_tx_count;
 	uint32_t current_ft_sfn;
+	/** Modem time (PT clock) at which the last FT beacon PCC was received.
+	 *  Used by RACH scheduler to compute target time directly from the
+	 *  beacon reception tick, avoiding the 8-bit SFN epoch ambiguity. */
+	uint64_t last_beacon_pcc_rx_modem_time;
 } pt_context_t;
 
 
@@ -580,8 +585,10 @@ typedef struct dect_mac_context {
 
     dect_mac_own_phy_params_t own_phy_params; // <<-- NEW FIELD
 
-    uint32_t pending_op_handle;
-    pending_op_type_t pending_op_type;
+  	/* PHY Interface & Pending Operations */
+	union nrf_modem_dect_phy_hdr pcc_tx_constructor_buf; /**< Staging buffer for PCC header building */
+	uint32_t pending_op_handle;
+	pending_op_type_t pending_op_type;
 
     uint16_t current_rx_op_carrier; // Carrier of the currently active RX operation
     
