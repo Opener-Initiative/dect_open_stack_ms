@@ -1,0 +1,4 @@
+zephyr_include_directories(lib/dect_nrplus/include)
+
+add_subdirectory_ifdef(CONFIG_NET_L2_DECT_NRPLUS drivers/net/dect_nrplus)
+add_subdirectory_ifdef(CONFIG_DECT_NRPLUS_STACK lib)
