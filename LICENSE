@@ -1,0 +1,67 @@
+PROPRIETARY AND CONFIDENTIAL SOURCE CODE LICENSE AGREEMENT
+
+Copyright (c) 2024-2026 Manulytica Ltd. All Rights Reserved.
+
+=============================================================================================
+IMPORTANT NOTICE: THIS SOFTWARE IS THE PROPRIETARY AND CONFIDENTIAL PROPERTY OF
+MANULYTICA LTD. THIS CODE IS NOT OPEN SOURCE.
+=============================================================================================
+
+This software, protocol stack, firmware, documentation, test suites, and related technical
+materials ("Software") are the exclusive and wholly owned intellectual property of
+Manulytica Ltd ("Owner"), protected by copyright, trade secret, trademark, and other
+applicable intellectual property laws and international treaties.
+
+1. EXPRESS PERMISSION REQUIRED
+   Strictly NO rights are granted to any person or entity to access, view, copy, clone, compile,
+   modify, adapt, translate, merge, distribute, publish, sublicense, transfer, commercialize,
+   or execute this Software, in whole or in part, without the prior express written consent
+   and formal written license agreement executed by an authorized representative of
+   Manulytica Ltd.
+
+2. PROHIBITION OF USE AND DISTRIBUTION
+   Unauthorized access, downloading, possession, copying, distribution, or execution of this
+   Software is strictly prohibited. You may not:
+   a. Use this Software, in source code or binary form, for any personal, internal, educational,
+      commercial, or production purpose without an active, signed license agreement from
+      Manulytica Ltd.
+   b. Decompile, reverse engineer, disassemble, or attempt to derive the source code, architecture,
+      or underlying algorithms of any portion of the Software.
+   c. Distribute, rent, lease, lend, sell, sublicense, assign, or make available this Software
+      to any third party via public repositories, private forks, networks, or cloud hosting.
+   d. Remove, alter, or obscure any copyright notices, proprietary legends, or ownership
+      identifiers from any files within this repository.
+
+3. OWNERSHIP AND TITLE
+   Title, copyright, patent rights, trade secrets, and all other intellectual property rights
+   in and to the Software remain solely and exclusively with Manulytica Ltd. Access to or
+   possession of this codebase does not transfer any title, license, or right of ownership.
+   No license is granted by implication, estoppel, or otherwise, except as explicitly granted
+   under a separate, formal written contract with Manulytica Ltd.
+
+4. CONFIDENTIAL INFORMATION
+   The algorithms, state machine designs, timing mechanisms, Information Element (IE)
+   implementations, and internal architectures contained herein constitute confidential and
+   proprietary trade secrets of Manulytica Ltd. Any unauthorized disclosure, public release,
+   or sharing constitutes a material breach of confidentiality and will be subject to civil
+   and criminal enforcement to the fullest extent of the law.
+
+5. DISCLAIMER OF WARRANTIES
+   THIS SOFTWARE IS PROVIDED BY MANULYTICA LTD "AS IS", AND ANY EXPRESS OR IMPLIED WARRANTIES,
+   INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT ARE EXPRESSLY DISCLAIMED. IN NO EVENT SHALL
+   MANULYTICA LTD, ITS DIRECTORS, OFFICERS, EMPLOYEES, AFFILIATES, OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+   BUT NOT LIMITED TO, LOSS OF USE, DATA, REVENUE, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+   TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF ACCESS TO OR USE OF THIS
+   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+=============================================================================================
+For licensing inquiries, commercial partnerships, evaluation access, or express written
+permission requests, please contact:
+
+Manulytica Ltd
+Web:   https://manulytica.com
+Email: licensing@manulytica.com
+=============================================================================================
