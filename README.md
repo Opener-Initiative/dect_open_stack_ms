@@ -6,6 +6,10 @@
 
 This software is provided **STRICTLY FOR RESEARCH AND EDUCATIONAL PURPOSES ONLY**. 
 
+A proprietary DECT NR+ (ETSI TS 103 636 V2.1.1 / TS 103 874 / DECT-2020 NR) L2 driver library and protocol stack wholly owned, developed, and maintained by Manulytica Ltd for the Zephyr RTOS and Nordic nRF Connect SDK (NCS).
+
+[!IMPORTANT] PROPRIETARY & CONFIDENTIAL: This software is NOT open source. It is the exclusive intellectual property of Manulytica Ltd. No part of this code may be used, copied, compiled, modified, or distributed without prior express written permission and a valid license agreement from Manulytica Ltd.
+
 ### Copyright and Licensing
 - **Copyright © 2025 Manulytica. All Rights Reserved.**
 - This code represents proprietary intellectual property of Manulytica
@@ -23,6 +27,8 @@ This software implementation:
 
 This repository contains an experimental implementation of the **DECT-2020 NR (DECT NR+)** protocol stack based on the **ETSI TS 103 636 Standard Version 2.1.1**.
 This library covers Parts 4 & 5 of the specification.
+
+Targeted at Nordic Semiconductor's nRF9161, nRF9151 and nRF9131 System-in-Packages (SiPs) utilizing the Nordic modem PHY firmware (mfw-nr+_nrf91x1_1.1.0), this stack provides a carrier-grade MAC, DLC, Convergence (CVG) layer, and Zephyr L2 network driver with seamless IPv6 / 6LoWPAN integration, autonomous adaptive timing, closed-loop transmit power control, and hardware-accelerated PSA crypto.
 
 ### Architecture
 
