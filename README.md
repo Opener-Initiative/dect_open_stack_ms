@@ -26,10 +26,8 @@ This software implementation:
 
 ## Technical Overview
 
-This repository contains an experimental implementation of the **DECT-2020 NR (DECT NR+)** protocol stack based on the **ETSI TS 103 636 Standard Version 2.1.1**.
+This repository contains an experimental implementation of the **DECT-2020 NR (DECT NR+)** protocol stack based on the **ETSI TS 103 636 Standard Version 2.1.1** targeted at Nordic Semiconductor's **nRF9161**, **nRF9151** and **nRF9131** System-in-Packages (SiPs) utilizing the Nordic modem PHY firmware (`mfw-nr+_nrf91x1_1.1.0`),
 This library covers Parts 4 & 5 of the specification.
-
-Targeted at Nordic Semiconductor's **nRF9161**, **nRF9151** and **nRF9131** System-in-Packages (SiPs) utilizing the Nordic modem PHY firmware (`mfw-nr+_nrf91x1_1.1.0`), this stack provides a carrier-grade MAC, DLC, Convergence (CVG) layer, and Zephyr L2 network driver with seamless IPv6 / 6LoWPAN integration, autonomous adaptive timing, closed-loop transmit power control, and hardware-accelerated PSA crypto.
 
 ### Architecture
 
